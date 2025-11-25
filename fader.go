@@ -8,21 +8,6 @@ import (
 )
 
 // ============================================================================
-// Helper Functions
-// ============================================================================
-
-// clamp restricts a value to the range [min, max]
-func clamp(value, min, max float32) float32 {
-	if value < min {
-		return min
-	}
-	if value > max {
-		return max
-	}
-	return value
-}
-
-// ============================================================================
 // Taper Interface and Implementations
 // ============================================================================
 
@@ -313,7 +298,7 @@ func FaderI(label string, value int, min, max int, params FaderParams) (int, boo
 	newNormalized, changed := FaderN(label, normalized, params)
 
 	// Denormalize to original range and round
-	newValue := int(newNormalized*rangeF + 0.5) + min
+	newValue := int(newNormalized*rangeF+0.5) + min
 
 	// Clamp to range
 	if newValue < min {
@@ -324,4 +309,141 @@ func FaderI(label string, value int, min, max int, params FaderParams) (int, boo
 	}
 
 	return newValue, changed
+}
+
+// ============================================================================
+// Fader with Scale Drawing
+// ============================================================================
+
+// ScaleConfig defines the appearance and content of a fader scale.
+type ScaleConfig struct {
+	// Tick marks at normalized positions (0.0-1.0)
+	// Example: []float32{0.0, 0.25, 0.5, 0.75, 1.0}
+	Marks []float32
+
+	// Labels at specific normalized positions
+	// Example: map[float32]string{0.0: "-60dB", 0.5: "-12dB", 1.0: "0dB"}
+	Labels map[float32]string
+
+	// Visual appearance
+	TickLength  float32 // Length of tick marks in pixels (default: 5.0)
+	LabelOffset float32 // Distance from ticks to labels in pixels (default: 3.0)
+	Position    string  // "left" or "right" (default: "left")
+}
+
+// DefaultScaleConfig returns sensible defaults for a fader scale.
+func DefaultScaleConfig() ScaleConfig {
+	return ScaleConfig{
+		Marks:       []float32{0.0, 0.25, 0.5, 0.75, 1.0},
+		Labels:      make(map[float32]string),
+		TickLength:  5.0,
+		LabelOffset: 3.0,
+		Position:    "left",
+	}
+}
+
+// drawFaderScale draws tick marks and labels next to a fader.
+// Must be called immediately after drawing the fader to get correct position.
+// Respects the taper curve for visual accuracy.
+func drawFaderScale(taper Taper, scale ScaleConfig) {
+	if len(scale.Marks) == 0 {
+		return
+	}
+
+	// Get the fader's position (must be called right after drawing it)
+	min := imgui.ItemRectMin()
+	max := imgui.ItemRectMax()
+	faderHeight := max.Y - min.Y
+
+	// Get drawing context
+	dl := imgui.WindowDrawList()
+	textColor := imgui.CurrentStyle().Colors()[imgui.ColText]
+	color := imgui.ColorConvertFloat4ToU32(textColor)
+
+	// Apply defaults
+	tickLength := scale.TickLength
+	if tickLength == 0 {
+		tickLength = 5.0
+	}
+	labelOffset := scale.LabelOffset
+	if labelOffset == 0 {
+		labelOffset = 3.0
+	}
+
+	// Determine side
+	isLeft := scale.Position != "right"
+
+	// Draw each tick mark and label
+	for _, mark := range scale.Marks {
+		// Apply taper to mark position for visual accuracy
+		visualMark := taper.Apply(mark)
+
+		// Calculate Y position (inverted - fader is bottom-to-top)
+		yPos := max.Y - (visualMark * faderHeight)
+
+		// Draw tick mark
+		var tickStart, tickEnd imgui.Vec2
+		if isLeft {
+			tickStart = imgui.Vec2{X: min.X - tickLength, Y: yPos}
+			tickEnd = imgui.Vec2{X: min.X, Y: yPos}
+		} else {
+			tickStart = imgui.Vec2{X: max.X, Y: yPos}
+			tickEnd = imgui.Vec2{X: max.X + tickLength, Y: yPos}
+		}
+		dl.AddLine(tickStart, tickEnd, color)
+
+		// Draw label if provided
+		if label, ok := scale.Labels[mark]; ok && label != "" {
+			labelSize := imgui.CalcTextSize(label)
+			var labelPos imgui.Vec2
+			if isLeft {
+				labelPos = imgui.Vec2{
+					X: min.X - tickLength - labelOffset - labelSize.X,
+					Y: yPos - (labelSize.Y / 2), // center vertically
+				}
+			} else {
+				labelPos = imgui.Vec2{
+					X: max.X + tickLength + labelOffset,
+					Y: yPos - (labelSize.Y / 2), // center vertically
+				}
+			}
+			dl.AddTextVec2(labelPos, color, label)
+		}
+	}
+}
+
+// FaderWithScaleN draws a normalized fader (0.0-1.0) with tick marks and labels.
+func FaderWithScaleN(label string, value float32, params FaderParams, scale ScaleConfig) (float32, bool) {
+	newValue, changed := FaderN(label, value, params)
+	drawFaderScale(params.Taper, scale)
+	return newValue, changed
+}
+
+// FaderWithScaleF draws a float-range fader with tick marks and labels.
+func FaderWithScaleF(label string, value, min, max float32, params FaderParams, scale ScaleConfig) (float32, bool) {
+	newValue, changed := FaderF(label, value, min, max, params)
+	drawFaderScale(params.Taper, scale)
+	return newValue, changed
+}
+
+// FaderWithScaleI draws an integer-range fader with tick marks and labels.
+func FaderWithScaleI(label string, value int, min, max int, params FaderParams, scale ScaleConfig) (int, bool) {
+	newValue, changed := FaderI(label, value, min, max, params)
+	drawFaderScale(params.Taper, scale)
+	return newValue, changed
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+// clamp restricts a value to the range [min, max]
+func clamp(value, min, max float32) float32 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }

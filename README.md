@@ -300,7 +300,40 @@ func updateFromNormalized(state *FaderState, norm float32) {
 // FaderN for normalized, FaderI for hardware, FaderF for display values
 ```
 
-See `examples/dfx_example_mixer` for a complete demonstration with horizontally scrollable mixer interface showcasing all fader types.
+**Faders with Scales:**
+The `FaderWithScaleN/F/I` functions add tick marks and labels next to faders, perfect for audio applications that need visual reference marks:
+
+```go
+// Example: dB fader with scale
+params := dfx.DefaultFaderParams()
+params.Taper = dfx.AudioTaper()
+
+scale := dfx.DefaultScaleConfig()
+scale.Marks = []float32{0.0, 0.417, 0.667, 0.833, 1.0}
+scale.Labels = map[float32]string{
+    0.0:   "-60",
+    0.417: "-30",
+    0.667: "-12",
+    0.833: "0",
+    1.0:   "+12",
+}
+
+dbValue, changed := dfx.FaderWithScaleF("##gain", gainDB, -60.0, 12.0, params, scale)
+```
+
+**ScaleConfig** provides:
+- `Marks` - Array of normalized positions (0-1) for tick marks
+- `Labels` - Map of position → label text for specific marks
+- `TickLength` - Tick mark length in pixels (default: 5.0)
+- `LabelOffset` - Distance from ticks to labels (default: 3.0)
+- `Position` - "left" or "right" side placement (default: "left")
+
+**Key features:**
+- **Taper-aware**: Tick marks automatically respect the fader's taper curve for visual accuracy
+- **Theme integration**: Uses colors from the current theme
+- **Flexible**: Add scales to any normalized, float, or integer range fader
+
+See `examples/dfx_example_mixer` for a complete demonstration with horizontally scrollable mixer interface showcasing all fader types and scales.
 
 ## Actions and Keyboard Shortcuts
 

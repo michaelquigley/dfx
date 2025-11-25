@@ -55,12 +55,16 @@ func main() {
 
 		// Begin child window with horizontal scrollbar
 		childHeight := float32(450.0)
-		channelWidth := float32(90.0) // fixed width per channel
+		channelWidth := float32(120.0) // fixed width per channel (wider for scale labels)
 		contentWidth := float32(len(channels)) * channelWidth
 
 		// Create child window with horizontal scrollbar
 		childSize := imgui.Vec2{X: 0, Y: childHeight} // X=0 means fill available width
 		if imgui.BeginChildStrV("FaderBank", childSize, imgui.ChildFlagsNone, imgui.WindowFlagsHorizontalScrollbar) {
+			// let it breathe to the left
+			imgui.Dummy(imgui.Vec2{X: 50, Y: 0})
+			imgui.SameLine()
+
 			// Use table layout with fixed column widths to prevent jiggling
 			// TableFlagsScrollX makes the table honor its width for scrolling
 			if imgui.BeginTableV("mixer_table", int32(len(channels)), imgui.TableFlagsNone, imgui.Vec2{X: contentWidth + 50, Y: 0}, 0.0) {
@@ -84,14 +88,25 @@ func main() {
 
 					// Select appropriate fader based on channel type
 					switch i {
-					case 0: // Linear taper
+					case 0: // Linear taper with percentage scale
 						params := dfx.DefaultFaderParams()
 						params.Taper = dfx.LinearTaper()
 						params.Format = func(norm float32) string {
 							return fmt.Sprintf("%.3f", norm)
 						}
 
-						if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						// Percentage scale
+						scale := dfx.DefaultScaleConfig()
+						scale.Marks = []float32{0.0, 0.25, 0.5, 0.75, 1.0}
+						scale.Labels = map[float32]string{
+							0.0:  "0%",
+							0.25: "25%",
+							0.5:  "50%",
+							0.75: "75%",
+							1.0:  "100%",
+						}
+
+						if newValue, changed := dfx.FaderWithScaleN(fmt.Sprintf("##fader%d", i), ch.normalized, params, scale); changed {
 							ch.updateFromNormalized(newValue)
 						}
 
@@ -106,14 +121,23 @@ func main() {
 							ch.updateFromNormalized(newValue)
 						}
 
-					case 2: // Audio taper
+					case 2: // Audio taper with scale
 						params := dfx.DefaultFaderParams()
 						params.Taper = dfx.AudioTaper()
 						params.Format = func(norm float32) string {
 							return fmt.Sprintf("Audio: %.3f", norm)
 						}
 
-						if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						// Scale showing taper-aware positioning
+						scale := dfx.DefaultScaleConfig()
+						scale.Marks = []float32{0.0, 0.25, 0.5, 0.75, 1.0}
+						scale.Labels = map[float32]string{
+							0.0: "0",
+							0.5: ".5",
+							1.0: "1",
+						}
+
+						if newValue, changed := dfx.FaderWithScaleN(fmt.Sprintf("##fader%d", i), ch.normalized, params, scale); changed {
 							ch.updateFromNormalized(newValue)
 						}
 
@@ -144,7 +168,7 @@ func main() {
 							ch.decibels = ch.normalized*72.0 - 60.0
 						}
 
-					case 5: // dB scale with audio taper
+					case 5: // dB scale with audio taper and dB labels
 						params := dfx.DefaultFaderParams()
 						params.Taper = dfx.AudioTaper()
 						params.Format = func(norm float32) string {
@@ -155,7 +179,19 @@ func main() {
 							return fmt.Sprintf("%.1f dB", db)
 						}
 
-						if newValue, changed := dfx.FaderF(fmt.Sprintf("##fader%d", i), ch.decibels, -60.0, 12.0, params); changed {
+						// dB scale (normalized positions for -60dB to +12dB range)
+						scale := dfx.DefaultScaleConfig()
+						scale.Marks = []float32{0.0, 0.417, 0.667, 0.833, 1.0}
+						scale.Labels = map[float32]string{
+							0.0:   "-60",
+							0.417: "-30",
+							0.667: "-12",
+							0.833: "0",
+							1.0:   "+12",
+						}
+						scale.TickLength = 6.0
+
+						if newValue, changed := dfx.FaderWithScaleF(fmt.Sprintf("##fader%d", i), ch.decibels, -60.0, 12.0, params, scale); changed {
 							ch.decibels = newValue
 							ch.normalized = (newValue + 60.0) / 72.0
 							ch.hardware = int(ch.normalized * 32767)
@@ -209,19 +245,21 @@ func main() {
 
 		imgui.Separator()
 		imgui.Text("Fader Types:")
-		imgui.BulletText("Linear: Standard 1:1 response")
+		imgui.BulletText("Linear: Standard 1:1 response with percentage scale")
 		imgui.BulletText("Log: Logarithmic taper (moderate)")
-		imgui.BulletText("Audio: Audio fader curve (gentle bottom, steep top)")
+		imgui.BulletText("Audio: Audio fader curve with taper-aware scale marks")
 		imgui.BulletText("Limited: Range stops at 20%%-80%%")
 		imgui.BulletText("Hardware: Integer range (0-32767)")
-		imgui.BulletText("dB Scale: Float range (-60dB to +12dB) with audio taper")
+		imgui.BulletText("dB Scale: Float range (-60dB to +12dB) with dB scale labels")
 		imgui.BulletText("Custom: Steep logarithmic curve")
 		imgui.BulletText("Reset: Right-click resets to 75%%")
+		imgui.Separator()
+		imgui.TextWrapped("Note: Faders with scales (Linear, Audio, dB) demonstrate the FaderWithScale API with tick marks and labels.")
 	})
 
 	app := dfx.New(root, dfx.Config{
 		Title:  "Advanced Fader Demo",
-		Width:  778,
+		Width:  1100,
 		Height: 850,
 	})
 
