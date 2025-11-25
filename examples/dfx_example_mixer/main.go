@@ -3,72 +3,220 @@ package main
 import (
 	"fmt"
 
-	"github.com/michaelquigley/dfx"
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/michaelquigley/dfx"
 )
 
+// FaderChannel represents a single mixer channel with multiple value representations
+type FaderChannel struct {
+	name       string
+	normalized float32 // 0.0 - 1.0 (master value)
+	hardware   int     // 0 - 32767 (hardware representation)
+	decibels   float32 // -60.0 to +12.0 dB (user-facing)
+}
+
+// updateFromNormalized keeps all representations in sync from normalized value
+func (fc *FaderChannel) updateFromNormalized(norm float32) {
+	fc.normalized = norm
+	fc.hardware = int(norm * 32767)
+	// Map 0-1 to -60dB to +12dB
+	fc.decibels = norm*72.0 - 60.0
+}
+
 func main() {
-	// fader dimensions
-	const faderWidth = 30.0
-	const faderHeight = 300.0
-	const labelWidth = 80.0
+	// Create multiple fader channels with different initial values
+	channels := []FaderChannel{
+		{name: "Linear", normalized: 0.75},
+		{name: "Log", normalized: 0.5},
+		{name: "Audio", normalized: 0.8},
+		{name: "Limited", normalized: 0.5},
+		{name: "Hardware", normalized: 0.6},
+		{name: "dB Scale", normalized: 0.7},
+		{name: "Custom", normalized: 0.4},
+		{name: "Reset", normalized: 0.5},
+	}
 
-	// fader values (persists between frames)
-	faders := []float32{0.0, 1.0, 0.5, 0.75, 0.25}
+	// Initialize all representations
+	for i := range channels {
+		channels[i].updateFromNormalized(channels[i].normalized)
+	}
 
+	// Create the root component with horizontally scrollable fader bank
 	root := dfx.NewFunc(func(state *dfx.State) {
-		// use table layout for proper alignment of labels and faders
-		if imgui.BeginTable("mixer_table", int32(len(faders))) {
-			// setup columns with fixed width
-			for i := 0; i < len(faders); i++ {
-				imgui.TableSetupColumnV(fmt.Sprintf("##col%d", i), imgui.TableColumnFlagsWidthFixed, labelWidth, 0)
-			}
+		imgui.Text("Advanced Fader Demo - Horizontal Scrollable Mixer")
+		imgui.Separator()
 
-			// row 1: channel labels (centered)
-			imgui.TableNextRow()
-			for i := 0; i < len(faders); i++ {
-				imgui.TableNextColumn()
-				channelLabel := fmt.Sprintf("Channel %d", i+1)
-				labelSize := imgui.CalcTextSize(channelLabel)
-				padding := float32((labelWidth - labelSize.X) / 2)
-				if padding > 0 {
-					imgui.Dummy(imgui.Vec2{X: padding, Y: 1})
+		// Instructions
+		imgui.TextWrapped("• Drag faders to adjust values")
+		imgui.TextWrapped("• Right-click to reset to default")
+		imgui.TextWrapped("• Mouse wheel to fine-tune (Ctrl = 10x faster, Alt = 10x slower)")
+		imgui.TextWrapped("• Resize window to see horizontal scrolling")
+		imgui.Separator()
+
+		// Begin child window with horizontal scrollbar
+		// Calculate content width based on number of channels
+		channelWidth := float32(90.0) // width per channel including spacing
+		contentWidth := float32(len(channels)) * channelWidth
+		childHeight := float32(450.0)
+
+		// Create child window with horizontal scrollbar
+		childSize := imgui.Vec2{X: 0, Y: childHeight} // X=0 means fill available width
+		if imgui.BeginChildStrV("FaderBank", childSize, imgui.ChildFlagsNone, imgui.WindowFlagsHorizontalScrollbar) {
+			// Set the content width to enable scrolling
+			imgui.Dummy(imgui.Vec2{X: contentWidth, Y: 1})
+
+			// Draw all faders in a horizontal layout
+			for i := range channels {
+				ch := &channels[i]
+
+				// Start horizontal group for this channel
+				imgui.SetNextItemWidth(channelWidth)
+				imgui.BeginGroup()
+
+				// Channel label
+				imgui.Text(ch.name)
+
+				// Select appropriate fader based on channel type
+				switch i {
+				case 0: // Linear taper
+					params := dfx.DefaultFaderParams()
+					params.Taper = dfx.LinearTaper()
+					params.Format = func(norm float32) string {
+						return fmt.Sprintf("%.3f", norm)
+					}
+
+					if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						ch.updateFromNormalized(newValue)
+					}
+
+				case 1: // Log taper
+					params := dfx.DefaultFaderParams()
+					params.Taper = dfx.LogTaper(3.0) // moderate curve
+					params.Format = func(norm float32) string {
+						return fmt.Sprintf("Log: %.3f", norm)
+					}
+
+					if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						ch.updateFromNormalized(newValue)
+					}
+
+				case 2: // Audio taper
+					params := dfx.DefaultFaderParams()
+					params.Taper = dfx.AudioTaper()
+					params.Format = func(norm float32) string {
+						return fmt.Sprintf("Audio: %.3f", norm)
+					}
+
+					if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						ch.updateFromNormalized(newValue)
+					}
+
+				case 3: // Range-limited (20% - 80%)
+					params := dfx.DefaultFaderParams()
+					params.MinStop = 0.2
+					params.MaxStop = 0.8
+					params.ResetValue = 0.5
+					params.Format = func(norm float32) string {
+						return fmt.Sprintf("Limited: %.3f", norm)
+					}
+
+					if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						ch.updateFromNormalized(newValue)
+					}
+
+				case 4: // Hardware int (0-32767)
+					params := dfx.DefaultFaderParams()
+					params.Taper = dfx.LinearTaper()
+					params.Format = func(norm float32) string {
+						hw := int(norm * 32767)
+						return fmt.Sprintf("HW: %d", hw)
+					}
+
+					if newValue, changed := dfx.FaderI(fmt.Sprintf("##fader%d", i), ch.hardware, 0, 32767, params); changed {
+						ch.hardware = newValue
+						ch.normalized = float32(newValue) / 32767.0
+						ch.decibels = ch.normalized*72.0 - 60.0
+					}
+
+				case 5: // dB scale with audio taper
+					params := dfx.DefaultFaderParams()
+					params.Taper = dfx.AudioTaper()
+					params.Format = func(norm float32) string {
+						db := norm*72.0 - 60.0
+						if db <= -59.9 {
+							return "-∞ dB"
+						}
+						return fmt.Sprintf("%.1f dB", db)
+					}
+
+					if newValue, changed := dfx.FaderF(fmt.Sprintf("##fader%d", i), ch.decibels, -60.0, 12.0, params); changed {
+						ch.decibels = newValue
+						ch.normalized = (newValue + 60.0) / 72.0
+						ch.hardware = int(ch.normalized * 32767)
+					}
+
+				case 6: // Custom steep log taper
+					params := dfx.DefaultFaderParams()
+					params.Taper = dfx.LogTaper(10.0) // steep curve
+					params.Format = func(norm float32) string {
+						return fmt.Sprintf("Steep: %.3f", norm)
+					}
+
+					if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						ch.updateFromNormalized(newValue)
+					}
+
+				case 7: // Reset demo (right-click to reset to 0.75)
+					params := dfx.DefaultFaderParams()
+					params.ResetValue = 0.75
+					params.Format = func(norm float32) string {
+						return fmt.Sprintf("Reset→%.2f", 0.75)
+					}
+
+					if newValue, changed := dfx.FaderN(fmt.Sprintf("##fader%d", i), ch.normalized, params); changed {
+						ch.updateFromNormalized(newValue)
+					}
+				}
+
+				// Display values below fader
+				imgui.Text(fmt.Sprintf("N: %.3f", ch.normalized))
+				imgui.SetNextItemWidth(channelWidth)
+				imgui.Text(fmt.Sprintf("HW: %-8d", ch.hardware))
+				if ch.decibels <= -59.9 {
+					imgui.Text("dB: -∞")
+				} else {
+					imgui.Text(fmt.Sprintf("dB: %.1f", ch.decibels))
+				}
+
+				imgui.EndGroup()
+
+				// Add spacing between channels
+				if i < len(channels)-1 {
+					imgui.SameLine()
+					imgui.Dummy(imgui.Vec2{X: 10, Y: 1})
 					imgui.SameLine()
 				}
-				dfx.Text(channelLabel)
 			}
 
-			// row 2: faders (centered)
-			imgui.TableNextRow()
-			for i := 0; i < len(faders); i++ {
-				imgui.TableNextColumn()
-				// center fader in column
-				faderPadding := float32((labelWidth - faderWidth) / 2)
-				if faderPadding > 0 {
-					imgui.Dummy(imgui.Vec2{X: faderPadding, Y: 1})
-					imgui.SameLine()
-				}
-				faderLabel := fmt.Sprintf("##fader%d", i)
-				if newValue, changed := dfx.Fader(faderLabel, faders[i], 0.0, faderWidth, faderHeight); changed {
-					faders[i] = newValue
-					fmt.Printf("channel %d: %.2f\n", i+1, faders[i])
-				}
-			}
-
-			imgui.EndTable()
+			imgui.EndChild()
 		}
+
+		imgui.Separator()
+		imgui.Text("Fader Types:")
+		imgui.BulletText("Linear: Standard 1:1 response")
+		imgui.BulletText("Log: Logarithmic taper (moderate)")
+		imgui.BulletText("Audio: Audio fader curve (gentle bottom, steep top)")
+		imgui.BulletText("Limited: Range stops at 20%%-80%%")
+		imgui.BulletText("Hardware: Integer range (0-32767)")
+		imgui.BulletText("dB Scale: Float range (-60dB to +12dB) with audio taper")
+		imgui.BulletText("Custom: Steep logarithmic curve")
+		imgui.BulletText("Reset: Right-click resets to 75%%")
 	})
 
 	app := dfx.New(root, dfx.Config{
-		Title:  "Audio Mixer Example",
-		Width:  400,
-		Height: 500,
-		OnSetup: func(app *dfx.App) {
-			app.Actions().Register("quit", "Ctrl+Q", func() {
-				fmt.Println("quitting via Ctrl+Q")
-				app.Stop()
-			})
-		},
+		Title:  "Advanced Fader Demo",
+		Width:  830,
+		Height: 850,
 	})
 
 	app.Run()

@@ -229,24 +229,78 @@ enabled, changed := dfx.Toggle("Play", playEnabled)
 value, changed := dfx.WheelSlider("Volume", volume, 0.0, 1.0, 100, "%.2f", imgui.SliderFlagsNone)
 ```
 
-**Fader** - Vertical slider (fader) designed for audio mixing applications:
+**Fader** - Advanced vertical fader designed for audio mixing applications with support for logarithmic tapers, range limits, and multiple value representations:
+
+**FaderN** - Normalized fader (0.0 to 1.0):
 ```go
-// fixed 0.0-1.0 range, displays value above fader
-// double-click to reset to default value
-// mouse wheel support with Ctrl/Alt modifiers
-value, changed := dfx.Fader("##ch1", channelValue, defaultValue, 60.0, 300.0)
+params := dfx.DefaultFaderParams()
+params.Taper = dfx.AudioTaper()
+params.Format = func(norm float32) string {
+    return fmt.Sprintf("%.2f", norm)
+}
+value, changed := dfx.FaderN("##fader", normalizedValue, params)
 ```
 
-The Fader control includes:
-- Always displays current value above the fader
-- Fixed 0.0 to 1.0 range for normalized audio levels
-- Double-click to reset to default value
-- Mouse wheel support (hover and scroll to adjust)
-- Ctrl modifier for 10x faster adjustment
-- Alt modifier for 10x slower adjustment
-- Width and height are customizable
+**FaderF** - Float fader (arbitrary min/max range):
+```go
+// Example: -60.0 dB to +12.0 dB with audio taper
+params := dfx.DefaultFaderParams()
+params.Taper = dfx.AudioTaper()
+params.Format = func(norm float32) string {
+    db := norm*72.0 - 60.0
+    if db <= -59.9 {
+        return "-∞ dB"
+    }
+    return fmt.Sprintf("%.1f dB", db)
+}
+dbValue, changed := dfx.FaderF("##db", gainDB, -60.0, 12.0, params)
+```
 
-See `examples/dfx_example_mixer` for a complete 8-channel audio mixer demonstration.
+**FaderI** - Integer fader (arbitrary min/max range):
+```go
+// Example: 0 to 32767 for hardware control
+params := dfx.DefaultFaderParams()
+params.MinStop = 0.1  // limit to 10%-90% of range
+params.MaxStop = 0.9
+hwValue, changed := dfx.FaderI("##hw", hardwareValue, 0, 32767, params)
+```
+
+**FaderParams** provides extensive configuration:
+- `Taper` - Response curve (Linear, Log, Audio, or Custom)
+- `MinStop` / `MaxStop` - Range limits in normalized 0-1 space
+- `ResetValue` - Right-click reset target (normalized 0-1 space)
+- `Width` / `Height` - Fader dimensions
+- `Format` - Custom tooltip formatting function
+- `ShowTooltip` - Enable/disable value tooltip (default: true)
+- `WheelSteps` - Mouse wheel sensitivity (default: 100.0)
+
+**Built-in Tapers:**
+- `LinearTaper()` - No taper, 1:1 mapping (default)
+- `LogTaper(steepness)` - Logarithmic curve (steepness: 1.0 = gentle, 3.0 = moderate, 10.0 = steep)
+- `AudioTaper()` - Standard audio fader curve (gentle bottom, steep top, optimized for dB scales)
+- `CustomTaper(apply, invert)` - User-defined taper functions
+
+**Multi-Representation Pattern:**
+Advanced faders support maintaining multiple value representations (normalized, hardware, display) synchronized via conversion functions:
+
+```go
+type FaderState struct {
+    normalized float32  // 0.0 - 1.0 (master value)
+    hardware   int      // 0 - 32767
+    decibels   float32  // -60.0 to +12.0
+}
+
+func updateFromNormalized(state *FaderState, norm float32) {
+    state.normalized = norm
+    state.hardware = int(norm * 32767)
+    state.decibels = norm*72.0 - 60.0
+}
+
+// User chooses which API to use based on their needs
+// FaderN for normalized, FaderI for hardware, FaderF for display values
+```
+
+See `examples/dfx_example_mixer` for a complete demonstration with horizontally scrollable mixer interface showcasing all fader types.
 
 ## Actions and Keyboard Shortcuts
 
@@ -523,7 +577,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_composition` - Complex UI with menu bars
 - `dfx_example_themes` - Theming and font demonstration
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)
-- `dfx_example_mixer` - 8-channel audio mixer with vertical faders
+- `dfx_example_mixer` - Advanced fader demonstration with tapers, range limits, and horizontal scrolling mixer
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state
 
