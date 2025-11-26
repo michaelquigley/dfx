@@ -112,6 +112,45 @@ func AudioTaper() Taper {
 	return audioTaper{}
 }
 
+// decibelTaper implements a taper where UI position is linear with decibels.
+// Use this when hardware values are proportional to linear amplitude.
+type decibelTaper struct {
+	coefficient float32 // dbRange / 20
+}
+
+func (t decibelTaper) Apply(normalized float32) float32 {
+	if normalized <= 0 {
+		return 0
+	}
+	if normalized >= 1 {
+		return 1
+	}
+	// Amplitude (normalized hw) -> UI position (linear with dB)
+	return float32(1.0 + math.Log10(float64(normalized))/float64(t.coefficient))
+}
+
+func (t decibelTaper) Invert(tapered float32) float32 {
+	if tapered <= 0 {
+		return 0
+	}
+	if tapered >= 1 {
+		return 1
+	}
+	// UI position -> amplitude (normalized hw)
+	return float32(math.Pow(10, float64(t.coefficient*(tapered-1))))
+}
+
+// DecibelTaper returns a taper where UI position is linear with decibels.
+// Use this when hardware values are proportional to linear amplitude and
+// you want equal fader travel per dB across the entire range.
+// dbRange is the total dB range (e.g., 72.0 for -60dB to +12dB).
+func DecibelTaper(dbRange float32) Taper {
+	if dbRange <= 0 {
+		dbRange = 72.0 // sensible default
+	}
+	return decibelTaper{coefficient: dbRange / 20.0}
+}
+
 // customTaper allows users to provide their own taper functions.
 type customTaper struct {
 	apply  func(float32) float32
