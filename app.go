@@ -6,15 +6,17 @@ import (
 	"github.com/AllenDang/cimgui-go/backend"
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/michaelquigley/dfx/xdnd"
 )
 
 type App struct {
-	backend   backend.Backend[glfwbackend.GLFWWindowFlags]
-	root      Component
-	config    Config
-	running   bool
-	actions   *ActionRegistry
-	startTime time.Time
+	backend    backend.Backend[glfwbackend.GLFWWindowFlags]
+	root       Component
+	config     Config
+	running    bool
+	actions    *ActionRegistry
+	startTime  time.Time
+	xdndSource *xdnd.Source
 }
 
 type Config struct {
@@ -85,6 +87,10 @@ func (app *App) Run() error {
 			app.config.OnSizeChange(width, height)
 		})
 	}
+
+	// initialize XDND source for drag-and-drop (X11 only)
+	// Note: This is done after callbacks are set up to ensure window is ready
+	app.initXDND()
 
 	// run the main loop
 	app.running = true
@@ -158,6 +164,12 @@ func (app *App) Run() error {
 		imgui.End()
 	})
 
+	// cleanup XDND source
+	if app.xdndSource != nil {
+		app.xdndSource.Close()
+		app.xdndSource = nil
+	}
+
 	// shutdown
 	if app.config.OnShutdown != nil {
 		app.config.OnShutdown(app)
@@ -179,6 +191,11 @@ func (app *App) SetRoot(root Component) {
 // Actions returns the action registry
 func (app *App) Actions() *ActionRegistry {
 	return app.actions
+}
+
+// XDNDSource returns the XDND drag source (may be nil if not initialized)
+func (app *App) XDNDSource() *xdnd.Source {
+	return app.xdndSource
 }
 
 // SetWindowTitle updates the window title
@@ -300,4 +317,17 @@ func (app *App) gatherComponentActions(comp Component) []*ActionRegistry {
 	}
 
 	return registries
+}
+
+// initXDND initializes the XDND drag source for X11
+// This is called after the window is created
+func (app *App) initXDND() {
+	// Create XDND source using the window title to find our window
+	source, err := xdnd.NewSource(app.config.Title)
+	if err != nil {
+		// XDND initialization failed - this is not fatal
+		// Drag and drop will simply not work
+		return
+	}
+	app.xdndSource = source
 }

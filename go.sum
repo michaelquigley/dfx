@@ -1,9 +1,16 @@
 github.com/AllenDang/cimgui-go v1.4.0 h1:jrgAIysC7ToTaoFSL3wxsZUV9NOQyiTQ5cX3u27mANA=
 github.com/AllenDang/cimgui-go v1.4.0/go.mod h1:VCrH8Wyb3pZ2cYQM630LmdquB1OkeXMnmBv/oTDQn1c=
+github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298/go.mod h1:D+QujdIlUNfa0igpNMk6UIvlb6C252URs4yupRUV4lQ=
+github.com/BurntSushi/graphics-go v0.0.0-20160129215708-b43f31a4a966/go.mod h1:Mid70uvE93zn9wgF92A/r5ixgnvX8Lh68fxp9KQBaI0=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf h1:FPsprx82rdrX2jiKyS17BH6IrTmUBYqZa/CXT4uvb+I=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/jezek/xgb v1.1.0/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
+github.com/jezek/xgb v1.2.0 h1:LzgkD11wOrPnxXEqo588cnjUt4NwMHrFh/tgajo50Q0=
+github.com/jezek/xgb v1.2.0/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
+github.com/jezek/xgbutil v0.0.0-20250620170308-517212d66001 h1:QzytUteVo3b0NqBGPPdq3GELwd0mpqYUHatYJFWRbZ0=
+github.com/jezek/xgbutil v0.0.0-20250620170308-517212d66001/go.mod h1:AHecLyFNy6AN9f/+0AH/h1MI7X1+JL5bmCz4XlVZk7Y=
 github.com/michaelquigley/df v0.3.5 h1:KerdkTLSNpHFDjcuFABIPg90mIRgTOMnmLLn2Nk+QDg=
 github.com/michaelquigley/df v0.3.5/go.mod h1:Ym3uLqdbI6DxhqzLLtAzQ2ry7KfPKCjfXEgoOL23xfI=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
