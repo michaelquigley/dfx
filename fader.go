@@ -280,9 +280,11 @@ func FaderN(label string, value float32, params FaderParams) (float32, bool) {
 				fraction /= wheelMultiplierSlow // 10.0
 			}
 
-			// Adjust and clamp
-			newValue += wheel * fraction
-			newValue = clamp(newValue, params.MinStop, params.MaxStop)
+			// Adjust in visual space for perceptually uniform wheel behavior
+			visualPos := params.Taper.Apply(newValue)
+			visualPos += wheel * fraction
+			visualPos = clamp(visualPos, 0.0, 1.0)
+			newValue = params.Taper.Invert(visualPos)
 
 			if newValue != value {
 				changed = true
