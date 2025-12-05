@@ -15,6 +15,8 @@ type App struct {
 	running   bool
 	actions   *ActionRegistry
 	startTime time.Time
+	done      chan struct{} // signals Run() completion
+	runErr    error         // stores error from Run()
 }
 
 type Config struct {
@@ -50,10 +52,13 @@ func New(root Component, config Config) *App {
 		root:    root,
 		config:  config,
 		actions: NewActionRegistry(),
+		done:    make(chan struct{}),
 	}
 }
 
 func (app *App) Run() error {
+	defer close(app.done)
+
 	// record start time for log timestamps
 	app.startTime = time.Now()
 
@@ -163,12 +168,19 @@ func (app *App) Run() error {
 		app.config.OnShutdown(app)
 	}
 
-	return nil
+	app.runErr = nil
+	return app.runErr
 }
 
 // Stop signals the app to stop running
 func (app *App) Stop() {
 	app.running = false
+}
+
+// Wait blocks until Run() completes and returns any error from Run()
+func (app *App) Wait() error {
+	<-app.done
+	return app.runErr
 }
 
 // SetRoot changes the root component
