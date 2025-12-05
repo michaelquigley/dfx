@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/AllenDang/cimgui-go v1.4.0
-	github.com/michaelquigley/df v0.3.5
+	github.com/michaelquigley/df v0.3.6
 	github.com/pkg/errors v0.9.1
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
 	golang.design/x/clipboard v0.7.1

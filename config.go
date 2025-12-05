@@ -51,7 +51,7 @@ func SaveJSON(path string, config interface{}) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return errors.Wrapf(err, "error creating directory '%v'", dir)
 	}
-	return dd.UnbindToJSON(config, path)
+	return dd.UnbindJSONFile(config, path)
 }
 
 // LoadJSON loads a JSON file into a struct
@@ -62,7 +62,7 @@ func LoadJSON(path string, config interface{}) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil // file doesn't exist, use defaults
 	}
-	if err := dd.MergeFromJSON(config, path); err != nil {
+	if err := dd.MergeJSONFile(config, path); err != nil {
 		return err
 	}
 	return nil
