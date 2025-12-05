@@ -199,6 +199,9 @@ type FaderParams struct {
 
 	// Mouse wheel sensitivity
 	WheelSteps float32 // default 100.0 (finer = more steps)
+
+	// Custom track/background color (nil = use theme default)
+	TrackColor *imgui.Vec4
 }
 
 // DefaultFaderParams returns sensible default parameters.
@@ -244,6 +247,12 @@ func FaderN(label string, value float32, params FaderParams) (float32, bool) {
 
 	// Apply taper to get UI position
 	uiPosition := params.Taper.Apply(value)
+
+	// Push custom track color if specified
+	if params.TrackColor != nil {
+		imgui.PushStyleColorVec4(imgui.ColFrameBg, *params.TrackColor)
+		defer imgui.PopStyleColor()
+	}
 
 	// Draw vertical slider
 	newUIPosition := uiPosition

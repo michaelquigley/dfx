@@ -24,9 +24,12 @@ func (fc *FaderChannel) updateFromNormalized(norm float32) {
 }
 
 func main() {
+	// Hue counter for cycling track color demo (0-360)
+	hue := float32(0.0)
+
 	// Create multiple fader channels with different initial values
 	channels := []FaderChannel{
-		{name: "Linear", normalized: 0.75},
+		{name: "Rainbow", normalized: 0.75},
 		{name: "Log", normalized: 0.5},
 		{name: "Audio", normalized: 0.8},
 		{name: "Limited", normalized: 0.5},
@@ -88,9 +91,21 @@ func main() {
 
 					// Select appropriate fader based on channel type
 					switch i {
-					case 0: // Linear taper with percentage scale
+					case 0: // Rainbow track color demo (cycles hue every frame)
+						// Increment hue each frame
+						hue += 0.5
+						if hue >= 360.0 {
+							hue = 0.0
+						}
+
+						// Convert HSV to RGB for track color
+						var r, g, b float32
+						imgui.ColorConvertHSVtoRGB(hue/360.0, 1.0, 0.5, &r, &g, &b)
+						trackColor := imgui.Vec4{X: r, Y: g, Z: b, W: 1.0}
+
 						params := dfx.DefaultFaderParams()
 						params.Taper = dfx.LinearTaper()
+						params.TrackColor = &trackColor
 						params.Format = func(norm float32) string {
 							return fmt.Sprintf("%.3f", norm)
 						}
@@ -245,7 +260,7 @@ func main() {
 
 		imgui.Separator()
 		imgui.Text("Fader Types:")
-		imgui.BulletText("Linear: Standard 1:1 response with percentage scale")
+		imgui.BulletText("Rainbow: Cycling track color (hue changes every frame)")
 		imgui.BulletText("Log: Logarithmic taper (moderate)")
 		imgui.BulletText("Audio: Audio fader curve with taper-aware scale marks")
 		imgui.BulletText("Limited: Range stops at 20%%-80%%")
@@ -254,7 +269,7 @@ func main() {
 		imgui.BulletText("Custom: Steep logarithmic curve")
 		imgui.BulletText("Reset: Right-click resets to 75%%")
 		imgui.Separator()
-		imgui.TextWrapped("Note: Faders with scales (Linear, Audio, dB) demonstrate the FaderWithScale API with tick marks and labels.")
+		imgui.TextWrapped("Note: Faders with scales (Rainbow, Audio, dB) demonstrate the FaderWithScale API with tick marks and labels.")
 	})
 
 	app := dfx.New(root, dfx.Config{
