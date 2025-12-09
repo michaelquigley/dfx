@@ -20,10 +20,6 @@ bin/
 dist/
 build/
 
-# Example binaries
-examples/*/dfx_example_*
-examples/*/*.exe
-
 # IDE and editor files
 .devprj
 .idea/
@@ -42,4 +38,3 @@ debug.test
 __debug_bin
 
 CLAUDE.md
-dfx_example_*

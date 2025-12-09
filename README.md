@@ -335,6 +335,40 @@ dbValue, changed := dfx.FaderWithScaleF("##gain", gainDB, -60.0, 12.0, params, s
 
 See `examples/dfx_example_mixer` for a complete demonstration with horizontally scrollable mixer interface showcasing all fader types and scales.
 
+**VUMeter** - Vertical, digital (segmented) level meter with multi-channel support:
+
+```go
+// create a stereo meter
+meter := dfx.NewVUMeter(2)
+meter.SetLabels([]string{"L", "R"})
+
+// update levels each frame (0.0 to 1.0)
+meter.SetLevels([]float32{leftLevel, rightLevel})
+
+// draw the meter
+meter.Draw(state)
+```
+
+**Configuration:**
+- `Height` - Total height in pixels (default: 200)
+- `ChannelWidth` - Width of each channel meter (default: 12)
+- `SegmentCount` - Number of vertical segments (default: 20)
+- `SegmentGap` / `ChannelGap` - Spacing between segments and channels
+- `PeakHoldMs` - Peak hold duration in ms, 0 = disabled (default: 1000)
+- `PeakDecayRate` - Peak decay rate per second (default: 0.5)
+- `ClipHoldMs` - Clip indicator hold time in ms (default: 2000)
+- `Labels` - Custom labels per channel (e.g., "L", "R", "Kick")
+- `ColorLow/Mid/High/Off/Peak/Clip` - Customizable segment colors
+
+**Features:**
+- **Multi-channel**: Supports any number of channels displayed side-by-side
+- **Color zones**: Green (0-60%), yellow (60-80%), red (80-100%)
+- **Peak hold**: Displays peak level with configurable hold and decay
+- **Clip indicator**: Top segment lights red when signal clips, auto-resets
+- **Custom labels**: Per-channel labels displayed below meters
+
+See `examples/dfx_example_vumeter` for a complete demonstration.
+
 ## Actions and Keyboard Shortcuts
 
 dfx provides a hierarchical action system with conflict detection:
@@ -611,6 +645,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_themes` - Theming and font demonstration
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)
 - `dfx_example_mixer` - Advanced fader demonstration with tapers, range limits, and horizontal scrolling mixer
+- `dfx_example_vumeter` - VU meter with peak hold and clip indicators
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state
 
