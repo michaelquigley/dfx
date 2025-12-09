@@ -25,6 +25,7 @@ examples/*/dfx_example_*
 examples/*/*.exe
 
 # IDE and editor files
+.devprj
 .idea/
 .vscode/
 *.swp
