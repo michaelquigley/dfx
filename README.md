@@ -492,6 +492,60 @@ container := &dfx.Box{
 }
 ```
 
+### HCollapse - Horizontal Collapsible Panel
+
+The `HCollapse` component provides a horizontal collapsible panel that contains content to its right. When collapsed, only the toggle button is visible. When expanded, it shows a header bar with title and the content below.
+
+```go
+// create a collapsible sidebar
+sidebar := dfx.NewHCollapse(
+    sidebarContent,
+    dfx.HCollapseConfig{
+        Title:         "Sidebar",
+        ExpandedWidth: 250,
+        TransitionMs:  100,
+        Resizable:     true,
+        Expanded:      true,
+    },
+)
+
+// optional: add keyboard shortcut for toggle
+sidebar.Actions().Register("toggle-sidebar", "[", func() {
+    sidebar.Toggle()
+})
+
+// in Draw, use SameLine() to place content to the right
+func (m *MyApp) Draw(state *dfx.State) {
+    sidebar.Draw(state)
+    imgui.SameLine()
+
+    // main content fills remaining width
+    remaining := state.Size.X - sidebar.CurrentWidth
+    imgui.BeginChildStrV("main", imgui.Vec2{X: remaining, Y: state.Size.Y}, 0, 0)
+    mainContent.Draw(state)
+    imgui.EndChild()
+}
+```
+
+**Configuration:**
+- `Title` - displayed in header when expanded (also used for unique imgui ID)
+- `ExpandedWidth` - width when fully expanded
+- `MinWidth` - collapsed width (defaults to 36px, toggle button only)
+- `MaxWidth` - maximum width when resizing (0 = no limit)
+- `TransitionMs` - animation duration (default: 80ms)
+- `Resizable` - allow drag-to-resize when expanded
+- `Expanded` - initial state
+
+**Features:**
+- **Animated transitions** - smooth expand/collapse animation
+- **Header bar** - toggle button on left, title when expanded, resize handle on right
+- **Drag-to-resize** - adjust width by dragging the right edge
+- **Collapsed tooltip** - hovering over collapsed toggle shows title
+- **Toggle callback** - `OnToggle func(expanded bool)` for state change notifications
+- **CurrentWidth** - read current width for layout calculations
+
+**Note:** When using custom-drawn components (like VUMeter, Fader) inside tables within an HCollapse, use `imgui.TableFlagsNoClip` and `imgui.TableColumnFlagsNoClip` to prevent cell clipping.
+
 ### Workspace - View Switching
 
 The `Workspace` component provides high-level management of multiple named views with easy switching. It separates stable identifiers from display names, allowing display names to include icons and formatting without affecting code that switches workspaces.
@@ -646,6 +700,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)
 - `dfx_example_mixer` - Advanced fader demonstration with tapers, range limits, and horizontal scrolling mixer
 - `dfx_example_vumeter` - VU meter with peak hold and clip indicators
+- `dfx_example_hcollapse` - Horizontal collapsible panels with faders and meters
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state
 
