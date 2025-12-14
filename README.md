@@ -473,6 +473,8 @@ See `examples/dfx_example_menu` for a complete demonstration.
 
 ## Layout and Composition
 
+For a comprehensive guide to Dear ImGui's layout system including child windows, sizing semantics, and practical patterns, see [`docs/LAYOUT_GUIDE.md`](docs/LAYOUT_GUIDE.md). The interactive demo in `examples/dfx_example_layout` demonstrates all concepts with real-time values.
+
 Components can contain children for complex layouts:
 
 ```go
@@ -703,6 +705,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_hcollapse` - Horizontal collapsible panels with faders and meters
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state
+- `dfx_example_layout` - Comprehensive ImGui layout and sizing tutorial (see [`docs/LAYOUT_GUIDE.md`](docs/LAYOUT_GUIDE.md))
 
 ## Building Examples
 
