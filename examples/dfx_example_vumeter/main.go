@@ -19,97 +19,98 @@ func main() {
 
 	multiMeter := dfx.NewVUMeter(8)
 	multiMeter.SetLabels([]string{"1", "2", "3", "4", "5", "6", "7", "8"})
-	multiMeter.Height = 250
+
+	// wrap each meter in an HCollapse
+	padding := float32(20) // account for window padding
+	singleCollapse := dfx.NewHCollapse(singleMeter, dfx.HCollapseConfig{
+		Title:         "Mono",
+		ExpandedWidth: singleMeter.Width() + padding,
+		Expanded:      true,
+		Height:        -1,
+	})
+	stereoCollapse := dfx.NewHCollapse(stereoMeter, dfx.HCollapseConfig{
+		Title:         "Stereo",
+		ExpandedWidth: stereoMeter.Width() + padding,
+		Expanded:      true,
+		Height:        -1,
+	})
+	multiCollapse := dfx.NewHCollapse(multiMeter, dfx.HCollapseConfig{
+		Title:         "Multi (8ch)",
+		ExpandedWidth: multiMeter.Width() + padding,
+		Expanded:      true,
+		Height:        -1,
+	})
 
 	// simulation state
 	startTime := time.Now()
 	paused := false
 
-	root := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("VU Meter Demo")
-		dfx.Separator()
-		dfx.Spacing()
-
-		// pause control
+	controlsCollapse := dfx.NewHCollapse(dfx.NewFunc(func(state *dfx.State) {
 		if newValue, changed := dfx.Checkbox("Pause Animation", paused); changed {
 			paused = newValue
 		}
-		dfx.Spacing()
 
-		// simulate audio levels if not paused
+		dfx.Text("Single Meter:")
+		if newValue, changed := dfx.WheelSlider("Height##single", singleMeter.Height, 100, 400, 50, "%.0f", imgui.SliderFlagsNone); changed {
+			singleMeter.Height = newValue
+		}
+		if newValue, changed := dfx.WheelSlider("Channel Width##single", singleMeter.ChannelWidth, 8, 32, 50, "%.0f", imgui.SliderFlagsNone); changed {
+			singleMeter.ChannelWidth = newValue
+		}
+		if newValue, changed := dfx.WheelSlider("Segment Count##single", float32(singleMeter.SegmentCount), 10, 40, 30, "%.0f", imgui.SliderFlagsNone); changed {
+			singleMeter.SegmentCount = int(newValue)
+		}
+
+		dfx.Spacing()
+		dfx.Text("Peak Hold:")
+		if newValue, changed := dfx.WheelSlider("Peak Hold (ms)", float32(singleMeter.PeakHoldMs), 0, 3000, 50, "%.0f", imgui.SliderFlagsNone); changed {
+			singleMeter.PeakHoldMs = int(newValue)
+			stereoMeter.PeakHoldMs = int(newValue)
+			multiMeter.PeakHoldMs = int(newValue)
+		}
+		if newValue, changed := dfx.WheelSlider("Peak Decay Rate", singleMeter.PeakDecayRate, 0.1, 2.0, 50, "%.2f", imgui.SliderFlagsNone); changed {
+			singleMeter.PeakDecayRate = newValue
+			stereoMeter.PeakDecayRate = newValue
+			multiMeter.PeakDecayRate = newValue
+		}
+
+		dfx.Spacing()
+		dfx.Text("Clip Indicator:")
+		if newValue, changed := dfx.WheelSlider("Clip Hold (ms)", float32(singleMeter.ClipHoldMs), 500, 5000, 50, "%.0f", imgui.SliderFlagsNone); changed {
+			singleMeter.ClipHoldMs = int(newValue)
+			stereoMeter.ClipHoldMs = int(newValue)
+			multiMeter.ClipHoldMs = int(newValue)
+		}
+	}), dfx.HCollapseConfig{
+		Title:         "Controls",
+		ExpandedWidth: 400,
+		Expanded:      true,
+		Height:        -1,
+	})
+
+	root := dfx.NewFunc(func(state *dfx.State) {
+		imgui.BeginChildStr("##dfx_example_vumeter")
+
 		if !paused {
 			t := time.Since(startTime).Seconds()
 			updateSimulatedLevels(singleMeter, stereoMeter, multiMeter, t)
 		}
 
-		// layout the meters horizontally
-		dfx.Text("Single Channel:")
-		singleMeter.Draw(state)
-
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
-
-		dfx.Text("Stereo (2 channels):")
-		stereoMeter.Draw(state)
-
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
-
-		dfx.Text("Multi-channel (8 channels):")
-		multiMeter.Draw(state)
-
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
-
-		// configuration section
-		dfx.Text("Configuration:")
-		if imgui.TreeNodeStr("Meter Settings") {
-			dfx.Text("Single Meter:")
-			if newValue, changed := dfx.WheelSlider("Height##single", singleMeter.Height, 100, 400, 50, "%.0f", imgui.SliderFlagsNone); changed {
-				singleMeter.Height = newValue
-			}
-			if newValue, changed := dfx.WheelSlider("Channel Width##single", singleMeter.ChannelWidth, 8, 32, 50, "%.0f", imgui.SliderFlagsNone); changed {
-				singleMeter.ChannelWidth = newValue
-			}
-			if newValue, changed := dfx.WheelSlider("Segment Count##single", float32(singleMeter.SegmentCount), 10, 40, 30, "%.0f", imgui.SliderFlagsNone); changed {
-				singleMeter.SegmentCount = int(newValue)
-			}
-
-			dfx.Spacing()
-			dfx.Text("Peak Hold:")
-			if newValue, changed := dfx.WheelSlider("Peak Hold (ms)", float32(singleMeter.PeakHoldMs), 0, 3000, 50, "%.0f", imgui.SliderFlagsNone); changed {
-				singleMeter.PeakHoldMs = int(newValue)
-				stereoMeter.PeakHoldMs = int(newValue)
-				multiMeter.PeakHoldMs = int(newValue)
-			}
-			if newValue, changed := dfx.WheelSlider("Peak Decay Rate", singleMeter.PeakDecayRate, 0.1, 2.0, 50, "%.2f", imgui.SliderFlagsNone); changed {
-				singleMeter.PeakDecayRate = newValue
-				stereoMeter.PeakDecayRate = newValue
-				multiMeter.PeakDecayRate = newValue
-			}
-
-			dfx.Spacing()
-			dfx.Text("Clip Indicator:")
-			if newValue, changed := dfx.WheelSlider("Clip Hold (ms)", float32(singleMeter.ClipHoldMs), 500, 5000, 50, "%.0f", imgui.SliderFlagsNone); changed {
-				singleMeter.ClipHoldMs = int(newValue)
-				stereoMeter.ClipHoldMs = int(newValue)
-				multiMeter.ClipHoldMs = int(newValue)
-			}
-
-			imgui.TreePop()
-		}
-
-		dfx.Spacing()
-		dfx.Text("Tip: Animation occasionally clips to demonstrate clip indicator")
+		// layout the meters horizontally in a scrollable child window
+		singleCollapse.Draw(state)
+		imgui.SameLine()
+		stereoCollapse.Draw(state)
+		imgui.SameLine()
+		multiCollapse.Draw(state)
+		imgui.SameLine()
+		controlsCollapse.Draw(state)
+		imgui.EndChild()
 	})
 
 	app := dfx.New(root, dfx.Config{
 		Title:  "VU Meter Demo",
-		Width:  400,
-		Height: 800,
+		Width:  800,
+		Height: 360,
 		OnSetup: func(app *dfx.App) {
 			app.Actions().Register("quit", "Ctrl+Q", func() {
 				fmt.Println("quitting via Ctrl+Q")

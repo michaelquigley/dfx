@@ -68,7 +68,7 @@ func NewVUMeter(channelCount int) *VUMeter {
 		ClipHoldMs: 2000,
 
 		// label defaults
-		LabelHeight: 16,
+		LabelHeight: 14,
 
 		// default colors
 		ColorLow:  imgui.Vec4{X: 0.2, Y: 0.8, Z: 0.2, W: 1.0},  // green
@@ -233,13 +233,16 @@ func (v *VUMeter) Draw(state *State) {
 			)
 		}
 
-		// draw label at bottom
+		// draw label at bottom using imgui text rendering (respects PushFont)
 		if ch < len(v.Labels) && v.Labels[ch] != "" {
 			label := v.Labels[ch]
+			PushFont(SmallFont)
 			labelSize := imgui.CalcTextSize(label)
 			labelX := cursor.X + xOffset + (v.ChannelWidth-labelSize.X)/2
 			labelY := cursor.Y + v.Height - v.LabelHeight + (v.LabelHeight-labelSize.Y)/2
-			dl.AddTextVec2(imgui.Vec2{X: labelX, Y: labelY}, imgui.ColorConvertFloat4ToU32(imgui.Vec4{X: 0.8, Y: 0.8, Z: 0.8, W: 1.0}), label)
+			imgui.SetCursorScreenPos(imgui.Vec2{X: labelX, Y: labelY})
+			imgui.TextColored(imgui.Vec4{X: 0.8, Y: 0.8, Z: 0.8, W: 1.0}, label)
+			PopFont()
 		}
 	}
 

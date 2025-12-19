@@ -13,6 +13,8 @@ dfx is a complete rewrite of the original imapp framework (a personal project, n
 - **Conflict detection** - Actions prevent key binding conflicts
 - **Built-in theming** - Comprehensive font and theme system
 
+The [dfx Roadmap](https://github.com/users/michaelquigley/projects/2/views/1) is always up-to-date with the current and planned work on the project.
+
 ## Core Concepts
 
 ### Component Interface
@@ -158,10 +160,10 @@ dfx.SetTheme(dfx.ModernDark)
 
 ## Font System
 
-dfx comes with three embedded fonts:
-- **Gidole Regular** - Main UI font
-- **Material Icons** - Icon font (merged with main font)
-- **JetBrains Mono** - Monospace font for code
+dfx provides three font constants with Material Icons merged where applicable:
+- **MainFont** (20px) - Gidole Regular with Material Icons
+- **MonospaceFont** (18px) - JetBrains Mono for code
+- **SmallFont** (16px) - Gidole Regular small with Material Icons, for labels/indicators
 
 ### Using Different Fonts
 
@@ -172,6 +174,11 @@ dfx.Text("Regular text " + string(fonts.ICON_FAVORITE))
 // Monospace font
 dfx.PushFont(dfx.MonospaceFont)
 dfx.Text("Monospace code text")
+dfx.PopFont()
+
+// Small font for labels and indicators
+dfx.PushFont(dfx.SmallFont)
+dfx.Text("CH1")
 dfx.PopFont()
 ```
 

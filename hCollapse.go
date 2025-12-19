@@ -18,6 +18,7 @@ type HCollapse struct {
 	CurrentWidth  float32             // animated width (internal)
 	MinWidth      float32             // collapsed width (toggle button only)
 	MaxWidth      float32             // maximum width when resizing (0 = no limit)
+	Height        float32             // vertical height (0 = use available height from state.Size.Y)
 	TransitionMs  int                 // animation duration
 	Resizable     bool                // allow drag-to-resize when expanded
 	Content       Component           // the component to show/hide
@@ -30,6 +31,7 @@ type HCollapseConfig struct {
 	ExpandedWidth float32
 	MinWidth      float32 // defaults to HCollapseDefaultMinWidth
 	MaxWidth      float32 // 0 = no limit
+	Height        float32 // 0 = fill available height from parent
 	TransitionMs  int     // defaults to HCollapseDefaultTransition
 	Resizable     bool
 	Expanded      bool // initial state
@@ -37,7 +39,7 @@ type HCollapseConfig struct {
 
 // HCollapse constants
 const (
-	HCollapseHeaderHeight      = 24
+	HCollapseHeaderHeight      = 36
 	HCollapseDefaultMinWidth   = 36
 	HCollapseDefaultTransition = 80
 	HCollapseResizeHandleSize  = 20
@@ -73,6 +75,7 @@ func NewHCollapse(content Component, cfg HCollapseConfig) *HCollapse {
 		CurrentWidth:  currentWidth,
 		MinWidth:      minWidth,
 		MaxWidth:      cfg.MaxWidth,
+		Height:        cfg.Height,
 		TransitionMs:  transitionMs,
 		Resizable:     cfg.Resizable,
 		Content:       content,
@@ -90,6 +93,15 @@ func (h *HCollapse) Toggle() {
 	if h.OnToggle != nil {
 		h.OnToggle(h.Expanded)
 	}
+}
+
+// effectiveHeight returns the height to use for the component.
+// if Height is set (> 0), uses that value; otherwise uses the available height from state.
+func (h *HCollapse) effectiveHeight(stateHeight float32) float32 {
+	if h.Height > 0 {
+		return h.Height
+	}
+	return stateHeight
 }
 
 // Draw implements Component.
@@ -114,7 +126,7 @@ func (h *HCollapse) Draw(state *State) {
 
 	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoResize | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
-	childSize := imgui.Vec2{X: h.CurrentWidth, Y: state.Size.Y}
+	childSize := imgui.Vec2{X: h.CurrentWidth, Y: h.effectiveHeight(state.Size.Y)}
 	imgui.BeginChildStrV(h.imguiID(), childSize, imgui.ChildFlagsNone, windowFlags)
 
 	// draw header bar
@@ -141,7 +153,7 @@ func (h *HCollapse) drawCollapsedToggle(state *State) {
 	// use a minimal child just for the background, with no scrollbars
 	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoResize | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
-	childSize := imgui.Vec2{X: h.CurrentWidth, Y: state.Size.Y}
+	childSize := imgui.Vec2{X: h.CurrentWidth, Y: h.effectiveHeight(state.Size.Y)}
 	imgui.BeginChildStrV(h.imguiID(), childSize, imgui.ChildFlagsNone, windowFlags)
 
 	windowPadding := imgui.CurrentStyle().WindowPadding()
