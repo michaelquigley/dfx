@@ -29,7 +29,6 @@ func newMixerChannel(name string, initial float32) *MixerChannel {
 }
 
 func main() {
-	// create channels for the first panel (drums)
 	drumChannels := []*MixerChannel{
 		newMixerChannel("Kick", 0.75),
 		newMixerChannel("Snare", 0.70),
@@ -37,7 +36,6 @@ func main() {
 		newMixerChannel("Toms", 0.60),
 	}
 
-	// create channels for the second panel (synths)
 	synthChannels := []*MixerChannel{
 		newMixerChannel("Bass", 0.80),
 		newMixerChannel("Lead", 0.65),

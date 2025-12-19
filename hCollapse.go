@@ -96,12 +96,13 @@ func (h *HCollapse) Toggle() {
 }
 
 // effectiveHeight returns the height to use for the component.
-// if Height is set (> 0), uses that value; otherwise uses the available height from state.
+// if Height is set (> 0), uses that value; otherwise uses the available height from imgui.
 func (h *HCollapse) effectiveHeight(stateHeight float32) float32 {
 	if h.Height > 0 {
 		return h.Height
 	}
-	return stateHeight
+	// use imgui's available region which respects cursor position and padding
+	return imgui.ContentRegionAvail().Y
 }
 
 // Draw implements Component.
@@ -208,19 +209,13 @@ func (h *HCollapse) drawHeader() {
 // drawContent draws the content area.
 // only called when fully expanded to avoid scrollbar overlap with toggle button.
 func (h *HCollapse) drawContent(state *State) {
-	// position cursor below header
-	imgui.SetCursorPosY(HCollapseHeaderHeight)
+	// position cursor below header, at left edge (ignore window padding)
+	imgui.SetCursorPos(imgui.Vec2{X: 0, Y: HCollapseHeaderHeight})
 
 	// get available region inside the outer child window
 	avail := imgui.ContentRegionAvail()
-
-	// reserve space for resize handle if present
 	contentWidth := avail.X
-	if h.Resizable {
-		contentWidth -= DashDragHandleOffset
-	}
 	contentHeight := avail.Y
-
 	if contentWidth <= 0 || contentHeight <= 0 {
 		return
 	}
@@ -228,7 +223,6 @@ func (h *HCollapse) drawContent(state *State) {
 	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{})
 	contentFlags := imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 	imgui.BeginChildStrV(h.imguiID()+"_content", imgui.Vec2{X: contentWidth, Y: contentHeight}, 0, contentFlags)
-	imgui.PopStyleVar() // window padding
 
 	if h.Content != nil {
 		childState := &State{
@@ -242,12 +236,13 @@ func (h *HCollapse) drawContent(state *State) {
 	}
 
 	imgui.EndChild()
+	imgui.PopStyleVar() // window padding
 }
 
-// drawResizeHandle draws the resize handle on the right edge.
+// drawResizeHandle draws the resize handle on the right edge as an overlay.
 func (h *HCollapse) drawResizeHandle(state *State) {
 	handlePos := imgui.Vec2{
-		X: h.CurrentWidth - DashDragHandleOffset,
+		X: h.CurrentWidth - HCollapseResizeHandleSize,
 		Y: DefaultItemSpacing + 1,
 	}
 	imgui.SetCursorPos(handlePos)
