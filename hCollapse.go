@@ -243,7 +243,7 @@ func (h *HCollapse) drawContent(state *State) {
 func (h *HCollapse) drawResizeHandle(state *State) {
 	handlePos := imgui.Vec2{
 		X: h.CurrentWidth - HCollapseResizeHandleSize,
-		Y: DefaultItemSpacing + 1,
+		Y: DefaultItemSpacing + 5,
 	}
 	imgui.SetCursorPos(handlePos)
 
