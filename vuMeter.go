@@ -71,12 +71,12 @@ func NewVUMeter(channelCount int) *VUMeter {
 		LabelHeight: 14,
 
 		// default colors
-		ColorLow:  imgui.Vec4{X: 0.2, Y: 0.8, Z: 0.2, W: 1.0},  // green
-		ColorMid:  imgui.Vec4{X: 0.9, Y: 0.8, Z: 0.1, W: 1.0},  // yellow
-		ColorHigh: imgui.Vec4{X: 0.9, Y: 0.2, Z: 0.2, W: 1.0},  // red
+		ColorLow:  imgui.Vec4{X: 0.2, Y: 0.8, Z: 0.2, W: 1.0},    // green
+		ColorMid:  imgui.Vec4{X: 0.9, Y: 0.8, Z: 0.1, W: 1.0},    // yellow
+		ColorHigh: imgui.Vec4{X: 0.9, Y: 0.2, Z: 0.2, W: 1.0},    // red
 		ColorOff:  imgui.Vec4{X: 0.15, Y: 0.15, Z: 0.15, W: 1.0}, // dark gray
-		ColorPeak: imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.9},  // white
-		ColorClip: imgui.Vec4{X: 1.0, Y: 0.0, Z: 0.0, W: 1.0},  // bright red
+		ColorPeak: imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.9},    // white
+		ColorClip: imgui.Vec4{X: 1.0, Y: 0.0, Z: 0.0, W: 1.0},    // bright red
 
 		lastFrame: time.Now(),
 	}
@@ -233,18 +233,10 @@ func (v *VUMeter) Draw(state *State) {
 			)
 		}
 
-		// draw label at bottom using imgui text rendering (respects PushFont)
-		if ch < len(v.Labels) && v.Labels[ch] != "" {
-			label := v.Labels[ch]
-			PushFont(SmallFont)
-			labelSize := imgui.CalcTextSize(label)
-			labelX := cursor.X + xOffset + (v.ChannelWidth-labelSize.X)/2
-			labelY := cursor.Y + v.Height - v.LabelHeight + (v.LabelHeight-labelSize.Y)/2
-			imgui.SetCursorScreenPos(imgui.Vec2{X: labelX, Y: labelY})
-			imgui.TextColored(imgui.Vec4{X: 0.8, Y: 0.8, Z: 0.8, W: 1.0}, label)
-			PopFont()
-		}
 	}
+
+	// draw labels at bottom using consistent font metrics
+	v.drawLabels(cursor, dl)
 
 	// reserve space for the meter so imgui layout works correctly
 	imgui.Dummy(imgui.Vec2{X: v.Width(), Y: v.Height})
@@ -253,6 +245,38 @@ func (v *VUMeter) Draw(state *State) {
 	if v.OnDraw != nil {
 		v.OnDraw(state)
 	}
+}
+
+// drawLabels renders channel labels with consistent font metrics.
+// uses draw list AddText directly to avoid cursor positioning issues in nested contexts.
+func (v *VUMeter) drawLabels(cursor imgui.Vec2, dl *imgui.DrawList) {
+	// check if any labels exist
+	hasLabels := false
+	for ch := 0; ch < len(v.levels); ch++ {
+		if ch < len(v.Labels) && v.Labels[ch] != "" {
+			hasLabels = true
+			break
+		}
+	}
+	if !hasLabels {
+		return
+	}
+
+	// push font once for consistent metrics
+	PushFont(SmallFont)
+	fontSize := imgui.TextLineHeight()
+	labelColor := imgui.ColorConvertFloat4ToU32(imgui.CurrentStyle().Colors()[imgui.ColText])
+	for ch := 0; ch < len(v.levels); ch++ {
+		if ch < len(v.Labels) && v.Labels[ch] != "" {
+			label := v.Labels[ch]
+			labelWidth := imgui.CalcTextSize(label).X
+			xOffset := float32(ch) * (v.ChannelWidth + v.ChannelGap)
+			labelX := cursor.X + xOffset + (v.ChannelWidth-labelWidth)/2
+			labelY := cursor.Y + v.Height - v.LabelHeight + (v.LabelHeight-fontSize)/2
+			dl.AddTextFontPtr(imgui.CurrentFont(), imgui.FontSize(), imgui.Vec2{X: labelX, Y: labelY}, labelColor, label)
+		}
+	}
+	PopFont()
 }
 
 // segmentColor returns the color for a segment based on its position.

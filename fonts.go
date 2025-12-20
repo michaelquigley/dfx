@@ -81,7 +81,8 @@ func SetupFonts() {
 // font sizes corresponding to each font index
 var fontSizes = []float32{20.0, 18.0, 16.0}
 
-// PushFont convenience function for temporarily switching fonts
+// PushFont convenience function for temporarily switching fonts.
+// passes the font's configured size to ensure correct rendering.
 func PushFont(fontIndex int) {
 	if fontIndex >= 0 && fontIndex < len(Fonts) {
 		size := float32(0)
