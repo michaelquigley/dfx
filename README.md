@@ -697,6 +697,130 @@ dfx.RestoreDashState(dashMgr, cfg.Dashes)
 
 See `examples/dfx_example_config` for a complete demonstration of configuration persistence including window state, dashboard layouts, and application settings.
 
+## Container-Based Architecture with df/da
+
+For larger applications, dfx integrates with the `df/da` dependency injection container and `df/dd` data-driven serialization packages. This pattern provides a more scalable architecture with factory-based component creation and automatic lifecycle management.
+
+### Pattern Overview
+
+The container-based pattern uses three packages:
+- **da.Application[C]** - Application lifecycle with typed configuration
+- **dfx** - GUI framework
+- **dd** - Struct-to-YAML/JSON bidirectional binding
+
+The lifecycle flow is: Configure → Build (factories) → Link → Start → (user interaction) → Stop → Save
+
+### Basic Structure
+
+```go
+// config.go - typed configuration
+type config struct {
+    WindowX      int
+    WindowY      int
+    WindowWidth  int
+    WindowHeight int
+    Counter      int
+}
+
+func defaultConfig() config {
+    return config{
+        WindowX:      100,
+        WindowY:      100,
+        WindowWidth:  800,
+        WindowHeight: 600,
+    }
+}
+```
+
+```go
+// shellFactory.go - factory creates the main window
+type shellFactory struct{}
+
+func (f *shellFactory) Build(a *da.Application[config]) error {
+    shl := &shell{
+        cfg:       &a.Cfg,  // reference to mutable config
+        workspace: dfx.NewWorkspace(),
+    }
+
+    shl.app = dfx.New(shl.root, dfx.Config{
+        Title:  "my app",
+        Width:  shl.cfg.WindowWidth,
+        Height: shl.cfg.WindowHeight,
+        X:      shl.cfg.WindowX,
+        Y:      shl.cfg.WindowY,
+        OnSizeChange: func(w, h int) {
+            shl.cfg.WindowWidth = w
+            shl.cfg.WindowHeight = h
+        },
+        OnClose: func(app *dfx.App) {
+            shl.cfg.WindowX, shl.cfg.WindowY = app.GetWindowPos()
+        },
+    })
+
+    da.Set(a.C, shl)  // register in container
+    return nil
+}
+
+// Link wires up tagged workspace components
+func (s *shell) Link(c *da.Container) error {
+    for i, ws := range da.TaggedAsType[dfx.Component](c, "workspaces") {
+        s.workspace.Add(fmt.Sprintf("ws-%d", i), fmt.Sprintf("workspace %d", i+1), ws)
+    }
+    return nil
+}
+
+func (s *shell) Start() error {
+    go s.app.Run()
+    return nil
+}
+```
+
+```go
+// panelFactory.go - factory registers tagged workspace component
+type panelFactory struct{}
+
+func (f *panelFactory) Build(a *da.Application[config]) error {
+    panel := &myPanel{cfg: &a.Cfg}
+    da.AddTagged(a.C, "workspaces", panel)  // tagged registration
+    return nil
+}
+```
+
+```go
+// main.go - application lifecycle
+func main() {
+    cfgPath, _ := configPath()
+
+    app := da.NewApplication[config](defaultConfig())
+    app.Factories = append(app.Factories, &panelFactory{})
+    app.Factories = append(app.Factories, &shellFactory{})
+
+    app.InitializeWithPaths(da.OptionalPath(cfgPath))
+    app.Start()
+
+    // wait for GUI to close
+    if shl, ok := da.Get[*shell](app.C); ok {
+        shl.app.Wait()
+    }
+
+    // save config
+    dd.UnbindYAMLFile(app.Cfg, cfgPath)
+    app.Stop()
+}
+```
+
+### Key Benefits
+
+- **Factory pattern** - Components created via `Build()` methods with access to typed config
+- **Tagged components** - `da.AddTagged()` for modular registration without naming conflicts
+- **Link phase** - Wire up dependencies after all factories complete
+- **Config mutation** - Components hold `*config` reference for real-time state updates
+- **Automatic persistence** - `dd.UnbindYAMLFile()` saves config struct to YAML on shutdown
+
+### Example
+
+See `examples/dfx_example_container` for a complete demonstration of container-based architecture with tagged workspace components.
+
 ## Examples
 
 See the `examples/` directory for complete working examples:
@@ -712,6 +836,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_hcollapse` - Horizontal collapsible panels with faders and meters
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state
+- `dfx_example_container` - Container-based lifecycle with df/da dependency injection
 - `dfx_example_layout` - Comprehensive ImGui layout and sizing tutorial (see [`docs/LAYOUT_GUIDE.md`](docs/LAYOUT_GUIDE.md))
 
 ## Building Examples
