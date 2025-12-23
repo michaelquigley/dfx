@@ -387,6 +387,38 @@ meter.Draw(state)
 
 See `examples/dfx_example_vumeter` for a complete demonstration.
 
+**VUWaterfall** - Scrolling history display of VU levels over time:
+
+```go
+// create a stereo waterfall
+waterfall := dfx.NewVUWaterfall(2)
+waterfall.Height = 150
+waterfall.HistorySize = 100 // samples to retain
+
+// each frame, add current levels to history
+waterfall.SetLevels([]float32{leftLevel, rightLevel})
+
+// draw the waterfall
+waterfall.Draw(state)
+```
+
+**Configuration:**
+- `Height` - Total height in pixels (default: 200)
+- `ChannelWidth` - Width per channel (default: 40)
+- `ChannelGap` - Gap between channels (default: 4)
+- `RowHeight` - Height of each history row (default: 2)
+- `RowGap` - Gap between rows (default: 0)
+- `HistorySize` - Number of samples to retain (default: 100)
+- `ColorLow/Mid/High/Off` - Zone colors (same defaults as VUMeter)
+
+**Features:**
+- **Vertical scrolling**: New data appears at bottom, scrolls upward
+- **Multi-channel**: Channels displayed side-by-side
+- **Color zones**: Green (0-60%), yellow (60-80%), red (80-100%)
+- **Centered bars**: Level represented by bar width, centered in channel
+
+See `examples/dfx_example_vumeter` for a complete demonstration.
+
 ## Actions and Keyboard Shortcuts
 
 dfx provides a hierarchical action system with conflict detection:
@@ -843,7 +875,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_themes` - Theming and font demonstration
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)
 - `dfx_example_mixer` - Advanced fader demonstration with tapers, range limits, and horizontal scrolling mixer
-- `dfx_example_vumeter` - VU meter with display modes, peak hold and clip indicators
+- `dfx_example_vumeter` - VU meter and waterfall with display modes and scrolling history
 - `dfx_example_hcollapse` - Horizontal collapsible panels with faders and meters
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state

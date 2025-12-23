@@ -20,6 +20,20 @@ func main() {
 	multiMeter := dfx.NewVUMeter(8)
 	multiMeter.SetLabels([]string{"1", "2", "3", "4", "5", "6", "7", "8"})
 
+	// create waterfall displays
+	stereoWaterfall := dfx.NewVUWaterfall(2)
+	stereoWaterfall.Height = 200
+	stereoWaterfall.ChannelWidth = 30
+	stereoWaterfall.RowHeight = 2
+	stereoWaterfall.HistorySize = 100
+
+	multiWaterfall := dfx.NewVUWaterfall(8)
+	multiWaterfall.Height = 200
+	multiWaterfall.ChannelWidth = 12
+	multiWaterfall.ChannelGap = 2
+	multiWaterfall.RowHeight = 2
+	multiWaterfall.HistorySize = 100
+
 	// wrap each meter in an HCollapse
 	padding := float32(20) // account for window padding
 	singleCollapse := dfx.NewHCollapse(singleMeter, dfx.HCollapseConfig{
@@ -37,6 +51,18 @@ func main() {
 	multiCollapse := dfx.NewHCollapse(multiMeter, dfx.HCollapseConfig{
 		Title:         "Multi (8ch)",
 		ExpandedWidth: multiMeter.Width() + padding,
+		Expanded:      true,
+		Height:        -1,
+	})
+	stereoWaterfallCollapse := dfx.NewHCollapse(stereoWaterfall, dfx.HCollapseConfig{
+		Title:         "Waterfall (2ch)",
+		ExpandedWidth: stereoWaterfall.Width() + padding,
+		Expanded:      true,
+		Height:        -1,
+	})
+	multiWaterfallCollapse := dfx.NewHCollapse(multiWaterfall, dfx.HCollapseConfig{
+		Title:         "Waterfall (8ch)",
+		ExpandedWidth: multiWaterfall.Width() + padding,
 		Expanded:      true,
 		Height:        -1,
 	})
@@ -106,7 +132,7 @@ func main() {
 
 		if !paused {
 			t := time.Since(startTime).Seconds()
-			updateSimulatedLevels(singleMeter, stereoMeter, multiMeter, t)
+			updateSimulatedLevels(singleMeter, stereoMeter, multiMeter, stereoWaterfall, multiWaterfall, t)
 		}
 
 		// layout the meters horizontally in a scrollable child window
@@ -116,13 +142,17 @@ func main() {
 		imgui.SameLine()
 		multiCollapse.Draw(state)
 		imgui.SameLine()
+		stereoWaterfallCollapse.Draw(state)
+		imgui.SameLine()
+		multiWaterfallCollapse.Draw(state)
+		imgui.SameLine()
 		controlsCollapse.Draw(state)
 		imgui.EndChild()
 	})
 
 	app := dfx.New(root, dfx.Config{
-		Title:  "VU Meter Demo",
-		Width:  800,
+		Title:  "VU Meter and Waterfall Demo",
+		Width:  1200,
 		Height: 360,
 		OnSetup: func(app *dfx.App) {
 			app.Actions().Register("quit", "Ctrl+Q", func() {
@@ -136,7 +166,7 @@ func main() {
 }
 
 // updateSimulatedLevels generates animated audio levels for demonstration.
-func updateSimulatedLevels(single, stereo, multi *dfx.VUMeter, t float64) {
+func updateSimulatedLevels(single, stereo, multi *dfx.VUMeter, stereoWf, multiWf *dfx.VUWaterfall, t float64) {
 	// single channel: smooth sine wave with occasional peaks
 	singleLevel := float32(0.3 + 0.3*math.Sin(t*2.0) + 0.2*math.Sin(t*5.0))
 	if math.Sin(t*0.5) > 0.95 {
@@ -153,7 +183,9 @@ func updateSimulatedLevels(single, stereo, multi *dfx.VUMeter, t float64) {
 	if math.Sin(t*0.8) > 0.97 {
 		rightLevel = 1.0 // occasional clip on right
 	}
-	stereo.SetLevels([]float32{leftLevel, rightLevel})
+	stereoLevels := []float32{leftLevel, rightLevel}
+	stereo.SetLevels(stereoLevels)
+	stereoWf.SetLevels(stereoLevels)
 
 	// multi-channel: different frequencies for each channel
 	levels := make([]float32, 8)
@@ -167,4 +199,5 @@ func updateSimulatedLevels(single, stereo, multi *dfx.VUMeter, t float64) {
 		}
 	}
 	multi.SetLevels(levels)
+	multiWf.SetLevels(levels)
 }
