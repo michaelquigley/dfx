@@ -20,7 +20,11 @@ type VUWaterfall struct {
 	RowGap       float32 // gap between rows (default: 0)
 
 	// history configuration
-	HistorySize int // number of samples to keep (default: 100)
+	HistorySize    int           // number of samples to keep (default: 100)
+	SampleInterval time.Duration // minimum time between samples (default: 16ms)
+
+	// display mode
+	Highres bool // when true, alternates row opacity for scanline effect
 
 	// colors (same as VUMeter for consistency)
 	ColorLow  imgui.Vec4 // green zone (0-60%)
@@ -33,7 +37,7 @@ type VUWaterfall struct {
 	historyHead  int         // index where next entry will be written
 	historyLen   int         // current number of valid entries
 	channelCount int         // number of channels
-	lastFrame    time.Time
+	lastSample   time.Time   // when last sample was added
 }
 
 // NewVUWaterfall creates a new waterfall display with the specified number of channels.
@@ -47,7 +51,8 @@ func NewVUWaterfall(channelCount int) *VUWaterfall {
 		RowGap:       0,
 
 		// history
-		HistorySize: 100,
+		HistorySize:    100,
+		SampleInterval: 16 * time.Millisecond, // ~60 samples per second
 
 		// colors (match VUMeter defaults)
 		ColorLow:  imgui.Vec4{X: 0.2, Y: 0.8, Z: 0.2, W: 1.0},    // green
@@ -56,7 +61,6 @@ func NewVUWaterfall(channelCount int) *VUWaterfall {
 		ColorOff:  imgui.Vec4{X: 0.15, Y: 0.15, Z: 0.15, W: 1.0}, // dark gray
 
 		channelCount: channelCount,
-		lastFrame:    time.Now(),
 	}
 
 	w.Visible = true
@@ -90,12 +94,30 @@ func (w *VUWaterfall) SetChannelCount(count int) {
 	w.initHistory()
 }
 
+// SetHistorySize sets the number of samples to keep and reinitializes the buffer.
+// this clears the history buffer.
+func (w *VUWaterfall) SetHistorySize(size int) {
+	if size == w.HistorySize {
+		return
+	}
+	w.HistorySize = size
+	w.initHistory()
+}
+
 // SetLevel sets the level for a single channel and adds a new history entry.
 // note: this creates a new row with only this channel set; prefer SetLevels for multi-channel.
+// If SampleInterval is set, samples are throttled to maintain consistent scroll speed.
 func (w *VUWaterfall) SetLevel(channel int, level float32) {
 	if channel < 0 || channel >= w.channelCount {
 		return
 	}
+
+	// throttle samples based on time interval
+	now := time.Now()
+	if w.SampleInterval > 0 && time.Since(w.lastSample) < w.SampleInterval {
+		return // skip this sample
+	}
+	w.lastSample = now
 
 	// write to current head position
 	for i := range w.history[w.historyHead] {
@@ -111,7 +133,15 @@ func (w *VUWaterfall) SetLevel(channel int, level float32) {
 }
 
 // SetLevels sets levels for all channels at once and adds a new history entry.
+// If SampleInterval is set, samples are throttled to maintain consistent scroll speed.
 func (w *VUWaterfall) SetLevels(levels []float32) {
+	// throttle samples based on time interval
+	now := time.Now()
+	if w.SampleInterval > 0 && time.Since(w.lastSample) < w.SampleInterval {
+		return // skip this sample
+	}
+	w.lastSample = now
+
 	// copy levels into current head position
 	for i := 0; i < w.channelCount; i++ {
 		if i < len(levels) {
@@ -142,8 +172,6 @@ func (w *VUWaterfall) Draw(state *State) {
 		return
 	}
 
-	w.lastFrame = time.Now()
-
 	cursor := imgui.CursorScreenPos()
 	dl := imgui.WindowDrawList()
 
@@ -170,14 +198,23 @@ func (w *VUWaterfall) Draw(state *State) {
 	// so we draw from top (oldest) to bottom (newest)
 	rowStep := w.RowHeight + w.RowGap
 
-	// calculate starting index (oldest entry)
-	startIdx := (w.historyHead - w.historyLen + w.HistorySize) % w.HistorySize
+	// calculate how many rows fit in the available height
+	maxVisibleRows := int(w.Height / rowStep)
+	visibleRows := w.historyLen
+	if visibleRows > maxVisibleRows {
+		visibleRows = maxVisibleRows
+	}
+
+	// calculate starting index (skip older entries that don't fit)
+	// we want the newest entries, so skip (historyLen - visibleRows) oldest entries
+	skipCount := w.historyLen - visibleRows
+	startIdx := (w.historyHead - w.historyLen + skipCount + w.HistorySize) % w.HistorySize
 
 	// calculate vertical offset to align rows at bottom of display
-	totalRowsHeight := float32(w.historyLen) * rowStep
+	totalRowsHeight := float32(visibleRows) * rowStep
 	yOffset := w.Height - totalRowsHeight
 
-	for row := 0; row < w.historyLen; row++ {
+	for row := 0; row < visibleRows; row++ {
 		histIdx := (startIdx + row) % w.HistorySize
 		rowY := cursor.Y + yOffset + float32(row)*rowStep
 
@@ -197,6 +234,11 @@ func (w *VUWaterfall) Draw(state *State) {
 
 			// determine color based on level
 			color := w.levelColor(level)
+
+			// in highres mode, reduce opacity on every other row for scanline effect
+			if w.Highres && row%2 == 1 {
+				color.W *= 0.3 // reduce alpha to 30%
+			}
 
 			dl.AddRectFilled(
 				imgui.Vec2{X: barLeft, Y: rowY},
