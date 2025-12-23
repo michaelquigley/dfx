@@ -342,12 +342,17 @@ dbValue, changed := dfx.FaderWithScaleF("##gain", gainDB, -60.0, 12.0, params, s
 
 See `examples/dfx_example_mixer` for a complete demonstration with horizontally scrollable mixer interface showcasing all fader types and scales.
 
-**VUMeter** - Vertical, digital (segmented) level meter with multi-channel support:
+**VUMeter** - Vertical level meter with multi-channel support and three display modes:
 
 ```go
 // create a stereo meter
 meter := dfx.NewVUMeter(2)
 meter.SetLabels([]string{"L", "R"})
+
+// set display mode (optional - VUMeterSolid is default)
+meter.Mode = dfx.VUMeterSolid     // continuous fill
+meter.Mode = dfx.VUMeterHighres   // 1px segments with 1px gaps
+meter.Mode = dfx.VUMeterSegmented // configurable segments
 
 // update levels each frame (0.0 to 1.0)
 meter.SetLevels([]float32{leftLevel, rightLevel})
@@ -357,9 +362,10 @@ meter.Draw(state)
 ```
 
 **Configuration:**
+- `Mode` - Display mode: `VUMeterSolid` (default), `VUMeterHighres`, `VUMeterSegmented`
 - `Height` - Total height in pixels (default: 200)
 - `ChannelWidth` - Width of each channel meter (default: 12)
-- `SegmentCount` - Number of vertical segments (default: 20)
+- `SegmentCount` - Number of vertical segments, applies to VUMeterSegmented mode (default: 20)
 - `SegmentGap` / `ChannelGap` - Spacing between segments and channels
 - `PeakHoldMs` - Peak hold duration in ms, 0 = disabled (default: 1000)
 - `PeakDecayRate` - Peak decay rate per second (default: 0.5)
@@ -367,11 +373,16 @@ meter.Draw(state)
 - `Labels` - Custom labels per channel (e.g., "L", "R", "Kick")
 - `ColorLow/Mid/High/Off/Peak/Clip` - Customizable segment colors
 
+**Display Modes:**
+- **VUMeterSolid**: Continuous fill with stacked color zones - clean, modern look
+- **VUMeterHighres**: Fixed 1px segments with 1px gaps - high resolution digital look
+- **VUMeterSegmented**: Configurable segments via `SegmentCount` and `SegmentGap`
+
 **Features:**
 - **Multi-channel**: Supports any number of channels displayed side-by-side
 - **Color zones**: Green (0-60%), yellow (60-80%), red (80-100%)
 - **Peak hold**: Displays peak level with configurable hold and decay
-- **Clip indicator**: Top segment lights red when signal clips, auto-resets
+- **Clip indicator**: Top indicator lights red when signal clips, auto-resets
 - **Custom labels**: Per-channel labels displayed below meters
 
 See `examples/dfx_example_vumeter` for a complete demonstration.
@@ -832,7 +843,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_themes` - Theming and font demonstration
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)
 - `dfx_example_mixer` - Advanced fader demonstration with tapers, range limits, and horizontal scrolling mixer
-- `dfx_example_vumeter` - VU meter with peak hold and clip indicators
+- `dfx_example_vumeter` - VU meter with display modes, peak hold and clip indicators
 - `dfx_example_hcollapse` - Horizontal collapsible panels with faders and meters
 - `dfx_example_workspace` - Workspace switching with multiple views
 - `dfx_example_config` - Configuration persistence with window and dashboard state

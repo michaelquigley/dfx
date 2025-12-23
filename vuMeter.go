@@ -6,10 +6,25 @@ import (
 	"github.com/AllenDang/cimgui-go/imgui"
 )
 
-// VUMeter is a vertical, digital (segmented) level meter component.
+// VUMeterMode defines the visual rendering style of the meter.
+type VUMeterMode int
+
+const (
+	// VUMeterSolid renders a continuous fill with color zones (default).
+	VUMeterSolid VUMeterMode = iota
+	// VUMeterHighres renders 1px segments with 1px gaps for high resolution display.
+	VUMeterHighres
+	// VUMeterSegmented renders discrete segments with configurable count and gap.
+	VUMeterSegmented
+)
+
+// VUMeter is a vertical level meter component.
 // supports any number of channels displayed side by side.
 type VUMeter struct {
 	Container
+
+	// display mode
+	Mode VUMeterMode // rendering style (default: VUMeterSolid)
 
 	// fixed size configuration
 	Height       float32 // total height in pixels (default: 200)
@@ -173,10 +188,10 @@ func (v *VUMeter) Draw(state *State) {
 	cursor := imgui.CursorScreenPos()
 	dl := imgui.WindowDrawList()
 
-	// calculate dimensions
-	clipHeight := v.SegmentGap + (v.Height-v.LabelHeight)/float32(v.SegmentCount+1)
-	meterHeight := v.Height - v.LabelHeight - clipHeight - v.SegmentGap
-	segmentHeight := (meterHeight - (float32(v.SegmentCount-1) * v.SegmentGap)) / float32(v.SegmentCount)
+	// calculate clip indicator height (fixed size for all modes)
+	clipHeight := float32(8)
+	clipGap := float32(2)
+	meterHeight := v.Height - v.LabelHeight - clipHeight - clipGap
 
 	// draw each channel
 	for ch := 0; ch < len(v.levels); ch++ {
@@ -184,7 +199,7 @@ func (v *VUMeter) Draw(state *State) {
 
 		// draw clip indicator at top
 		clipTop := cursor.Y
-		clipBottom := clipTop + clipHeight - v.SegmentGap
+		clipBottom := clipTop + clipHeight
 		clipLeft := cursor.X + xOffset
 		clipRight := clipLeft + v.ChannelWidth
 
@@ -200,39 +215,19 @@ func (v *VUMeter) Draw(state *State) {
 			imgui.ColorConvertFloat4ToU32(clipColor),
 		)
 
-		// draw meter segments from bottom to top
-		meterTop := clipBottom + v.SegmentGap
+		// draw meter based on mode
+		meterTop := clipBottom + clipGap
 		level := v.levels[ch]
-		litSegments := int(level * float32(v.SegmentCount))
-		peakSegment := int(v.peaks[ch] * float32(v.SegmentCount))
+		peakLevel := v.peaks[ch]
 
-		for seg := 0; seg < v.SegmentCount; seg++ {
-			// calculate segment position (bottom to top)
-			segTop := meterTop + meterHeight - float32(seg+1)*(segmentHeight+v.SegmentGap) + v.SegmentGap
-			segBottom := segTop + segmentHeight
-			segLeft := cursor.X + xOffset
-			segRight := segLeft + v.ChannelWidth
-
-			// determine segment color
-			var segColor imgui.Vec4
-			if seg < litSegments {
-				// lit segment - color based on position
-				segColor = v.segmentColor(seg)
-			} else if seg == peakSegment && v.PeakHoldMs > 0 {
-				// peak indicator
-				segColor = v.ColorPeak
-			} else {
-				// off segment
-				segColor = v.ColorOff
-			}
-
-			dl.AddRectFilled(
-				imgui.Vec2{X: segLeft, Y: segTop},
-				imgui.Vec2{X: segRight, Y: segBottom},
-				imgui.ColorConvertFloat4ToU32(segColor),
-			)
+		switch v.Mode {
+		case VUMeterHighres:
+			v.drawHighresChannel(dl, cursor, ch, xOffset, level, peakLevel, meterTop, meterHeight)
+		case VUMeterSegmented:
+			v.drawSegmentedChannel(dl, cursor, ch, xOffset, level, peakLevel, meterTop, meterHeight)
+		default: // VUMeterSolid
+			v.drawSolidChannel(dl, cursor, ch, xOffset, level, peakLevel, meterTop, meterHeight)
 		}
-
 	}
 
 	// draw labels at bottom using consistent font metrics
@@ -327,5 +322,153 @@ func (v *VUMeter) updateClip() {
 			// auto-reset clip indicator after hold time
 			v.clipped[i] = false
 		}
+	}
+}
+
+// drawSolidChannel renders a channel as a continuous fill with color zones.
+func (v *VUMeter) drawSolidChannel(dl *imgui.DrawList, cursor imgui.Vec2, ch int, xOffset float32, level, peakLevel float32, meterTop, meterHeight float32) {
+	segLeft := cursor.X + xOffset
+	segRight := segLeft + v.ChannelWidth
+	meterBottom := meterTop + meterHeight
+
+	// draw off background first
+	dl.AddRectFilled(
+		imgui.Vec2{X: segLeft, Y: meterTop},
+		imgui.Vec2{X: segRight, Y: meterBottom},
+		imgui.ColorConvertFloat4ToU32(v.ColorOff),
+	)
+
+	if level > 0 {
+		// zone boundaries (as normalized positions)
+		greenMax := float32(0.6)
+		yellowMax := float32(0.8)
+
+		// fill from bottom up based on level
+		fillHeight := level * meterHeight
+		fillTop := meterBottom - fillHeight
+
+		// draw color zones
+		if level <= greenMax {
+			// only green zone lit
+			dl.AddRectFilled(
+				imgui.Vec2{X: segLeft, Y: fillTop},
+				imgui.Vec2{X: segRight, Y: meterBottom},
+				imgui.ColorConvertFloat4ToU32(v.ColorLow),
+			)
+		} else if level <= yellowMax {
+			// green fully lit, yellow partially lit
+			greenTop := meterBottom - (greenMax * meterHeight)
+			dl.AddRectFilled(
+				imgui.Vec2{X: segLeft, Y: greenTop},
+				imgui.Vec2{X: segRight, Y: meterBottom},
+				imgui.ColorConvertFloat4ToU32(v.ColorLow),
+			)
+			dl.AddRectFilled(
+				imgui.Vec2{X: segLeft, Y: fillTop},
+				imgui.Vec2{X: segRight, Y: greenTop},
+				imgui.ColorConvertFloat4ToU32(v.ColorMid),
+			)
+		} else {
+			// all zones lit
+			greenTop := meterBottom - (greenMax * meterHeight)
+			yellowTop := meterBottom - (yellowMax * meterHeight)
+			dl.AddRectFilled(
+				imgui.Vec2{X: segLeft, Y: greenTop},
+				imgui.Vec2{X: segRight, Y: meterBottom},
+				imgui.ColorConvertFloat4ToU32(v.ColorLow),
+			)
+			dl.AddRectFilled(
+				imgui.Vec2{X: segLeft, Y: yellowTop},
+				imgui.Vec2{X: segRight, Y: greenTop},
+				imgui.ColorConvertFloat4ToU32(v.ColorMid),
+			)
+			dl.AddRectFilled(
+				imgui.Vec2{X: segLeft, Y: fillTop},
+				imgui.Vec2{X: segRight, Y: yellowTop},
+				imgui.ColorConvertFloat4ToU32(v.ColorHigh),
+			)
+		}
+	}
+
+	// draw peak indicator as thin line
+	if v.PeakHoldMs > 0 && peakLevel > 0 {
+		peakY := meterBottom - (peakLevel * meterHeight)
+		peakHeight := float32(2)
+		dl.AddRectFilled(
+			imgui.Vec2{X: segLeft, Y: peakY - peakHeight/2},
+			imgui.Vec2{X: segRight, Y: peakY + peakHeight/2},
+			imgui.ColorConvertFloat4ToU32(v.ColorPeak),
+		)
+	}
+}
+
+// drawHighresChannel renders a channel with 1px segments and 1px gaps.
+func (v *VUMeter) drawHighresChannel(dl *imgui.DrawList, cursor imgui.Vec2, ch int, xOffset float32, level, peakLevel float32, meterTop, meterHeight float32) {
+	// fixed 1px segment, 1px gap
+	segmentHeight := float32(1)
+	segmentGap := float32(1)
+	segmentCount := int((meterHeight + segmentGap) / (segmentHeight + segmentGap))
+
+	litSegments := int(level * float32(segmentCount))
+	peakSegment := int(peakLevel * float32(segmentCount))
+
+	for seg := 0; seg < segmentCount; seg++ {
+		segTop := meterTop + meterHeight - float32(seg+1)*(segmentHeight+segmentGap) + segmentGap
+		segBottom := segTop + segmentHeight
+		segLeft := cursor.X + xOffset
+		segRight := segLeft + v.ChannelWidth
+
+		var segColor imgui.Vec4
+		if seg < litSegments {
+			// color based on position
+			pos := float32(seg) / float32(segmentCount)
+			if pos < 0.6 {
+				segColor = v.ColorLow
+			} else if pos < 0.8 {
+				segColor = v.ColorMid
+			} else {
+				segColor = v.ColorHigh
+			}
+		} else if seg == peakSegment && v.PeakHoldMs > 0 {
+			segColor = v.ColorPeak
+		} else {
+			segColor = v.ColorOff
+		}
+
+		dl.AddRectFilled(
+			imgui.Vec2{X: segLeft, Y: segTop},
+			imgui.Vec2{X: segRight, Y: segBottom},
+			imgui.ColorConvertFloat4ToU32(segColor),
+		)
+	}
+}
+
+// drawSegmentedChannel renders a channel using discrete segments with configurable count and gap.
+func (v *VUMeter) drawSegmentedChannel(dl *imgui.DrawList, cursor imgui.Vec2, ch int, xOffset float32, level, peakLevel float32, meterTop, meterHeight float32) {
+	segmentHeight := (meterHeight - (float32(v.SegmentCount-1) * v.SegmentGap)) / float32(v.SegmentCount)
+
+	litSegments := int(level * float32(v.SegmentCount))
+	peakSegment := int(peakLevel * float32(v.SegmentCount))
+
+	for seg := 0; seg < v.SegmentCount; seg++ {
+		segTop := meterTop + meterHeight - float32(seg+1)*(segmentHeight+v.SegmentGap) + v.SegmentGap
+		segBottom := segTop + segmentHeight
+		segLeft := cursor.X + xOffset
+		segRight := segLeft + v.ChannelWidth
+
+		var segColor imgui.Vec4
+		if seg < litSegments {
+			segColor = v.segmentColor(seg)
+		} else if seg == peakSegment && v.PeakHoldMs > 0 {
+			segColor = v.ColorPeak
+		} else {
+			segColor = v.ColorOff
+		}
+
+		dl.AddRectFilled(
+			imgui.Vec2{X: segLeft, Y: segTop},
+			imgui.Vec2{X: segRight, Y: segBottom},
+			imgui.ColorConvertFloat4ToU32(segColor),
+		)
 	}
 }

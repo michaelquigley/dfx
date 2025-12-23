@@ -44,12 +44,25 @@ func main() {
 	// simulation state
 	startTime := time.Now()
 	paused := false
+	modeIndex := 0
+	modeNames := []string{"Solid", "Highres", "Segmented"}
 
 	controlsCollapse := dfx.NewHCollapse(dfx.NewFunc(func(state *dfx.State) {
 		if newValue, changed := dfx.Checkbox("Pause Animation", paused); changed {
 			paused = newValue
 		}
 
+		dfx.Spacing()
+		dfx.Text("Display Mode:")
+		if newIndex, changed := dfx.Combo("##mode", modeIndex, modeNames); changed {
+			modeIndex = newIndex
+			mode := dfx.VUMeterMode(newIndex)
+			singleMeter.Mode = mode
+			stereoMeter.Mode = mode
+			multiMeter.Mode = mode
+		}
+
+		dfx.Spacing()
 		dfx.Text("Single Meter:")
 		if newValue, changed := dfx.WheelSlider("Height##single", singleMeter.Height, 100, 400, 50, "%.0f", imgui.SliderFlagsNone); changed {
 			singleMeter.Height = newValue
