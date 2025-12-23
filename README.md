@@ -58,12 +58,12 @@ root := dfx.Func(func(state *dfx.State) {
 })
 ```
 
-#### Box - Composable Components
+#### Container - Composable Components
 For more complex components with state and children:
 
 ```go
 type MyComponent struct {
-    dfx.Box
+    dfx.Container
     counter int
 }
 
@@ -285,6 +285,7 @@ hwValue, changed := dfx.FaderI("##hw", hardwareValue, 0, 32767, params)
 - `LinearTaper()` - No taper, 1:1 mapping (default)
 - `LogTaper(steepness)` - Logarithmic curve (steepness: 1.0 = gentle, 3.0 = moderate, 10.0 = steep)
 - `AudioTaper()` - Standard audio fader curve (gentle bottom, steep top, optimized for dB scales)
+- `DecibelTaper(dbRange)` - UI position linear with dB; for hardware values proportional to amplitude
 - `CustomTaper(apply, invert)` - User-defined taper functions
 
 **Multi-Representation Pattern:**
@@ -448,7 +449,7 @@ app := dfx.New(root, dfx.Config{
 Components can define their own keyboard shortcuts that automatically override global actions:
 
 ```go
-myComponent := &dfx.Box{
+myComponent := &dfx.Container{
     Visible: true,
     OnDraw: func(state *dfx.State) {
         dfx.Text("Component with local actions")
@@ -456,11 +457,11 @@ myComponent := &dfx.Box{
 }
 
 // Add component-specific actions
-myComponent.AddAction("increment", "Up", func() {
+myComponent.Actions().Register("increment", "Up", func() {
     // handle up arrow - only when this component has focus
 })
 
-myComponent.AddAction("decrement", "Down", func() {
+myComponent.Actions().Register("decrement", "Down", func() {
     // handle down arrow
 })
 ```
@@ -528,7 +529,7 @@ For a comprehensive guide to Dear ImGui's layout system including child windows,
 Components can contain children for complex layouts:
 
 ```go
-container := &dfx.Box{
+container := &dfx.Container{
     Visible: true,
     Children: []dfx.Component{
         header,
@@ -873,22 +874,30 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_custom_component` - Custom component creation
 - `dfx_example_composition` - Complex UI with menu bars
 - `dfx_example_themes` - Theming and font demonstration
+- `dfx_example_filetree` - Filesystem tree viewer
+- `dfx_example_logviewer` - Log viewer with df/dl integration
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)
 - `dfx_example_mixer` - Advanced fader demonstration with tapers, range limits, and horizontal scrolling mixer
 - `dfx_example_vumeter` - VU meter and waterfall with display modes and scrolling history
 - `dfx_example_hcollapse` - Horizontal collapsible panels with faders and meters
+- `dfx_example_simple_hcollapse` - Minimal HCollapse example
 - `dfx_example_workspace` - Workspace switching with multiple views
+- `dfx_example_lifecycle` - Window lifecycle callbacks
 - `dfx_example_config` - Configuration persistence with window and dashboard state
 - `dfx_example_container` - Container-based lifecycle with df/da dependency injection
 - `dfx_example_layout` - Comprehensive ImGui layout and sizing tutorial (see [`docs/LAYOUT_GUIDE.md`](docs/LAYOUT_GUIDE.md))
+- `dfx_example_multigrid` - MultiGrid layout system
+- `dfx_example_dash` - DashManager panel system
+- `dfx_example_undo` - Undo/redo system demo
+- `dfx_example_menu` - Menu-compatible actions
 
 ## Building Examples
 
 ```bash
 # Build all examples
-go build ./dfx/examples/dfx_example_simple
-go build ./dfx/examples/dfx_example_actions
-go build ./dfx/examples/dfx_example_themes
+go build ./examples/dfx_example_simple
+go build ./examples/dfx_example_actions
+go build ./examples/dfx_example_themes
 
 # Run an example
 ./dfx_example_themes
