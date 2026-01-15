@@ -163,7 +163,7 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 
 	fl.sizeRows(state.Size)
 
-	cursor := imgui.CursorStartPos()
+	cursor := imgui.CursorPos()
 	for i, row := range fl.arrangement {
 		imgui.SetCursorPos(cursor)
 		rowHeight := fl.rowHeights[i]
@@ -186,6 +186,27 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 				fl.dragRowIndex = i
 				fl.dragRowPrev = i - 1
 			}
+
+			// draw hover/active highlight
+			if imgui.IsItemHovered() || imgui.IsItemActive() {
+				dl := imgui.WindowDrawList()
+				min := imgui.ItemRectMin()
+				max := imgui.ItemRectMax()
+				// draw horizontal line in center of splitter area
+				centerY := (min.Y + max.Y) / 2
+				var color imgui.Vec4
+				if imgui.IsItemActive() {
+					color = imgui.CurrentStyle().Colors()[imgui.ColButtonActive]
+				} else {
+					color = imgui.CurrentStyle().Colors()[imgui.ColButtonHovered]
+				}
+				dl.AddLine(
+					imgui.Vec2{X: min.X, Y: centerY},
+					imgui.Vec2{X: max.X, Y: centerY},
+					imgui.ColorConvertFloat4ToU32(color),
+				)
+			}
+
 			imgui.SetCursorPos(cursor.Add(imgui.Vec2{X: 0, Y: multiGridSplitWidth}))
 		}
 
@@ -216,6 +237,27 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 					fl.dragColIndex = j
 					fl.dragColPrev = j - 1
 				}
+
+				// draw hover/active highlight
+				if imgui.IsItemHovered() || imgui.IsItemActive() {
+					dl := imgui.WindowDrawList()
+					min := imgui.ItemRectMin()
+					max := imgui.ItemRectMax()
+					// draw vertical line in center of splitter area
+					centerX := (min.X + max.X) / 2
+					var color imgui.Vec4
+					if imgui.IsItemActive() {
+						color = imgui.CurrentStyle().Colors()[imgui.ColButtonActive]
+					} else {
+						color = imgui.CurrentStyle().Colors()[imgui.ColButtonHovered]
+					}
+					dl.AddLine(
+						imgui.Vec2{X: centerX, Y: min.Y},
+						imgui.Vec2{X: centerX, Y: max.Y},
+						imgui.ColorConvertFloat4ToU32(color),
+					)
+				}
+
 				imgui.SetCursorPos(colCursor.Add(imgui.Vec2{X: multiGridSplitWidth, Y: 0}))
 			}
 
