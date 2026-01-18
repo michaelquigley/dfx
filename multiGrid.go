@@ -137,6 +137,46 @@ func NewFlexLayout(arrangement [][]string) *FlexLayout {
 	return fl
 }
 
+// RowHeights returns a copy of the current row heights.
+func (fl *FlexLayout) RowHeights() []int {
+	result := make([]int, len(fl.rowHeights))
+	copy(result, fl.rowHeights)
+	return result
+}
+
+// ColWidths returns a copy of the current column widths for all rows.
+func (fl *FlexLayout) ColWidths() [][]int {
+	result := make([][]int, len(fl.colWidths))
+	for i, row := range fl.colWidths {
+		result[i] = make([]int, len(row))
+		copy(result[i], row)
+	}
+	return result
+}
+
+// SetRowHeights sets the row heights. the slice length must match the number of rows.
+func (fl *FlexLayout) SetRowHeights(heights []int) {
+	if len(heights) != len(fl.rowHeights) {
+		return
+	}
+	copy(fl.rowHeights, heights)
+}
+
+// SetColWidths sets the column widths for all rows. the structure must match the arrangement.
+func (fl *FlexLayout) SetColWidths(widths [][]int) {
+	if len(widths) != len(fl.colWidths) {
+		return
+	}
+	for i, row := range widths {
+		if len(row) != len(fl.colWidths[i]) {
+			return
+		}
+	}
+	for i, row := range widths {
+		copy(fl.colWidths[i], row)
+	}
+}
+
 // HandleInput processes mouse input for resize operations
 func (fl *FlexLayout) HandleInput(state *State) {
 	// handle resize completion
