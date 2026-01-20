@@ -223,6 +223,28 @@ selected, changed := dfx.Combo("Choose", currentIndex, items)
 
 dfx provides several enhanced controls with additional features beyond standard ImGui widgets:
 
+**Toolbar** - Full-width header bar for section labels:
+```go
+// simple toolbar with label
+dfx.Toolbar("Settings")
+
+// toolbar with extra controls on the right
+dfx.ToolbarEx("Actions", func() {
+    if dfx.Button("Add") {
+        // handle add
+    }
+    dfx.SameLine()
+    if dfx.Button("Remove") {
+        // handle remove
+    }
+})
+```
+
+Features:
+- Draws full-width background rectangle using `ColHeader` color
+- Automatically handles padding and cursor positioning
+- `ToolbarEx` allows additional controls to the right of the label via callback
+
 **Toggle** - Boolean toggle button with visual feedback:
 ```go
 // inactive (false): dimmed appearance
