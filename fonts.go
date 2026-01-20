@@ -45,7 +45,7 @@ func SetupFonts() {
 	materialConfig.SetFontDataSize(int32(len(fonts.MaterialIconsRegular)))
 	materialConfig.SetFontDataOwnedByAtlas(false)
 	materialConfig.SetSizePixels(20.0)
-	materialConfig.SetGlyphOffset(imgui.Vec2{X: 0, Y: 4})
+	materialConfig.SetGlyphOffset(imgui.Vec2{X: 0, Y: 5})
 	materialConfig.SetGlyphRanges(glyphRanges.Data())
 	materialConfig.SetMergeMode(true) // merge with previous font
 	imgui.CurrentIO().Fonts().AddFont(materialConfig)
