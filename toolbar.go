@@ -30,6 +30,9 @@ func ToolbarEx(label string, extra func()) {
 		headerColor,
 	)
 
+	imgui.Dummy(imgui.Vec2{X: 3, Y: 3})
+	imgui.SameLine()
+
 	// draw text with padding
 	imgui.SetCursorPosY(imgui.CursorPosY() + imgui.CurrentStyle().FramePadding().Y)
 	Text(label)
