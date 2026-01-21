@@ -55,7 +55,7 @@ func SetupFonts() {
 	monoConfig.SetFontData(uintptr(unsafe.Pointer(&fonts.JetBrainsMonoMedium[0])))
 	monoConfig.SetFontDataSize(int32(len(fonts.JetBrainsMonoMedium)))
 	monoConfig.SetFontDataOwnedByAtlas(false)
-	monoConfig.SetSizePixels(18.0)
+	monoConfig.SetSizePixels(16.0)
 	Fonts = append(Fonts, imgui.CurrentIO().Fonts().AddFont(monoConfig))
 
 	// add small font (Gidole for small labels/indicators)
@@ -79,7 +79,7 @@ func SetupFonts() {
 }
 
 // font sizes corresponding to each font index
-var fontSizes = []float32{20.0, 18.0, 16.0}
+var fontSizes = []float32{20.0, 16.0, 16.0}
 
 // PushFont convenience function for temporarily switching fonts.
 // passes the font's configured size to ensure correct rendering.
