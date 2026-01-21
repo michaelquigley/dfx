@@ -157,9 +157,10 @@ func (lv *LogViewer) Draw(state *State) {
 	}
 
 	// create scrollable child window for log messages
+	imgui.PushStyleVarFloat(imgui.StyleVarScrollbarSize, 9)
 	imgui.BeginChildStr("##logViewerContent")
 	imgui.PushStyleVarVec2(imgui.StyleVarItemSpacing, imgui.Vec2{X: 0, Y: 0})
-	imgui.PushFont(Fonts[MonospaceFont], 0)
+	PushFont(MonospaceFont)
 
 	// get count for clipper (single lock acquisition)
 	count := lv.Buffer.Count()
@@ -201,6 +202,7 @@ func (lv *LogViewer) Draw(state *State) {
 	imgui.PopFont()
 	imgui.PopStyleVar()
 	imgui.EndChild()
+	imgui.PopStyleVar() // pop scrollbar size
 
 	// call base container drawing
 	if lv.OnDraw != nil {
