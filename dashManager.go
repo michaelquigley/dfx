@@ -114,8 +114,7 @@ func (d *DashManager) Draw(state *State) {
 		size := imgui.Vec2{X: bounds.X - leftWidth - rightWidth - (d.Margin * 2.0), Y: bounds.Y - topHeight - bottomHeight - (d.Margin * 2.0)}
 		imgui.SetNextWindowSize(size)
 
-		windowFlags := imgui.WindowFlagsNoResize | imgui.WindowFlagsNoMove |
-			imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoScrollWithMouse
+		windowFlags := imgui.WindowFlagsNoResize | imgui.WindowFlagsNoMove | imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
 		imgui.BeginChildStrV("##dashManagerInner", size, imgui.ChildFlagsNone, windowFlags)
 
