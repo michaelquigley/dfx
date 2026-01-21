@@ -13,8 +13,12 @@ func Toolbar(label string) {
 // and optionally calls extra to draw additional controls on the same line.
 func ToolbarEx(label string, extra func()) {
 	availWidth := imgui.ContentRegionAvail().X
+	framePadding := imgui.CurrentStyle().FramePadding().Y
 	textSize := imgui.CalcTextSize(label)
-	lineHeight := textSize.Y + imgui.CurrentStyle().FramePadding().Y*2
+	lineHeight := textSize.Y + framePadding*2.5
+
+	// save starting position for absolute positioning
+	startY := imgui.CursorPosY()
 
 	// draw background rectangle
 	cursorPos := imgui.CursorScreenPos()
@@ -36,7 +40,8 @@ func ToolbarEx(label string, extra func()) {
 		extra()
 	}
 
-	imgui.SetCursorPosY(imgui.CursorPosY() + imgui.CurrentStyle().FramePadding().Y)
+	// set cursor to end of toolbar using absolute position
+	imgui.SetCursorPosY(startY + lineHeight)
 
 	// imgui requires an item after SetCursorPos to validate window boundaries
 	imgui.Dummy(imgui.Vec2{})
