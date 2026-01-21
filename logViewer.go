@@ -199,7 +199,7 @@ func (lv *LogViewer) Draw(state *State) {
 		imgui.SetScrollHereYV(1.0)
 	}
 
-	imgui.PopFont()
+	PopFont()
 	imgui.PopStyleVar()
 	imgui.EndChild()
 	imgui.PopStyleVar() // pop scrollbar size
