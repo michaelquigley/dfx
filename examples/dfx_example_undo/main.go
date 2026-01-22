@@ -65,8 +65,8 @@ func main() {
 	undoSystem := dfx.NewUndoSystem()
 
 	// track when commands are executed
-	undoSystem.RunF = func() {
-		fmt.Println("command executed - file modified")
+	undoSystem.RunF = func(cmd dfx.Command) {
+		fmt.Printf("command executed: '%s' - file modified\n", cmd.Description())
 	}
 
 	// create the main component

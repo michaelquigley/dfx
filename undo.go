@@ -38,7 +38,7 @@ type FullCommand interface {
 // UndoSystem manages command history and undo/redo operations.
 type UndoSystem struct {
 	// RunF is called whenever a command is executed, useful for tracking modifications
-	RunF func()
+	RunF func(Command)
 	undo []Command
 	redo []Command
 }
@@ -53,7 +53,7 @@ func NewUndoSystem() *UndoSystem {
 // they will be merged instead of creating a new stack entry.
 func (us *UndoSystem) Run(command Command) {
 	if us.RunF != nil {
-		us.RunF()
+		us.RunF(command)
 	}
 	command.Run()
 
