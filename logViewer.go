@@ -129,30 +129,40 @@ func (lb *LogBuffer) Count() int {
 // LogViewer is a component that displays log messages from a LogBuffer.
 type LogViewer struct {
 	Container
-	Buffer      *LogBuffer
-	AutoScroll  bool
-	LevelFilter slog.Level // minimum level to show
-	ShowTime    bool
-	ShowFunc    bool
-	ShowFields  bool
+	Buffer          *LogBuffer
+	AutoScroll      bool
+	LevelFilter     slog.Level // minimum level to show
+	ShowTime        bool
+	ShowFunc        bool
+	ShowFields      bool
+	DisabledMessage string
 }
 
 // NewLogViewer creates a new log viewer component.
 func NewLogViewer(buffer *LogBuffer) *LogViewer {
 	return &LogViewer{
-		Container:   Container{Visible: true},
-		Buffer:      buffer,
-		AutoScroll:  true,
-		LevelFilter: slog.LevelInfo,
-		ShowTime:    true,
-		ShowFunc:    true,
-		ShowFields:  true,
+		Container:       Container{Visible: true},
+		Buffer:          buffer,
+		AutoScroll:      true,
+		LevelFilter:     slog.LevelInfo,
+		ShowTime:        true,
+		ShowFunc:        true,
+		ShowFields:      true,
+		DisabledMessage: "Logging Capture Disabled",
 	}
 }
 
 // Draw renders the log viewer.
 func (lv *LogViewer) Draw(state *State) {
-	if !lv.Visible {
+	if !lv.Visible || lv.Buffer == nil {
+		// render centered disabled message
+		textSize := imgui.CalcTextSize(lv.DisabledMessage)
+		avail := imgui.ContentRegionAvail()
+		cursorPos := imgui.CursorPos()
+		centerX := cursorPos.X + (avail.X-textSize.X)/2
+		centerY := cursorPos.Y + (avail.Y-textSize.Y)/2
+		imgui.SetCursorPos(imgui.Vec2{X: centerX, Y: centerY})
+		imgui.TextDisabled(lv.DisabledMessage)
 		return
 	}
 
