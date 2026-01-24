@@ -156,13 +156,7 @@ func NewLogViewer(buffer *LogBuffer) *LogViewer {
 func (lv *LogViewer) Draw(state *State) {
 	if !lv.Visible || lv.Buffer == nil {
 		// render centered disabled message
-		textSize := imgui.CalcTextSize(lv.DisabledMessage)
-		avail := imgui.ContentRegionAvail()
-		cursorPos := imgui.CursorPos()
-		centerX := cursorPos.X + (avail.X-textSize.X)/2
-		centerY := cursorPos.Y + (avail.Y-textSize.Y)/2
-		imgui.SetCursorPos(imgui.Vec2{X: centerX, Y: centerY})
-		imgui.TextDisabled(lv.DisabledMessage)
+		CenterTextDisabled(lv.DisabledMessage)
 		return
 	}
 
