@@ -197,7 +197,7 @@ func TestMatchPath_MatchesFullPath(t *testing.T) {
 
 func TestMatchPath_MatchesDirectory(t *testing.T) {
 	root := testTree()
-	pred, err := MatchPath(`^root/docs$`)
+	pred, err := MatchPath(`^docs$`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

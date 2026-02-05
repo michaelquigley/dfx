@@ -20,15 +20,17 @@ type FileNode struct {
 	Children []*FileNode
 }
 
-// Path returns the full filesystem path from the root to this node.
+// Path returns the path from the root to this node, relative to the root.
+// for the root node itself, this returns an empty string.
 func (n *FileNode) Path() string {
-	if n == nil {
+	if n == nil || n.Parent == nil {
 		return ""
 	}
-	if n.Parent != nil {
-		return filepath.Join(n.Parent.Path(), n.Name)
+	parentPath := n.Parent.Path()
+	if parentPath == "" {
+		return n.Name
 	}
-	return n.Name
+	return filepath.Join(parentPath, n.Name)
 }
 
 // BuildTree recursively scans a filesystem path and builds a tree structure.
