@@ -442,6 +442,45 @@ waterfall.Draw(state)
 
 See `examples/dfx_example_vumeter` for a complete demonstration.
 
+### FileNode Search/Filter
+
+`FileNode` provides a `Find` method for searching trees, along with predicate constructors for common patterns:
+
+```go
+// find all .go files
+goFiles := root.Find(dfx.MatchExt(".go"))
+
+// find by name regex
+pred, err := dfx.MatchName(`^main\.`)
+if err != nil {
+    // handle invalid regex
+}
+mains := root.Find(pred)
+
+// find by full path regex
+pred, err = dfx.MatchPath(`src/.*\.go$`)
+if err != nil {
+    // handle invalid regex
+}
+srcGoFiles := root.Find(pred)
+
+// find all directories with an inline predicate
+dirs := root.Find(func(n *dfx.FileNode) bool { return n.Dir })
+```
+
+**Methods:**
+- **`Find(predicate func(*FileNode) bool) []*FileNode`** - Returns all matching nodes in depth-first pre-order. Returns nil on a nil receiver.
+
+**Predicate Constructors:**
+- **`MatchExt(ext string) func(*FileNode) bool`** - Matches non-directory nodes by file extension (case-insensitive). The ext parameter should include the dot (e.g. ".go").
+- **`MatchName(pattern string) (func(*FileNode) bool, error)`** - Matches nodes whose Name matches the given regex.
+- **`MatchPath(pattern string) (func(*FileNode) bool, error)`** - Matches nodes whose full Path() matches the given regex.
+
+Predicates are composable with `FileTree.Filter`:
+```go
+fileTree.Filter = dfx.MatchExt(".go")
+```
+
 ## Actions and Keyboard Shortcuts
 
 dfx provides a hierarchical action system with conflict detection:

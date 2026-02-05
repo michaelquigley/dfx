@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 )
@@ -60,6 +62,63 @@ func BuildTree(path string, parent *FileNode) (*FileNode, error) {
 	}
 
 	return node, nil
+}
+
+// Find returns all nodes in the tree rooted at this node for which
+// the predicate returns true. traversal is depth-first pre-order.
+func (n *FileNode) Find(predicate func(*FileNode) bool) []*FileNode {
+	if n == nil {
+		return nil
+	}
+	var results []*FileNode
+	n.findRecursive(predicate, &results)
+	return results
+}
+
+func (n *FileNode) findRecursive(predicate func(*FileNode) bool, results *[]*FileNode) {
+	if predicate(n) {
+		*results = append(*results, n)
+	}
+	for _, child := range n.Children {
+		child.findRecursive(predicate, results)
+	}
+}
+
+// MatchExt returns a predicate that matches non-directory nodes whose
+// file extension equals ext. the ext parameter should include the dot
+// (e.g. ".go"). the comparison is case-insensitive.
+func MatchExt(ext string) func(*FileNode) bool {
+	ext = strings.ToLower(ext)
+	return func(n *FileNode) bool {
+		if n.Dir {
+			return false
+		}
+		return strings.ToLower(filepath.Ext(n.Name)) == ext
+	}
+}
+
+// MatchName returns a predicate that matches nodes whose Name matches
+// the given regular expression pattern.
+func MatchName(pattern string) (func(*FileNode) bool, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid name pattern '%v': %w", pattern, err)
+	}
+	return func(n *FileNode) bool {
+		return re.MatchString(n.Name)
+	}, nil
+}
+
+// MatchPath returns a predicate that matches nodes whose full Path()
+// matches the given regular expression pattern.
+func MatchPath(pattern string) (func(*FileNode) bool, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path pattern '%v': %w", pattern, err)
+	}
+	return func(n *FileNode) bool {
+		return re.MatchString(n.Path())
+	}, nil
 }
 
 // FileTree is a component that displays a filesystem tree with
