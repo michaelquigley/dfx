@@ -285,6 +285,17 @@ func (ws *Workspace) draw(state *State) {
 	}
 }
 
+// Actions returns the action registry of the current workspace component,
+// enabling action propagation through the workspace to the active component.
+func (ws *Workspace) Actions() *ActionRegistry {
+	if current := ws.CurrentComponent(); current != nil {
+		if actions := current.Actions(); actions != nil {
+			return actions
+		}
+	}
+	return ws.Container.Actions()
+}
+
 type workspaceItem struct {
 	Id        string    // stable identifier used in code
 	Name      string    // human-facing display name (can include icons, formatting)
