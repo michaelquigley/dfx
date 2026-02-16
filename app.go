@@ -1,6 +1,7 @@
 package dfx
 
 import (
+	"image"
 	"time"
 
 	"github.com/AllenDang/cimgui-go/backend"
@@ -34,6 +35,7 @@ type Config struct {
 	Theme          Theme          // optional theme (defaults to DefaultTheme)
 	DisableFonts   bool           // if true, skip font setup (use default ImGui fonts)
 	DisableTheming bool           // if true, skip theme setup (use default ImGui theme)
+	Icons          []image.Image  // optional window icons
 }
 
 func New(root Component, config Config) *App {
@@ -68,6 +70,11 @@ func (app *App) Run() error {
 	// set window position if specified
 	if app.config.X != 0 || app.config.Y != 0 {
 		app.backend.SetWindowPos(app.config.X, app.config.Y)
+	}
+
+	// set window icons if specified
+	if len(app.config.Icons) > 0 {
+		app.backend.SetIcons(app.config.Icons...)
 	}
 
 	// setup fonts and styling
