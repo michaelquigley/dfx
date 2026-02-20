@@ -296,6 +296,19 @@ func (ws *Workspace) Actions() *ActionRegistry {
 	return ws.Container.Actions()
 }
 
+// LocalActions returns workspace-local actions without delegation.
+func (ws *Workspace) LocalActions() *ActionRegistry {
+	return ws.Container.Actions()
+}
+
+// ChildActions returns the current active workspace component for action traversal.
+func (ws *Workspace) ChildActions() []Component {
+	if current := ws.CurrentComponent(); current != nil {
+		return []Component{current}
+	}
+	return nil
+}
+
 type workspaceItem struct {
 	Id        string    // stable identifier used in code
 	Name      string    // human-facing display name (can include icons, formatting)

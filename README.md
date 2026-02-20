@@ -533,6 +533,18 @@ The action system provides:
 - **Simple key binding syntax** - "Ctrl+S", "Alt+F4", "Up", etc.
 - **No boilerplate** - just define actions and they work
 
+### Action Traversal
+
+For custom composite components, implement:
+
+- `ChildActions() []Component` to expose children for traversal
+- `LocalActions() *ActionRegistry` to expose local actions
+
+Action precedence is:
+- child component actions first
+- parent-local actions next
+- app-global actions last
+
 ### Menu-Compatible Actions
 
 For applications with menu bars, dfx provides menu-compatible actions that work both as keyboard shortcuts and menu items:

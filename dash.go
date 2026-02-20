@@ -3,8 +3,8 @@ package dfx
 import (
 	"math"
 
-	"github.com/michaelquigley/dfx/fonts"
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/michaelquigley/dfx/fonts"
 )
 
 type DashAttachment int
@@ -225,6 +225,19 @@ func (d *Dash) Actions() *ActionRegistry {
 		return d.Component.Actions()
 	}
 	return d.Container.Actions()
+}
+
+// LocalActions returns dash-local actions without delegation.
+func (d *Dash) LocalActions() *ActionRegistry {
+	return d.Container.Actions()
+}
+
+// ChildActions returns dash content for action traversal.
+func (d *Dash) ChildActions() []Component {
+	if d.Component != nil {
+		return []Component{d.Component}
+	}
+	return nil
 }
 
 const (

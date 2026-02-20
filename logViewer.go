@@ -335,15 +335,15 @@ func (h *SlogHandler) Handle(_ context.Context, rec slog.Record) error {
 	}
 
 	h.buffer.Add(msg)
-	h.attrs = nil
 
 	return nil
 }
 
 // WithAttrs implements slog.Handler.
 func (h *SlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	h.attrs = attrs
-	return h
+	derived := *h
+	derived.attrs = append(append([]slog.Attr{}, h.attrs...), attrs...)
+	return &derived
 }
 
 // WithGroup implements slog.Handler.

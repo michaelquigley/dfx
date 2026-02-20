@@ -152,3 +152,19 @@ func (d *DashManager) Actions() *ActionRegistry {
 	// fall back to container actions
 	return d.Container.Actions()
 }
+
+// LocalActions returns dash manager-local actions without delegation.
+func (d *DashManager) LocalActions() *ActionRegistry {
+	return d.Container.Actions()
+}
+
+// ChildActions returns the active child component for action traversal.
+func (d *DashManager) ChildActions() []Component {
+	if d.Focused != nil && d.Focused.Component != nil {
+		return []Component{d.Focused.Component}
+	}
+	if d.Inner != nil {
+		return []Component{d.Inner}
+	}
+	return nil
+}

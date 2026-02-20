@@ -97,6 +97,9 @@ func (w *VUWaterfall) SetChannelCount(count int) {
 // SetHistorySize sets the number of samples to keep and reinitializes the buffer.
 // this clears the history buffer.
 func (w *VUWaterfall) SetHistorySize(size int) {
+	if size <= 0 {
+		size = 1
+	}
 	if size == w.HistorySize {
 		return
 	}

@@ -318,3 +318,16 @@ func (h *HCollapse) Actions() *ActionRegistry {
 	}
 	return h.Container.Actions()
 }
+
+// LocalActions returns panel-local actions without delegation.
+func (h *HCollapse) LocalActions() *ActionRegistry {
+	return h.Container.Actions()
+}
+
+// ChildActions returns the content component for action traversal.
+func (h *HCollapse) ChildActions() []Component {
+	if h.Content != nil {
+		return []Component{h.Content}
+	}
+	return nil
+}

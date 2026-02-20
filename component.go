@@ -13,6 +13,20 @@ type Component interface {
 	Actions() *ActionRegistry
 }
 
+// ChildActionProvider exposes child components for action traversal.
+// components that compose other components can implement this to participate
+// in hierarchical action lookup.
+type ChildActionProvider interface {
+	ChildActions() []Component
+}
+
+// LocalActionProvider exposes a component's local action registry.
+// this allows traversal code to use local actions directly even when Actions()
+// is used for legacy delegation behavior.
+type LocalActionProvider interface {
+	LocalActions() *ActionRegistry
+}
+
 // State provides everything a component needs to draw.
 // this consolidates what Surface scattered across multiple parameters.
 type State struct {
@@ -55,12 +69,22 @@ func (c *Container) Draw(state *State) {
 	}
 }
 
+// ChildActions returns action-traversable children.
+func (c *Container) ChildActions() []Component {
+	return c.Children
+}
+
 // Actions implements Component
 func (c *Container) Actions() *ActionRegistry {
 	if c.actions == nil {
 		c.actions = NewActionRegistry()
 	}
 	return c.actions
+}
+
+// LocalActions returns this container's local action registry.
+func (c *Container) LocalActions() *ActionRegistry {
+	return c.Actions()
 }
 
 // Func is a function component that can have keyboard actions.
@@ -88,4 +112,9 @@ func (f *Func) Actions() *ActionRegistry {
 		f.actions = NewActionRegistry()
 	}
 	return f.actions
+}
+
+// LocalActions returns this component's local action registry.
+func (f *Func) LocalActions() *ActionRegistry {
+	return f.Actions()
 }

@@ -38,6 +38,10 @@ type Config struct {
 	Icons          []image.Image  // optional window icons
 }
 
+var createBackend = func() (backend.Backend[glfwbackend.GLFWWindowFlags], error) {
+	return backend.CreateBackend(glfwbackend.NewGLFWBackend())
+}
+
 func New(root Component, config Config) *App {
 	// set defaults
 	if config.Title == "" {
@@ -64,7 +68,12 @@ func (app *App) Run() error {
 	// record start time for log timestamps
 	app.startTime = time.Now()
 
-	app.backend, _ = backend.CreateBackend(glfwbackend.NewGLFWBackend())
+	var err error
+	app.backend, err = createBackend()
+	if err != nil {
+		app.runErr = err
+		return app.runErr
+	}
 	app.backend.CreateWindow(app.config.Title, app.config.Width, app.config.Height)
 
 	// set window position if specified
@@ -302,19 +311,26 @@ func (app *App) getModifiers() KeyModifier {
 	return mod
 }
 
-// gatherComponentActions collects all component actions hierarchically (children first)
+// gatherComponentActions collects all component actions hierarchically
+// using explicit child traversal plus local actions.
 func (app *App) gatherComponentActions(comp Component) []*ActionRegistry {
 	var registries []*ActionRegistry
 
-	// gather children's actions first (reverse order for proper z-ordering)
-	if box, ok := comp.(*Container); ok {
-		for i := len(box.Children) - 1; i >= 0; i-- {
-			registries = append(registries, app.gatherComponentActions(box.Children[i])...)
+	if childProvider, ok := comp.(ChildActionProvider); ok {
+		children := childProvider.ChildActions()
+		for i := len(children) - 1; i >= 0; i-- {
+			registries = append(registries, app.gatherComponentActions(children[i])...)
 		}
 	}
 
-	// then add this component's actions
-	if actions := comp.Actions(); actions != nil && len(actions.actions) > 0 {
+	var actions *ActionRegistry
+	if localProvider, ok := comp.(LocalActionProvider); ok {
+		actions = localProvider.LocalActions()
+	} else {
+		actions = comp.Actions()
+	}
+
+	if actions != nil && len(actions.actions) > 0 {
 		registries = append(registries, actions)
 	}
 
