@@ -130,13 +130,7 @@ func (d *DashManager) Draw(state *State) {
 		imgui.EndChild()
 	}
 
-	// base container drawing support
-	if d.OnDraw != nil {
-		d.OnDraw(state)
-	}
-	for _, child := range d.Children {
-		child.Draw(state)
-	}
+	drawContainerExtensions(&d.Container, state)
 }
 
 // Actions implements Component by prioritizing focused dash actions

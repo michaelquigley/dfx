@@ -24,7 +24,7 @@ The fundamental abstraction in dfx is the `Component`:
 ```go
 type Component interface {
     Draw(state *State)
-    Actions() []*Action
+    Actions() *ActionRegistry
 }
 ```
 
@@ -50,7 +50,7 @@ type State struct {
 The simplest way to create a component:
 
 ```go
-root := dfx.Func(func(state *dfx.State) {
+root := dfx.NewFunc(func(state *dfx.State) {
     dfx.Text("Hello World!")
     if dfx.Button("Click Me") {
         fmt.Println("Button clicked!")
@@ -90,7 +90,7 @@ package main
 import "github.com/michaelquigley/dfx"
 
 func main() {
-    root := dfx.Func(func(state *dfx.State) {
+    root := dfx.NewFunc(func(state *dfx.State) {
         dfx.Text("Hello from dfx!")
         if dfx.Button("Click Me") {
             // handle button click
@@ -110,7 +110,7 @@ func main() {
 ### With Menu Bar
 
 ```go
-menuBar := dfx.Func(func(state *dfx.State) {
+menuBar := dfx.NewFunc(func(state *dfx.State) {
     if dfx.BeginMenu("File") {
         if dfx.MenuItem("New", "Ctrl+N") {
             // handle new
@@ -162,7 +162,7 @@ dfx.SetTheme(dfx.ModernDark)
 
 dfx provides three font constants with Material Icons merged where applicable:
 - **MainFont** (20px) - Gidole Regular with Material Icons
-- **MonospaceFont** (18px) - JetBrains Mono for code
+- **MonospaceFont** (16px) - JetBrains Mono for code
 - **SmallFont** (16px) - Gidole Regular small with Material Icons, for labels/indicators
 
 ### Using Different Fonts
@@ -725,7 +725,7 @@ app := dfx.New(ws, dfx.Config{...})
 - `CurrentComponent()` - get current component
 - `SetName(id, name)` - change display name (ID unchanged)
 - `GetName(id)` - get display name for ID
-- `WorkspaceIDs()` - get list of workspace IDs
+- `WorkspaceIds()` - get list of workspace IDs
 - `WorkspaceNames()` - get list of display names
 
 **Configuration:**

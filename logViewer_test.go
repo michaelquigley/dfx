@@ -64,3 +64,46 @@ func TestSlogHandler_WithAttrsReturnsIndependentHandlers(t *testing.T) {
 		t.Fatalf("expected base handler attrs to remain empty, got '%v'", fieldsBase["scope"])
 	}
 }
+
+func TestNewLogViewer_DefaultDisabledMessageConfig(t *testing.T) {
+	lv := NewLogViewer(nil)
+
+	if !lv.ShowDisabledMessage {
+		t.Fatalf("expected ShowDisabledMessage to default to 'true'")
+	}
+	if lv.DisabledMessage != "logging capture disabled" {
+		t.Fatalf("expected disabled message 'logging capture disabled', got '%s'", lv.DisabledMessage)
+	}
+}
+
+func TestLogViewer_ShouldRenderDisabledMessage(t *testing.T) {
+	lv := NewLogViewer(nil)
+	lv.Visible = true
+
+	if !lv.shouldRenderDisabledMessage() {
+		t.Fatalf("expected disabled message to render when visible and buffer is nil")
+	}
+
+	lv.ShowDisabledMessage = false
+	if lv.shouldRenderDisabledMessage() {
+		t.Fatalf("expected disabled message rendering to be disabled")
+	}
+
+	lv.ShowDisabledMessage = true
+	lv.DisabledMessage = ""
+	if lv.shouldRenderDisabledMessage() {
+		t.Fatalf("expected empty disabled message to suppress rendering")
+	}
+
+	lv.DisabledMessage = "logging capture disabled"
+	lv.Buffer = NewLogBuffer(1)
+	if lv.shouldRenderDisabledMessage() {
+		t.Fatalf("expected non-nil buffer to suppress disabled rendering")
+	}
+
+	lv.Buffer = nil
+	lv.Visible = false
+	if lv.shouldRenderDisabledMessage() {
+		t.Fatalf("expected invisible log viewer to suppress disabled rendering")
+	}
+}

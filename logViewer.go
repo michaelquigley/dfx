@@ -129,34 +129,42 @@ func (lb *LogBuffer) Count() int {
 // LogViewer is a component that displays log messages from a LogBuffer.
 type LogViewer struct {
 	Container
-	Buffer          *LogBuffer
-	AutoScroll      bool
-	LevelFilter     slog.Level // minimum level to show
-	ShowTime        bool
-	ShowFunc        bool
-	ShowFields      bool
-	DisabledMessage string
+	Buffer              *LogBuffer
+	AutoScroll          bool
+	LevelFilter         slog.Level // minimum level to show
+	ShowTime            bool
+	ShowFunc            bool
+	ShowFields          bool
+	ShowDisabledMessage bool
+	DisabledMessage     string
 }
 
 // NewLogViewer creates a new log viewer component.
 func NewLogViewer(buffer *LogBuffer) *LogViewer {
 	return &LogViewer{
-		Container:       Container{Visible: true},
-		Buffer:          buffer,
-		AutoScroll:      true,
-		LevelFilter:     slog.LevelInfo,
-		ShowTime:        true,
-		ShowFunc:        true,
-		ShowFields:      true,
-		DisabledMessage: "Logging Capture Disabled",
+		Container:           Container{Visible: true},
+		Buffer:              buffer,
+		AutoScroll:          true,
+		LevelFilter:         slog.LevelInfo,
+		ShowTime:            true,
+		ShowFunc:            true,
+		ShowFields:          true,
+		ShowDisabledMessage: true,
+		DisabledMessage:     "logging capture disabled",
 	}
 }
 
 // Draw renders the log viewer.
 func (lv *LogViewer) Draw(state *State) {
-	if !lv.Visible || lv.Buffer == nil {
-		// render centered disabled message
-		CenterTextDisabled(lv.DisabledMessage)
+	if !lv.Visible {
+		return
+	}
+	if lv.Buffer == nil {
+		if lv.shouldRenderDisabledMessage() {
+			// render centered disabled message
+			CenterTextDisabled(lv.DisabledMessage)
+		}
+		drawContainerExtensions(&lv.Container, state)
 		return
 	}
 
@@ -208,13 +216,23 @@ func (lv *LogViewer) Draw(state *State) {
 	imgui.EndChild()
 	imgui.PopStyleVar() // pop scrollbar size
 
-	// call base container drawing
-	if lv.OnDraw != nil {
-		lv.OnDraw(state)
+	drawContainerExtensions(&lv.Container, state)
+}
+
+func (lv *LogViewer) shouldRenderDisabledMessage() bool {
+	if !lv.ShowDisabledMessage {
+		return false
 	}
-	for _, child := range lv.Children {
-		child.Draw(state)
+	if lv.DisabledMessage == "" {
+		return false
 	}
+	if lv.Buffer != nil {
+		return false
+	}
+	if !lv.Visible {
+		return false
+	}
+	return true
 }
 
 // renderMessage renders a single log message with color formatting.

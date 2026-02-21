@@ -190,9 +190,7 @@ func (w *VUWaterfall) Draw(state *State) {
 	if w.historyLen == 0 {
 		// reserve space and return
 		imgui.Dummy(imgui.Vec2{X: totalWidth, Y: w.Height})
-		if w.OnDraw != nil {
-			w.OnDraw(state)
-		}
+		drawContainerExtensions(&w.Container, state)
 		return
 	}
 
@@ -254,10 +252,7 @@ func (w *VUWaterfall) Draw(state *State) {
 	// reserve space for layout
 	imgui.Dummy(imgui.Vec2{X: totalWidth, Y: w.Height})
 
-	// call base container draw
-	if w.OnDraw != nil {
-		w.OnDraw(state)
-	}
+	drawContainerExtensions(&w.Container, state)
 }
 
 // levelColor returns the color for a given level based on zone thresholds.

@@ -60,13 +60,7 @@ func (c *Container) Draw(state *State) {
 	if !c.Visible {
 		return
 	}
-	if c.OnDraw != nil {
-		c.OnDraw(state)
-	}
-	// draw children if any
-	for _, child := range c.Children {
-		child.Draw(state)
-	}
+	drawContainerExtensions(c, state)
 }
 
 // ChildActions returns action-traversable children.
@@ -117,4 +111,14 @@ func (f *Func) Actions() *ActionRegistry {
 // LocalActions returns this component's local action registry.
 func (f *Func) LocalActions() *ActionRegistry {
 	return f.Actions()
+}
+
+// drawContainerExtensions runs standard post-content container extension drawing.
+func drawContainerExtensions(c *Container, state *State) {
+	if c.OnDraw != nil {
+		c.OnDraw(state)
+	}
+	for _, child := range c.Children {
+		child.Draw(state)
+	}
 }

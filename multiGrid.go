@@ -68,25 +68,25 @@ func (mg *MultiGrid) Draw(state *State) {
 		return
 	}
 
-	// call OnDraw if defined
-	if mg.OnDraw != nil {
-		mg.OnDraw(state)
+	layoutState := &State{
+		Size:     state.Size,
+		Position: state.Position,
+		IO:       state.IO,
+		App:      state.App,
+		Parent:   mg,
 	}
 
 	// handle input first (for resize operations, etc)
 	if mg.layout != nil {
-		mg.layout.HandleInput(state)
+		mg.layout.HandleInput(layoutState)
 	}
 
 	// arrange components using the current layout
 	if mg.layout != nil {
-		mg.layout.Arrange(mg.components, state)
+		mg.layout.Arrange(mg.components, layoutState)
 	}
 
-	// draw children (if any)
-	for _, child := range mg.Children {
-		child.Draw(state)
-	}
+	drawContainerExtensions(mg.Container, state)
 }
 
 // FlexLayout provides a resizable grid layout similar to the original MultiSurface

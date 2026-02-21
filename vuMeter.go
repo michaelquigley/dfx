@@ -236,10 +236,7 @@ func (v *VUMeter) Draw(state *State) {
 	// reserve space for the meter so imgui layout works correctly
 	imgui.Dummy(imgui.Vec2{X: v.Width(), Y: v.Height})
 
-	// call base container draw
-	if v.OnDraw != nil {
-		v.OnDraw(state)
-	}
+	drawContainerExtensions(&v.Container, state)
 }
 
 // drawLabels renders channel labels with consistent font metrics.
