@@ -18,9 +18,9 @@ func main() {
 
 	// create editor workspace
 	editor := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("Code Editor")
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Text("Code Editor")
+		imgui.Separator()
+		imgui.Spacing()
 
 		// multiline text editor
 		newText, changed := dfx.InputMultiline("##editor", editorText, state.Size.X-20, state.Size.Y-80)
@@ -29,15 +29,15 @@ func main() {
 		}
 
 		// status bar
-		dfx.Separator()
-		dfx.Text(fmt.Sprintf("lines: %d | chars: %d", countLines(editorText), len(editorText)))
+		imgui.Separator()
+		imgui.Text(fmt.Sprintf("lines: %d | chars: %d", countLines(editorText), len(editorText)))
 	})
 
 	// create viewer workspace
 	viewer := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("Content Viewer")
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Text("Content Viewer")
+		imgui.Separator()
+		imgui.Spacing()
 
 		// zoom control
 		newScale, changed := dfx.Slider("Zoom", viewerScale, 0.5, 3.0)
@@ -45,11 +45,11 @@ func main() {
 			viewerScale = newScale
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
+		imgui.Spacing()
+		imgui.Separator()
 
 		// simulate viewing content with colored rectangles
-		if dfx.BeginChild("viewer_content", 0, 0, false) {
+		if imgui.BeginChildStrV("viewer_content", imgui.Vec2{X: 0, Y: 0}, imgui.ChildFlagsNone, imgui.WindowFlagsNone) {
 			drawList := imgui.WindowDrawList()
 			pos := imgui.CursorScreenPos()
 
@@ -72,17 +72,17 @@ func main() {
 
 			// advance cursor
 			imgui.Dummy(imgui.Vec2{X: 0, Y: baseSize + spacing})
-			dfx.Text(fmt.Sprintf("viewing at %.1fx zoom", viewerScale))
+			imgui.Text(fmt.Sprintf("viewing at %.1fx zoom", viewerScale))
 
-			dfx.EndChild()
+			imgui.EndChild()
 		}
 	})
 
 	// create settings workspace
 	settings := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("Application Settings")
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Text("Application Settings")
+		imgui.Separator()
+		imgui.Spacing()
 
 		// username input
 		newUsername, changed := dfx.Input("Username", settingsUsername)
@@ -102,18 +102,18 @@ func main() {
 			settingsVolume = newVolume
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// display current settings
-		dfx.Text("Current Configuration:")
-		dfx.Text(fmt.Sprintf("  username: '%s'", settingsUsername))
-		dfx.Text(fmt.Sprintf("  dark mode: %v", settingsDarkMode))
-		dfx.Text(fmt.Sprintf("  volume: %.0f%%", settingsVolume))
+		imgui.Text("Current Configuration:")
+		imgui.Text(fmt.Sprintf("  username: '%s'", settingsUsername))
+		imgui.Text(fmt.Sprintf("  dark mode: %v", settingsDarkMode))
+		imgui.Text(fmt.Sprintf("  volume: %.0f%%", settingsVolume))
 
-		dfx.Spacing()
-		if dfx.Button("Reset to Defaults") {
+		imgui.Spacing()
+		if imgui.Button("Reset to Defaults") {
 			settingsUsername = "user"
 			settingsDarkMode = true
 			settingsVolume = 50.0
@@ -152,33 +152,33 @@ func main() {
 
 	// create menu bar
 	menuBar := dfx.NewFunc(func(state *dfx.State) {
-		if dfx.BeginMenu("File") {
-			if dfx.MenuItem("Exit", "") {
+		if imgui.BeginMenu("File") {
+			if imgui.MenuItemBoolV("Exit", "", false, true) {
 				state.App.Stop()
 			}
-			dfx.EndMenu()
+			imgui.EndMenu()
 		}
 
-		if dfx.BeginMenu("Workspace") {
+		if imgui.BeginMenu("Workspace") {
 			// use display names in menu but switch by Id
-			if dfx.MenuItem(fonts.ICON_ADDCHART+" Editor", "Ctrl+1") {
+			if imgui.MenuItemBoolV(fonts.ICON_ADDCHART+" Editor", "Ctrl+1", false, true) {
 				ws.Switch("editor")
 			}
-			if dfx.MenuItem(fonts.ICON_PANORAMA_FISH_EYE+" Viewer", "Ctrl+2") {
+			if imgui.MenuItemBoolV(fonts.ICON_PANORAMA_FISH_EYE+" Viewer", "Ctrl+2", false, true) {
 				ws.Switch("viewer")
 			}
-			if dfx.MenuItem(fonts.ICON_SETTINGS+" Settings", "Ctrl+3") {
+			if imgui.MenuItemBoolV(fonts.ICON_SETTINGS+" Settings", "Ctrl+3", false, true) {
 				ws.Switch("settings")
 			}
-			dfx.EndMenu()
+			imgui.EndMenu()
 		}
 
-		if dfx.BeginMenu("Help") {
-			if dfx.MenuItem("About", "") {
+		if imgui.BeginMenu("Help") {
+			if imgui.MenuItemBoolV("About", "", false, true) {
 				fmt.Println("workspace example - demonstrates workspace switching")
 				fmt.Printf("current workspace: '%s' (%s)\n", ws.Current(), ws.CurrentName())
 			}
-			dfx.EndMenu()
+			imgui.EndMenu()
 		}
 	})
 

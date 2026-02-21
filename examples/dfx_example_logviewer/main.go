@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx"
 	"github.com/michaelquigley/dfx/fonts"
 	"github.com/michaelquigley/df/dl"
@@ -47,14 +48,14 @@ func main() {
 	// create toolbar with controls
 	toolbar := dfx.NewFunc(func(state *dfx.State) {
 		// copy button
-		if dfx.Button(fonts.ICON_COPY_ALL) {
+		if imgui.Button(fonts.ICON_COPY_ALL) {
 			text := buffer.AllText()
 			clipboard.Write(clipboard.FmtText, []byte(text))
 			dl.Log().Info("copied log to clipboard")
 		}
 
-		dfx.SameLine()
-		if dfx.Button(fonts.ICON_SAVE) {
+		imgui.SameLine()
+		if imgui.Button(fonts.ICON_SAVE) {
 			if filename, err := dialog.File().Filter("log file", "log").Title("Save Log").Save(); err == nil {
 				// ensure .log extension
 				if filepath.Ext(filename) != ".log" {
@@ -68,17 +69,17 @@ func main() {
 			}
 		}
 
-		dfx.SameLine()
-		if dfx.Button(fonts.ICON_CLEAR_ALL) {
+		imgui.SameLine()
+		if imgui.Button(fonts.ICON_CLEAR_ALL) {
 			buffer.Clear()
 			dl.Log().Info("cleared log buffer")
 		}
 
-		dfx.SameLine()
-		dfx.Text(fmt.Sprintf("Messages: %d", buffer.Count()))
+		imgui.SameLine()
+		imgui.Text(fmt.Sprintf("Messages: %d", buffer.Count()))
 
-		dfx.SameLine()
-		if dfx.Button("Generate Logs") {
+		imgui.SameLine()
+		if imgui.Button("Generate Logs") {
 			generateTestLogs()
 		}
 	})
@@ -88,7 +89,7 @@ func main() {
 		Visible: true,
 		OnDraw: func(state *dfx.State) {
 			toolbar.Draw(state)
-			dfx.Separator()
+			imgui.Separator()
 		},
 		Children: []dfx.Component{viewer},
 	}

@@ -68,74 +68,35 @@ func LoadJSON(path string, config interface{}) error {
 	return nil
 }
 
-// CaptureDashState extracts configuration from a DashManager
-// Returns a map with keys: "top", "left", "right", "bottom"
+// dashSlots returns a map of slot name to dash pointer for iteration.
+func dashSlots(dm *DashManager) map[string]*Dash {
+	return map[string]*Dash{
+		"top": dm.Top, "left": dm.Left, "right": dm.Right, "bottom": dm.Bottom,
+	}
+}
+
+// CaptureDashState extracts configuration from a DashManager.
+// returns a map with keys: "top", "left", "right", "bottom"
 func CaptureDashState(dm *DashManager) map[string]DashConfig {
 	config := make(map[string]DashConfig)
-
-	if dm.Top != nil {
-		config["top"] = DashConfig{
-			Visible: dm.Top.Visible,
-			Size:    dm.Top.TargetSize,
+	for name, dash := range dashSlots(dm) {
+		if dash != nil {
+			config[name] = DashConfig{Visible: dash.Visible, Size: dash.TargetSize}
 		}
 	}
-
-	if dm.Left != nil {
-		config["left"] = DashConfig{
-			Visible: dm.Left.Visible,
-			Size:    dm.Left.TargetSize,
-		}
-	}
-
-	if dm.Right != nil {
-		config["right"] = DashConfig{
-			Visible: dm.Right.Visible,
-			Size:    dm.Right.TargetSize,
-		}
-	}
-
-	if dm.Bottom != nil {
-		config["bottom"] = DashConfig{
-			Visible: dm.Bottom.Visible,
-			Size:    dm.Bottom.TargetSize,
-		}
-	}
-
 	return config
 }
 
-// RestoreDashState applies configuration to a DashManager
-// Accepts a map with keys: "top", "left", "right", "bottom"
+// RestoreDashState applies configuration to a DashManager.
+// accepts a map with keys: "top", "left", "right", "bottom"
 func RestoreDashState(dm *DashManager, config map[string]DashConfig) {
-	if dm.Top != nil {
-		if cfg, ok := config["top"]; ok {
-			dm.Top.Visible = cfg.Visible
-			dm.Top.TargetSize = cfg.Size
-			dm.Top.CurrentSize = cfg.Size
-		}
-	}
-
-	if dm.Left != nil {
-		if cfg, ok := config["left"]; ok {
-			dm.Left.Visible = cfg.Visible
-			dm.Left.TargetSize = cfg.Size
-			dm.Left.CurrentSize = cfg.Size
-		}
-	}
-
-	if dm.Right != nil {
-		if cfg, ok := config["right"]; ok {
-			dm.Right.Visible = cfg.Visible
-			dm.Right.TargetSize = cfg.Size
-			dm.Right.CurrentSize = cfg.Size
-		}
-	}
-
-	if dm.Bottom != nil {
-		if cfg, ok := config["bottom"]; ok {
-			dm.Bottom.Visible = cfg.Visible
-			dm.Bottom.TargetSize = cfg.Size
-			dm.Bottom.CurrentSize = cfg.Size
+	for name, dash := range dashSlots(dm) {
+		if dash != nil {
+			if cfg, ok := config[name]; ok {
+				dash.Visible = cfg.Visible
+				dash.TargetSize = cfg.Size
+				dash.CurrentSize = cfg.Size
+			}
 		}
 	}
 }

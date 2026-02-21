@@ -6,6 +6,22 @@ import (
 	"github.com/AllenDang/cimgui-go/imgui"
 )
 
+// VU zone thresholds for color transitions.
+const (
+	VUZoneGreen  = 0.6 // green zone boundary (0 to 60%)
+	VUZoneYellow = 0.8 // yellow zone boundary (60% to 80%)
+)
+
+// vuZoneColor returns the color for a given position based on zone thresholds.
+func vuZoneColor(pos float32, colorLow, colorMid, colorHigh imgui.Vec4) imgui.Vec4 {
+	if pos < VUZoneGreen {
+		return colorLow
+	} else if pos < VUZoneYellow {
+		return colorMid
+	}
+	return colorHigh
+}
+
 // VUMeterMode defines the visual rendering style of the meter.
 type VUMeterMode int
 
@@ -273,15 +289,8 @@ func (v *VUMeter) drawLabels(cursor imgui.Vec2, dl *imgui.DrawList) {
 
 // segmentColor returns the color for a segment based on its position.
 func (v *VUMeter) segmentColor(segment int) imgui.Vec4 {
-	// calculate normalized position (0.0 to 1.0)
 	pos := float32(segment) / float32(v.SegmentCount)
-
-	if pos < 0.6 {
-		return v.ColorLow // green zone
-	} else if pos < 0.8 {
-		return v.ColorMid // yellow zone
-	}
-	return v.ColorHigh // red zone
+	return vuZoneColor(pos, v.ColorLow, v.ColorMid, v.ColorHigh)
 }
 
 // updatePeaks updates peak hold and decay for all channels.
@@ -336,25 +345,21 @@ func (v *VUMeter) drawSolidChannel(dl *imgui.DrawList, cursor imgui.Vec2, ch int
 	)
 
 	if level > 0 {
-		// zone boundaries (as normalized positions)
-		greenMax := float32(0.6)
-		yellowMax := float32(0.8)
-
 		// fill from bottom up based on level
 		fillHeight := level * meterHeight
 		fillTop := meterBottom - fillHeight
 
 		// draw color zones
-		if level <= greenMax {
+		if level <= VUZoneGreen {
 			// only green zone lit
 			dl.AddRectFilled(
 				imgui.Vec2{X: segLeft, Y: fillTop},
 				imgui.Vec2{X: segRight, Y: meterBottom},
 				imgui.ColorConvertFloat4ToU32(v.ColorLow),
 			)
-		} else if level <= yellowMax {
+		} else if level <= VUZoneYellow {
 			// green fully lit, yellow partially lit
-			greenTop := meterBottom - (greenMax * meterHeight)
+			greenTop := meterBottom - (VUZoneGreen * meterHeight)
 			dl.AddRectFilled(
 				imgui.Vec2{X: segLeft, Y: greenTop},
 				imgui.Vec2{X: segRight, Y: meterBottom},
@@ -367,8 +372,8 @@ func (v *VUMeter) drawSolidChannel(dl *imgui.DrawList, cursor imgui.Vec2, ch int
 			)
 		} else {
 			// all zones lit
-			greenTop := meterBottom - (greenMax * meterHeight)
-			yellowTop := meterBottom - (yellowMax * meterHeight)
+			greenTop := meterBottom - (VUZoneGreen * meterHeight)
+			yellowTop := meterBottom - (VUZoneYellow * meterHeight)
 			dl.AddRectFilled(
 				imgui.Vec2{X: segLeft, Y: greenTop},
 				imgui.Vec2{X: segRight, Y: meterBottom},
@@ -417,15 +422,8 @@ func (v *VUMeter) drawHighresChannel(dl *imgui.DrawList, cursor imgui.Vec2, ch i
 
 		var segColor imgui.Vec4
 		if seg < litSegments {
-			// color based on position
 			pos := float32(seg) / float32(segmentCount)
-			if pos < 0.6 {
-				segColor = v.ColorLow
-			} else if pos < 0.8 {
-				segColor = v.ColorMid
-			} else {
-				segColor = v.ColorHigh
-			}
+			segColor = vuZoneColor(pos, v.ColorLow, v.ColorMid, v.ColorHigh)
 		} else if seg == peakSegment && v.PeakHoldMs > 0 {
 			segColor = v.ColorPeak
 		} else {

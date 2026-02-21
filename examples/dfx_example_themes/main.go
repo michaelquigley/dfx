@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx"
 	"github.com/michaelquigley/dfx/fonts"
 )
@@ -22,13 +23,13 @@ func main() {
 	}
 
 	root := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("dfx Theming Example")
-		dfx.Separator()
+		imgui.Text("dfx Theming Example")
+		imgui.Separator()
 
 		// theme selector
-		dfx.Text("Current Theme: " + themes[currentTheme].Name())
+		imgui.Text("Current Theme: " + themes[currentTheme].Name())
 
-		if dfx.Button("Previous Theme") {
+		if imgui.Button("Previous Theme") {
 			currentTheme--
 			if currentTheme < 0 {
 				currentTheme = len(themes) - 1
@@ -36,8 +37,8 @@ func main() {
 			dfx.SetTheme(themes[currentTheme])
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Next Theme") {
+		imgui.SameLine()
+		if imgui.Button("Next Theme") {
 			currentTheme++
 			if currentTheme >= len(themes) {
 				currentTheme = 0
@@ -45,13 +46,13 @@ func main() {
 			dfx.SetTheme(themes[currentTheme])
 		}
 
-		dfx.Separator()
+		imgui.Separator()
 
 		// font demonstration
-		dfx.Text("Font Examples:")
+		imgui.Text("Font Examples:")
 
 		// default font with icon
-		dfx.Text("Default Font " + string(fonts.ICON_FAVORITE) + " with Material Icon")
+		imgui.Text("Default Font " + string(fonts.ICON_FAVORITE) + " with Material Icon")
 
 		// monospace font toggle
 		var changed bool
@@ -62,37 +63,37 @@ func main() {
 
 		if showMonospace {
 			dfx.PushFont(dfx.MonospaceFont)
-			dfx.Text("This is monospace text: 1234567890")
-			dfx.Text("function hello() { return 'world'; }")
+			imgui.Text("This is monospace text: 1234567890")
+			imgui.Text("function hello() { return 'world'; }")
 			dfx.PopFont()
 		}
 
-		dfx.Separator()
+		imgui.Separator()
 
 		// ui controls demonstration
-		dfx.Text("UI Controls:")
+		imgui.Text("UI Controls:")
 
 		sliderValue, _ = dfx.Slider("Slider", sliderValue, 0.0, 1.0)
 		inputText, _ = dfx.Input("Input", inputText)
 
-		if dfx.Button("Sample Button") {
+		if imgui.Button("Sample Button") {
 			fmt.Println("button clicked with theme:", themes[currentTheme].Name())
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Another Button") {
+		imgui.SameLine()
+		if imgui.Button("Another Button") {
 			fmt.Println("another button clicked")
 		}
 
-		dfx.Separator()
+		imgui.Separator()
 
 		// colored elements
-		dfx.Text("This demonstrates how the theme affects all UI elements:")
-		dfx.Text("- Window backgrounds")
-		dfx.Text("- Button states (hover, active)")
-		dfx.Text("- Text colors")
-		dfx.Text("- Border colors")
-		dfx.Text("- Input field styling")
+		imgui.Text("This demonstrates how the theme affects all UI elements:")
+		imgui.Text("- Window backgrounds")
+		imgui.Text("- Button states (hover, active)")
+		imgui.Text("- Text colors")
+		imgui.Text("- Border colors")
+		imgui.Text("- Input field styling")
 	})
 
 	app := dfx.New(root, dfx.Config{

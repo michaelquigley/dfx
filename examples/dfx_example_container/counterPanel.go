@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/df/da"
 	"github.com/michaelquigley/dfx"
 )
@@ -20,22 +21,22 @@ type counterPanel struct {
 }
 
 func (p *counterPanel) Draw(state *dfx.State) {
-	dfx.Text("counter workspace")
-	dfx.Separator()
-	dfx.Spacing()
+	imgui.Text("counter workspace")
+	imgui.Separator()
+	imgui.Spacing()
 
-	dfx.Text(fmt.Sprintf("current value: %d", p.cfg.Counter))
-	dfx.Spacing()
+	imgui.Text(fmt.Sprintf("current value: %d", p.cfg.Counter))
+	imgui.Spacing()
 
-	if dfx.Button("increment") {
+	if imgui.Button("increment") {
 		p.cfg.Counter++
 	}
-	dfx.SameLine()
-	if dfx.Button("decrement") {
+	imgui.SameLine()
+	if imgui.Button("decrement") {
 		p.cfg.Counter--
 	}
-	dfx.SameLine()
-	if dfx.Button("reset") {
+	imgui.SameLine()
+	if imgui.Button("reset") {
 		p.cfg.Counter = 0
 	}
 }

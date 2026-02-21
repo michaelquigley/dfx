@@ -24,50 +24,50 @@ func main() {
 	}
 
 	root := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("Window Lifecycle Demo")
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Text("Window Lifecycle Demo")
+		imgui.Separator()
+		imgui.Spacing()
 
 		// window information display
-		dfx.Text("Window Information:")
-		dfx.Text(fmt.Sprintf("  Size: %d x %d", s.windowWidth, s.windowHeight))
-		dfx.Text(fmt.Sprintf("  Position: (%d, %d)", s.windowX, s.windowY))
-		dfx.Text(fmt.Sprintf("  Resize count: %d", s.resizeCount))
+		imgui.Text("Window Information:")
+		imgui.Text(fmt.Sprintf("  Size: %d x %d", s.windowWidth, s.windowHeight))
+		imgui.Text(fmt.Sprintf("  Position: (%d, %d)", s.windowX, s.windowY))
+		imgui.Text(fmt.Sprintf("  Resize count: %d", s.resizeCount))
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// dynamic title update
-		dfx.Text("Dynamic Title:")
-		if dfx.Button("Update Window Title") {
+		imgui.Text("Dynamic Title:")
+		if imgui.Button("Update Window Title") {
 			s.titleCounter++
 			newTitle := fmt.Sprintf("Lifecycle Demo - Count: %d", s.titleCounter)
 			state.App.SetWindowTitle(newTitle)
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// unsaved changes simulation
-		dfx.Text("Close Behavior:")
+		imgui.Text("Close Behavior:")
 		if newValue, changed := dfx.Checkbox("Simulate unsaved changes", s.unsavedChanges); changed {
 			s.unsavedChanges = newValue
 		}
-		dfx.Text("(Try closing the window with unsaved changes)")
+		imgui.Text("(Try closing the window with unsaved changes)")
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// window position controls
-		dfx.Text("Window Controls:")
-		if dfx.Button("Get Current Position") {
+		imgui.Text("Window Controls:")
+		if imgui.Button("Get Current Position") {
 			s.windowX, s.windowY = state.App.GetWindowPos()
 		}
-		dfx.SameLine()
-		if dfx.Button("Get Current Size") {
+		imgui.SameLine()
+		if imgui.Button("Get Current Size") {
 			s.windowWidth, s.windowHeight = state.App.GetWindowSize()
 		}
 
@@ -79,17 +79,17 @@ func main() {
 
 		// modal dialog
 		if imgui.BeginPopupModalV("Confirm Close", nil, imgui.WindowFlagsAlwaysAutoResize) {
-			dfx.Text("You have unsaved changes!")
-			dfx.Text("Are you sure you want to close?")
-			dfx.Spacing()
+			imgui.Text("You have unsaved changes!")
+			imgui.Text("Are you sure you want to close?")
+			imgui.Spacing()
 
-			if dfx.Button("Close Anyway") {
+			if imgui.Button("Close Anyway") {
 				s.unsavedChanges = false
 				state.App.SetShouldClose(true)
 				imgui.CloseCurrentPopup()
 			}
-			dfx.SameLine()
-			if dfx.Button("Cancel") {
+			imgui.SameLine()
+			if imgui.Button("Cancel") {
 				// window will not close
 				imgui.CloseCurrentPopup()
 			}

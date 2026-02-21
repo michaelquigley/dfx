@@ -35,11 +35,11 @@ func ToolbarEx(label string, extra func()) {
 
 	// draw text with padding
 	imgui.SetCursorPosY(imgui.CursorPosY() + imgui.CurrentStyle().FramePadding().Y)
-	Text(label)
+	imgui.Text(label)
 
 	// draw extra controls if provided
 	if extra != nil {
-		SameLine()
+		imgui.SameLine()
 		extra()
 	}
 

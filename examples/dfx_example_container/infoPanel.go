@@ -21,26 +21,26 @@ type infoPanel struct {
 }
 
 func (p *infoPanel) Draw(state *dfx.State) {
-	dfx.Text("info workspace")
-	dfx.Separator()
-	dfx.Spacing()
+	imgui.Text("info workspace")
+	imgui.Separator()
+	imgui.Spacing()
 
-	dfx.Text("this example demonstrates:")
+	imgui.Text("this example demonstrates:")
 	imgui.BulletText("da.Application container-based lifecycle")
 	imgui.BulletText("factory pattern for component creation")
 	imgui.BulletText("tagged components for modular registration")
 	imgui.BulletText("dd.UnbindYAMLFile for config persistence")
 	imgui.BulletText("dfx.Workspace for view switching")
 
-	dfx.Spacing()
-	dfx.Separator()
-	dfx.Spacing()
+	imgui.Spacing()
+	imgui.Separator()
+	imgui.Spacing()
 
-	dfx.Text("current configuration:")
-	dfx.Text(fmt.Sprintf("  window: %dx%d at (%d,%d)",
+	imgui.Text("current configuration:")
+	imgui.Text(fmt.Sprintf("  window: %dx%d at (%d,%d)",
 		p.cfg.WindowWidth, p.cfg.WindowHeight,
 		p.cfg.WindowX, p.cfg.WindowY))
-	dfx.Text(fmt.Sprintf("  counter: %d", p.cfg.Counter))
+	imgui.Text(fmt.Sprintf("  counter: %d", p.cfg.Counter))
 }
 
 func (p *infoPanel) Actions() *dfx.ActionRegistry {

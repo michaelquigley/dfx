@@ -1,11 +1,15 @@
 package dfx
 
 import (
-	"math"
-
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx/fonts"
 )
+
+// Bounds represents a rectangular region with explicit position and dimensions.
+type Bounds struct {
+	X, Y float32 // top-left position
+	W, H float32 // width and height
+}
 
 type DashAttachment int
 
@@ -39,7 +43,7 @@ func NewDash(name string, component Component) *Dash {
 	}
 }
 
-func (d *Dash) DrawDash(state *State, bounds imgui.Vec4, attachment DashAttachment) {
+func (d *Dash) DrawDash(state *State, bounds Bounds, attachment DashAttachment) {
 	if d.CurrentSize > 0 {
 		imgui.SetNextWindowBgAlpha(DashBackgroundAlpha)
 		imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, DashWindowRounding)
@@ -48,7 +52,7 @@ func (d *Dash) DrawDash(state *State, bounds imgui.Vec4, attachment DashAttachme
 		windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoTitleBar |
 			imgui.WindowFlagsNoResize | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
-		imgui.BeginChildStrV(d.Name, imgui.Vec2{X: bounds.Z, Y: bounds.W}, imgui.ChildFlagsNone, windowFlags)
+		imgui.BeginChildStrV(d.Name, imgui.Vec2{X: bounds.W, Y: bounds.H}, imgui.ChildFlagsNone, windowFlags)
 
 		if d.CurrentSize == d.TargetSize {
 			if d.Resizable {
@@ -109,7 +113,7 @@ func (d *Dash) DrawDash(state *State, bounds imgui.Vec4, attachment DashAttachme
 				windowPadding := imgui.CurrentStyle().WindowPadding()
 				imgui.SetCursorPos(windowPadding)
 				if d.Resizable {
-					childSize = imgui.Vec2{X: bounds.Z - (windowPadding.X * 2), Y: bounds.W - (windowPadding.Y * 2) - DashTitleBarOffset - bounds.Y}
+					childSize = imgui.Vec2{X: bounds.W - (windowPadding.X * 2), Y: bounds.H - (windowPadding.Y * 2) - DashTitleBarOffset}
 				}
 			}
 			imgui.PushStyleVarFloat(imgui.StyleVarScrollbarSize, DashScrollbarSize)
@@ -145,14 +149,14 @@ func (d *Dash) DrawDash(state *State, bounds imgui.Vec4, attachment DashAttachme
 
 	if d.Visible {
 		if d.CurrentSize < d.TargetSize {
-			d.CurrentSize += int(d.pxPerFrame())
+			d.CurrentSize += int(d.dashPxPerFrame())
 			if d.CurrentSize > d.TargetSize {
 				d.CurrentSize = d.TargetSize
 			}
 		}
 	} else {
 		if d.CurrentSize > 0 {
-			d.CurrentSize -= int(d.pxPerFrame())
+			d.CurrentSize -= int(d.dashPxPerFrame())
 			if d.CurrentSize < 0 {
 				d.CurrentSize = 0
 			}
@@ -160,55 +164,53 @@ func (d *Dash) DrawDash(state *State, bounds imgui.Vec4, attachment DashAttachme
 	}
 }
 
-func (d *Dash) boundsAndSize(bounds imgui.Vec4, attachment DashAttachment) imgui.Vec2 {
+func (d *Dash) boundsAndSize(bounds Bounds, attachment DashAttachment) imgui.Vec2 {
 	winPos := imgui.WindowPos()
 	switch attachment {
 	case LeftDash:
 		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}))
-		size := imgui.Vec2{X: float32(d.CurrentSize), Y: bounds.W}
+		size := imgui.Vec2{X: float32(d.CurrentSize), Y: bounds.H}
 		imgui.SetNextWindowSize(size)
 		return size
 
 	case TopDash:
 		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}))
-		size := imgui.Vec2{X: bounds.Z, Y: float32(d.CurrentSize)}
+		size := imgui.Vec2{X: bounds.W, Y: float32(d.CurrentSize)}
 		imgui.SetNextWindowSize(size)
 		return size
 
 	case RightDash:
 		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}))
-		size := imgui.Vec2{X: float32(d.CurrentSize), Y: bounds.W}
+		size := imgui.Vec2{X: float32(d.CurrentSize), Y: bounds.H}
 		imgui.SetNextWindowSize(size)
 		return size
 
 	default: // BottomDash
-		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.W - float32(d.CurrentSize)}))
-		size := imgui.Vec2{X: bounds.Z, Y: float32(d.CurrentSize)}
+		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y + bounds.H - float32(d.CurrentSize)}))
+		size := imgui.Vec2{X: bounds.W, Y: float32(d.CurrentSize)}
 		imgui.SetNextWindowSize(size)
 		return size
 	}
 }
 
-func (d *Dash) dragHandlePos(bounds imgui.Vec4, attachment DashAttachment) imgui.Vec2 {
+func (d *Dash) dragHandlePos(bounds Bounds, attachment DashAttachment) imgui.Vec2 {
 	switch attachment {
 	case LeftDash:
 		return imgui.Vec2{X: float32(d.CurrentSize) - DashDragHandleOffset, Y: DefaultItemSpacing + 1}
 
 	case TopDash:
-		return imgui.Vec2{X: bounds.Z - DashDragHandleOffset, Y: bounds.W - DashDragHandleOffset - bounds.Y}
+		return imgui.Vec2{X: bounds.W - DashDragHandleOffset, Y: bounds.H - DashDragHandleOffset}
 
 	case RightDash:
 		return imgui.Vec2{X: DefaultWindowPadding, Y: DefaultItemSpacing + 1}
 
 	default: // BottomDash
-		return imgui.Vec2{X: bounds.Z - DashDragHandleOffset, Y: DefaultItemSpacing + 1}
+		return imgui.Vec2{X: bounds.W - DashDragHandleOffset, Y: DefaultItemSpacing + 1}
 	}
 }
 
-func (d *Dash) pxPerFrame() float32 {
-	msFrame := FramerateToMs / imgui.CurrentIO().Framerate()
-	frames := float32(d.TransitionMs) / msFrame
-	return float32(math.Ceil(float64(d.TargetSize) / float64(frames)))
+func (d *Dash) dashPxPerFrame() float32 {
+	return pxPerFrame(float32(d.TargetSize), d.TransitionMs)
 }
 
 // Draw implements Component interface - this is for when Dash is used as a standalone component
@@ -261,5 +263,4 @@ const (
 	DashDragHandleOffset = 22
 	DashSurfacePadding   = 20
 	FramerateToMs        = 1000
-	WheelNeutralValue    = 0
 )

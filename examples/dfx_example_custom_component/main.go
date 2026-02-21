@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx"
 )
 
@@ -27,19 +28,19 @@ func NewCounter(label string, min, max int) *Counter {
 	// set up the draw function
 	c.Visible = true
 	c.OnDraw = func(state *dfx.State) {
-		dfx.Text(fmt.Sprintf("%s: %d", c.label, c.count))
+		imgui.Text(fmt.Sprintf("%s: %d", c.label, c.count))
 
-		if dfx.Button("Increment") && c.count < c.max {
+		if imgui.Button("Increment") && c.count < c.max {
 			c.count++
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Decrement") && c.count > c.min {
+		imgui.SameLine()
+		if imgui.Button("Decrement") && c.count > c.min {
 			c.count--
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Reset") {
+		imgui.SameLine()
+		if imgui.Button("Reset") {
 			c.count = 0
 		}
 
@@ -51,16 +52,16 @@ func NewCounter(label string, min, max int) *Counter {
 
 		// color based on value
 		if c.count > 75 {
-			dfx.TextColored("High value!", 1.0, 0.2, 0.2, 1.0)
+			imgui.TextColored(imgui.Vec4{X: 1.0, Y: 0.2, Z: 0.2, W: 1.0}, "High value!")
 		} else if c.count < 25 {
-			dfx.TextColored("Low value!", 0.2, 0.2, 1.0, 1.0)
+			imgui.TextColored(imgui.Vec4{X: 0.2, Y: 0.2, Z: 1.0, W: 1.0}, "Low value!")
 		} else {
-			dfx.TextColored("Normal value", 0.2, 1.0, 0.2, 1.0)
+			imgui.TextColored(imgui.Vec4{X: 0.2, Y: 1.0, Z: 0.2, W: 1.0}, "Normal value")
 		}
 
 		// show keyboard shortcuts
-		dfx.Spacing()
-		dfx.Text("Keys: Up/Down arrows")
+		imgui.Spacing()
+		imgui.Text("Keys: Up/Down arrows")
 	}
 
 	// add component-specific keyboard actions using consistent API
@@ -89,14 +90,14 @@ func main() {
 	container := &dfx.Container{
 		Visible: true,
 		OnDraw: func(state *dfx.State) {
-			dfx.Text("Custom Component Example")
-			dfx.Text("This demonstrates creating reusable custom components")
-			dfx.Separator()
+			imgui.Text("Custom Component Example")
+			imgui.Text("This demonstrates creating reusable custom components")
+			imgui.Separator()
 		},
 		Children: []dfx.Component{
 			mainCounter,
 			dfx.NewFunc(func(state *dfx.State) {
-				dfx.Separator()
+				imgui.Separator()
 			}),
 			NewCounter("Secondary Counter", -50, 50),
 		},

@@ -51,8 +51,8 @@ The simplest way to create a component:
 
 ```go
 root := dfx.NewFunc(func(state *dfx.State) {
-    dfx.Text("Hello World!")
-    if dfx.Button("Click Me") {
+    imgui.Text("Hello World!")
+    if imgui.Button("Click Me") {
         fmt.Println("Button clicked!")
     }
 })
@@ -71,8 +71,8 @@ func NewMyComponent() *MyComponent {
     c := &MyComponent{}
     c.Visible = true
     c.OnDraw = func(state *dfx.State) {
-        dfx.Text(fmt.Sprintf("Counter: %d", c.counter))
-        if dfx.Button("Increment") {
+        imgui.Text(fmt.Sprintf("Counter: %d", c.counter))
+        if imgui.Button("Increment") {
             c.counter++
         }
     }
@@ -91,8 +91,8 @@ import "github.com/michaelquigley/dfx"
 
 func main() {
     root := dfx.NewFunc(func(state *dfx.State) {
-        dfx.Text("Hello from dfx!")
-        if dfx.Button("Click Me") {
+        imgui.Text("Hello from dfx!")
+        if imgui.Button("Click Me") {
             // handle button click
         }
     })
@@ -111,14 +111,14 @@ func main() {
 
 ```go
 menuBar := dfx.NewFunc(func(state *dfx.State) {
-    if dfx.BeginMenu("File") {
-        if dfx.MenuItem("New", "Ctrl+N") {
+    if imgui.BeginMenu("File") {
+        if imgui.MenuItemBoolV("New", "Ctrl+N", false, true) {
             // handle new
         }
-        if dfx.MenuItem("Open", "Ctrl+O") {
+        if imgui.MenuItemBoolV("Open", "Ctrl+O", false, true) {
             // handle open
         }
-        dfx.EndMenu()
+        imgui.EndMenu()
     }
 })
 
@@ -169,16 +169,16 @@ dfx provides three font constants with Material Icons merged where applicable:
 
 ```go
 // Default font (with icons)
-dfx.Text("Regular text " + string(fonts.ICON_FAVORITE))
+imgui.Text("Regular text " + string(fonts.ICON_FAVORITE))
 
 // Monospace font
 dfx.PushFont(dfx.MonospaceFont)
-dfx.Text("Monospace code text")
+imgui.Text("Monospace code text")
 dfx.PopFont()
 
 // Small font for labels and indicators
 dfx.PushFont(dfx.SmallFont)
-dfx.Text("CH1")
+imgui.Text("CH1")
 dfx.PopFont()
 ```
 
@@ -194,7 +194,7 @@ app := dfx.New(root, dfx.Config{
 
 ## Controls
 
-dfx provides simplified wrappers for common ImGui controls that return values instead of requiring pointers:
+For trivial ImGui operations (Button, Text, Separator, SameLine, Spacing, TreeNode, TreePop, BeginChild, EndChild, BeginMenu, EndMenu, BeginMenuBar, EndMenuBar, MenuItem), call `imgui.*` directly. dfx provides value-add wrappers for controls that benefit from a cleaner Go-idiomatic API, returning `(newValue, changed)` tuples instead of requiring pointers:
 
 ```go
 // Text input
@@ -209,8 +209,8 @@ value, changed := dfx.Slider("Volume", currentValue, 0.0, 1.0)
 // Checkbox
 checked, changed := dfx.Checkbox("Enable feature", isEnabled)
 
-// Button
-if dfx.Button("Submit") {
+// Button (use imgui directly)
+if imgui.Button("Submit") {
     // handle button click
 }
 
@@ -218,6 +218,8 @@ if dfx.Button("Submit") {
 items := []string{"Option 1", "Option 2", "Option 3"}
 selected, changed := dfx.Combo("Choose", currentIndex, items)
 ```
+
+**Value-add wrappers** (in `controls.go`): Input, InputMultiline, Checkbox, Slider, SliderInt, Combo, ColorEdit3, ColorEdit4, Toggle, WheelSlider.
 
 ### Enhanced Controls
 
@@ -230,11 +232,11 @@ dfx.Toolbar("Settings")
 
 // toolbar with extra controls on the right
 dfx.ToolbarEx("Actions", func() {
-    if dfx.Button("Add") {
+    if imgui.Button("Add") {
         // handle add
     }
-    dfx.SameLine()
-    if dfx.Button("Remove") {
+    imgui.SameLine()
+    if imgui.Button("Remove") {
         // handle remove
     }
 })
@@ -531,7 +533,7 @@ Components can define their own keyboard shortcuts that automatically override g
 myComponent := &dfx.Container{
     Visible: true,
     OnDraw: func(state *dfx.State) {
-        dfx.Text("Component with local actions")
+        imgui.Text("Component with local actions")
     },
 }
 
@@ -695,12 +697,12 @@ The `Workspace` component provides high-level management of multiple named views
 ```go
 // create workspaces
 editor := dfx.NewFunc(func(state *dfx.State) {
-    dfx.Text("Editor View")
+    imgui.Text("Editor View")
     // editor UI...
 })
 
 viewer := dfx.NewFunc(func(state *dfx.State) {
-    dfx.Text("Viewer")
+    imgui.Text("Viewer")
     // viewer UI...
 })
 

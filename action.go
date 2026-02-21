@@ -240,11 +240,6 @@ func NewMenuAction(label, keys string, handler func()) *Action {
 	return action
 }
 
-// MustBuildMenuAction is an alias for backward compatibility with imapp naming
-func MustBuildMenuAction(label, keys string, handler func()) *Action {
-	return NewMenuAction(label, keys, handler)
-}
-
 // formatShortcutLabel converts modifiers and key to menu display format
 // e.g., ModCtrl|ModShift + KeyS → "Ctrl+Shift+S"
 func formatShortcutLabel(mods KeyModifier, key imgui.Key) string {

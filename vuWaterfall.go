@@ -234,7 +234,7 @@ func (w *VUWaterfall) Draw(state *State) {
 			barRight := barLeft + barWidth
 
 			// determine color based on level
-			color := w.levelColor(level)
+			color := vuZoneColor(level, w.ColorLow, w.ColorMid, w.ColorHigh)
 
 			// in highres mode, reduce opacity on every other row for scanline effect
 			if w.Highres && row%2 == 1 {
@@ -253,16 +253,6 @@ func (w *VUWaterfall) Draw(state *State) {
 	imgui.Dummy(imgui.Vec2{X: totalWidth, Y: w.Height})
 
 	drawContainerExtensions(&w.Container, state)
-}
-
-// levelColor returns the color for a given level based on zone thresholds.
-func (w *VUWaterfall) levelColor(level float32) imgui.Vec4 {
-	if level < 0.6 {
-		return w.ColorLow // green zone
-	} else if level < 0.8 {
-		return w.ColorMid // yellow zone
-	}
-	return w.ColorHigh // red zone
 }
 
 // Clear resets the history buffer.

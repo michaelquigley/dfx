@@ -10,7 +10,7 @@ import (
 // from layout strategy. Components are managed as a named collection, and different
 // layout strategies can be applied to arrange them.
 type MultiGrid struct {
-	*Container
+	Container
 	components map[string]Component
 	layout     Layout
 }
@@ -27,7 +27,7 @@ type Layout interface {
 // NewMultiGrid creates a new MultiGrid with no components and no layout
 func NewMultiGrid() *MultiGrid {
 	return &MultiGrid{
-		Container:  &Container{Visible: true},
+		Container:  Container{Visible: true},
 		components: make(map[string]Component),
 	}
 }
@@ -86,7 +86,7 @@ func (mg *MultiGrid) Draw(state *State) {
 		mg.layout.Arrange(mg.components, layoutState)
 	}
 
-	drawContainerExtensions(mg.Container, state)
+	drawContainerExtensions(&mg.Container, state)
 }
 
 // FlexLayout provides a resizable grid layout similar to the original MultiSurface
@@ -413,8 +413,8 @@ type GridLayout struct {
 
 // GridCell defines a component's position in the grid
 type GridCell struct {
-	Row, Col int        // grid position (0-based)
-	Span     imgui.Vec2 // rowspan, colspan (1,1 = single cell)
+	Row, Col         int // grid position (0-based)
+	RowSpan, ColSpan int // span (1,1 = single cell)
 }
 
 // NewGridLayout creates a fixed grid layout
@@ -429,9 +429,10 @@ func NewGridLayout(gridWidth, gridHeight int) *GridLayout {
 // SetCell positions a component in the grid
 func (gl *GridLayout) SetCell(componentID string, row, col int, rowSpan, colSpan int) {
 	gl.cells[componentID] = GridCell{
-		Row:  row,
-		Col:  col,
-		Span: imgui.Vec2{X: float32(rowSpan), Y: float32(colSpan)},
+		Row:     row,
+		Col:     col,
+		RowSpan: rowSpan,
+		ColSpan: colSpan,
 	}
 }
 
@@ -469,8 +470,8 @@ func (gl *GridLayout) Arrange(components map[string]Component, state *State) {
 		// calculate component position and size
 		posX := float32(cell.Col) * cellWidth
 		posY := float32(cell.Row) * cellHeight
-		sizeX := cell.Span.Y * cellWidth  // span.Y = colSpan
-		sizeY := cell.Span.X * cellHeight // span.X = rowSpan
+		sizeX := float32(cell.ColSpan) * cellWidth
+		sizeY := float32(cell.RowSpan) * cellHeight
 
 		// ensure component doesn't go outside bounds
 		if posX+sizeX > state.Size.X {

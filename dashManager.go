@@ -40,7 +40,7 @@ func (d *DashManager) Draw(state *State) {
 		return
 	}
 
-	bounds := state.Size
+	size := state.Size
 	d.Focused = nil
 	leftWidth := float32(0)
 	topHeight := float32(0)
@@ -50,29 +50,30 @@ func (d *DashManager) Draw(state *State) {
 	if d.Precedence == VerticalPrecedence {
 		if d.Left != nil {
 			leftWidth = float32(d.Left.CurrentSize)
-			d.Left.DrawDash(state, imgui.Vec4{X: 0, Y: d.TopMargin, Z: leftWidth, W: bounds.Y}, LeftDash)
+			d.Left.DrawDash(state, Bounds{X: 0, Y: d.TopMargin, W: leftWidth, H: size.Y}, LeftDash)
 			if d.Left.Focused {
 				d.Focused = d.Left
 			}
 		}
 		if d.Right != nil {
 			rightWidth = float32(d.Right.CurrentSize)
-			bounds := imgui.Vec4{X: bounds.X - rightWidth, Y: d.TopMargin, Z: bounds.X, W: bounds.Y}
-			d.Right.DrawDash(state, bounds, RightDash)
+			d.Right.DrawDash(state, Bounds{X: size.X - rightWidth, Y: d.TopMargin, W: rightWidth, H: size.Y}, RightDash)
 			if d.Right.Focused {
 				d.Focused = d.Right
 			}
 		}
 		if d.Top != nil {
 			topHeight = float32(d.Top.CurrentSize)
-			d.Top.DrawDash(state, imgui.Vec4{X: leftWidth + d.Margin, Y: d.TopMargin, Z: bounds.X - (leftWidth + d.Margin + d.Margin + rightWidth), W: d.TopMargin + topHeight}, TopDash)
+			availW := size.X - (leftWidth + d.Margin*2 + rightWidth)
+			d.Top.DrawDash(state, Bounds{X: leftWidth + d.Margin, Y: d.TopMargin, W: availW, H: topHeight}, TopDash)
 			if d.Top.Focused {
 				d.Focused = d.Top
 			}
 		}
 		if d.Bottom != nil {
 			bottomHeight = float32(d.Bottom.CurrentSize)
-			d.Bottom.DrawDash(state, imgui.Vec4{X: leftWidth + d.Margin, Y: bottomHeight, Z: bounds.X - (leftWidth + d.Margin + d.Margin + rightWidth), W: bounds.Y}, BottomDash)
+			availW := size.X - (leftWidth + d.Margin*2 + rightWidth)
+			d.Bottom.DrawDash(state, Bounds{X: leftWidth + d.Margin, Y: 0, W: availW, H: size.Y}, BottomDash)
 			if d.Bottom.Focused {
 				d.Focused = d.Bottom
 			}
@@ -80,28 +81,31 @@ func (d *DashManager) Draw(state *State) {
 	} else if d.Precedence == HorizontalPrecedence {
 		if d.Top != nil {
 			topHeight = d.TopMargin + float32(d.Top.CurrentSize)
-			d.Top.DrawDash(state, imgui.Vec4{X: 0, Y: d.TopMargin, Z: bounds.X, W: topHeight}, TopDash)
+			panelH := float32(d.Top.CurrentSize)
+			d.Top.DrawDash(state, Bounds{X: 0, Y: d.TopMargin, W: size.X, H: panelH}, TopDash)
 			if d.Top.Focused {
 				d.Focused = d.Top
 			}
 		}
 		if d.Bottom != nil {
 			bottomHeight = float32(d.Bottom.CurrentSize)
-			d.Bottom.DrawDash(state, imgui.Vec4{X: 0, Y: bounds.Y - bottomHeight, Z: bounds.X, W: bounds.Y}, BottomDash)
+			d.Bottom.DrawDash(state, Bounds{X: 0, Y: 0, W: size.X, H: size.Y}, BottomDash)
 			if d.Bottom.Focused {
 				d.Focused = d.Bottom
 			}
 		}
 		if d.Left != nil {
 			leftWidth = float32(d.Left.CurrentSize)
-			d.Left.DrawDash(state, imgui.Vec4{X: 0, Y: topHeight + d.Margin, Z: leftWidth, W: bounds.Y - (bottomHeight + d.Margin + d.Margin + topHeight)}, LeftDash)
+			availH := size.Y - (bottomHeight + d.Margin*2 + topHeight)
+			d.Left.DrawDash(state, Bounds{X: 0, Y: topHeight + d.Margin, W: leftWidth, H: availH}, LeftDash)
 			if d.Left.Focused {
 				d.Focused = d.Left
 			}
 		}
 		if d.Right != nil {
 			rightWidth = float32(d.Right.CurrentSize)
-			d.Right.DrawDash(state, imgui.Vec4{X: bounds.X - rightWidth, Y: topHeight + d.Margin, Z: rightWidth, W: bounds.Y - (bottomHeight + d.Margin + d.Margin + topHeight)}, RightDash)
+			availH := size.Y - (bottomHeight + d.Margin*2 + topHeight)
+			d.Right.DrawDash(state, Bounds{X: size.X - rightWidth, Y: topHeight + d.Margin, W: rightWidth, H: availH}, RightDash)
 			if d.Right.Focused {
 				d.Focused = d.Right
 			}
@@ -111,16 +115,16 @@ func (d *DashManager) Draw(state *State) {
 	if d.Inner != nil {
 		pos := imgui.WindowPos().Add(imgui.Vec2{X: leftWidth + d.Margin, Y: topHeight + d.Margin})
 		imgui.SetNextWindowPos(pos)
-		size := imgui.Vec2{X: bounds.X - leftWidth - rightWidth - (d.Margin * 2.0), Y: bounds.Y - topHeight - bottomHeight - (d.Margin * 2.0)}
-		imgui.SetNextWindowSize(size)
+		innerSize := imgui.Vec2{X: size.X - leftWidth - rightWidth - (d.Margin * 2.0), Y: size.Y - topHeight - bottomHeight - (d.Margin * 2.0)}
+		imgui.SetNextWindowSize(innerSize)
 
 		windowFlags := imgui.WindowFlagsNoResize | imgui.WindowFlagsNoMove | imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
-		imgui.BeginChildStrV("##dashManagerInner", size, imgui.ChildFlagsNone, windowFlags)
+		imgui.BeginChildStrV("##dashManagerInner", innerSize, imgui.ChildFlagsNone, windowFlags)
 
 		// create state for the inner component
 		innerState := &State{
-			Size:     size,
+			Size:     innerSize,
 			Position: imgui.Vec2{}, // position is relative to the child window
 			IO:       state.IO,
 			App:      state.App,

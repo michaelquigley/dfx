@@ -11,28 +11,10 @@ const (
 	wheelMultiplierSlow = 10.0 // alt modifier for wheel slider (divisor)
 )
 
-// Controls provides simplified wrappers for common imgui widgets.
-// these return values directly instead of requiring pointers.
-
-// Button creates a simple button
-func Button(label string) bool {
-	return imgui.Button(label)
-}
-
-// ButtonSize creates a button with specific size
-func ButtonSize(label string, width, height float32) bool {
-	return imgui.ButtonV(label, imgui.Vec2{X: width, Y: height})
-}
-
-// Text displays static text
-func Text(text string) {
-	imgui.Text(text)
-}
-
-// TextColored displays colored text
-func TextColored(text string, r, g, b, a float32) {
-	imgui.TextColored(imgui.Vec4{X: r, Y: g, Z: b, W: a}, text)
-}
+// Controls provides simplified wrappers for imgui widgets that add genuine value.
+// trivial pass-through wrappers have been removed; use imgui.* directly for
+// Button, Text, Separator, SameLine, Spacing, TreeNode, TreePop, BeginChild,
+// EndChild, BeginMenu, EndMenu, BeginMenuBar, EndMenuBar, MenuItem.
 
 // Input is a simplified text input that returns the new value and whether it changed
 func Input(label string, value string) (string, bool) {
@@ -116,77 +98,6 @@ func ColorEdit4(label string, r, g, b, a float32) (float32, float32, float32, fl
 	col := [4]float32{r, g, b, a}
 	changed := imgui.ColorEdit4(label, &col)
 	return col[0], col[1], col[2], col[3], changed
-}
-
-// Separator draws a horizontal line
-func Separator() {
-	imgui.Separator()
-}
-
-// SameLine places next widget on same line
-func SameLine() {
-	imgui.SameLine()
-}
-
-// Spacing adds vertical spacing
-func Spacing() {
-	imgui.Spacing()
-}
-
-// BeginChild starts a scrollable region
-func BeginChild(id string, width, height float32, border bool) bool {
-	flags := imgui.ChildFlagsNone
-	if border {
-		flags |= imgui.ChildFlagsBorders
-	}
-	return imgui.BeginChildStrV(id, imgui.Vec2{X: width, Y: height}, flags, imgui.WindowFlagsNone)
-}
-
-// EndChild ends a scrollable region
-func EndChild() {
-	imgui.EndChild()
-}
-
-// TreeNode creates an expandable tree node. Returns whether it's open.
-func TreeNode(label string) bool {
-	return imgui.TreeNodeStr(label)
-}
-
-// TreePop closes a tree node
-func TreePop() {
-	imgui.TreePop()
-}
-
-// Tooltip shows a tooltip when hovering
-func Tooltip(text string) {
-	if imgui.IsItemHovered() {
-		imgui.SetTooltip(text)
-	}
-}
-
-// MenuItem creates a menu item. Returns whether it was clicked.
-func MenuItem(label string, shortcut string) bool {
-	return imgui.MenuItemBoolV(label, shortcut, false, true)
-}
-
-// BeginMenu starts a submenu. Returns whether it's open.
-func BeginMenu(label string) bool {
-	return imgui.BeginMenu(label)
-}
-
-// EndMenu ends a submenu
-func EndMenu() {
-	imgui.EndMenu()
-}
-
-// BeginMenuBar starts a menu bar
-func BeginMenuBar() bool {
-	return imgui.BeginMenuBar()
-}
-
-// EndMenuBar ends a menu bar
-func EndMenuBar() {
-	imgui.EndMenuBar()
 }
 
 // Toggle creates a button that acts as a boolean toggle.
