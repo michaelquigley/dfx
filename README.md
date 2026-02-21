@@ -128,6 +128,29 @@ app := dfx.New(root, dfx.Config{
 })
 ```
 
+### Application Lifecycle
+
+**Config Callbacks:**
+- `OnSetup(app *App)` - Called once after ImGui context is created
+- `OnShutdown(app *App)` - Called before shutdown
+- `OnTick(app *App)` - Called each frame before drawing
+- `OnClose(app *App)` - Called when window is about to close (can cancel via `SetShouldClose(false)`)
+- `OnSizeChange(width, height int)` - Called when window is resized
+
+**Config Fields:**
+- `Icons []image.Image` - Optional window icons for taskbar/title bar
+
+**App Methods:**
+- `Run() error` - Run the application (blocks until closed)
+- `Wait() error` - Block until `Run()` completes (useful when `Run()` is called from a goroutine)
+- `Stop()` - Request application to stop
+- `SetRoot(root Component)` - Change the root component at runtime
+- `Actions() *ActionRegistry` - Get global action registry
+- `SetWindowTitle(title string)` - Update window title dynamically
+- `SetShouldClose(shouldClose bool)` - Control window close behavior
+- `GetWindowSize() (int, int)` - Get current window dimensions
+- `GetWindowPos() (int, int)` - Get current window position
+
 ## Theming System
 
 dfx includes a comprehensive theming system with both predefined and customizable themes.
@@ -220,6 +243,10 @@ selected, changed := dfx.Combo("Choose", currentIndex, items)
 ```
 
 **Value-add wrappers** (in `controls.go`): Input, InputMultiline, Checkbox, Slider, SliderInt, Combo, ColorEdit3, ColorEdit4, Toggle, WheelSlider.
+
+**Text Utilities** (in `text.go`):
+- `CenterText(text string)` - Draws text centered horizontally and vertically in the available content region
+- `CenterTextDisabled(text string)` - Draws disabled (dimmed) text centered horizontally and vertically
 
 ### Enhanced Controls
 
@@ -434,13 +461,21 @@ waterfall.Draw(state)
 - `RowHeight` - Height of each history row (default: 2)
 - `RowGap` - Gap between rows (default: 0)
 - `HistorySize` - Number of samples to retain (default: 100)
+- `SampleInterval` - Minimum time between samples for throttling (default: 16ms / ~60fps)
+- `Highres` - When true, alternates row opacity for scanline effect
 - `ColorLow/Mid/High/Off` - Zone colors (same defaults as VUMeter)
+
+**Additional Methods:**
+- `SetHistorySize(size int)` - Change history depth (clears buffer)
+- `ChannelCount() int` - Get current channel count
 
 **Features:**
 - **Vertical scrolling**: New data appears at bottom, scrolls upward
 - **Multi-channel**: Channels displayed side-by-side
 - **Color zones**: Green (0-60%), yellow (60-80%), red (80-100%)
 - **Centered bars**: Level represented by bar width, centered in channel
+- **Sample throttling**: Consistent scroll speed via `SampleInterval`
+- **Highres mode**: Scanline effect with alternating row opacity
 
 See `examples/dfx_example_vumeter` for a complete demonstration.
 
@@ -760,6 +795,60 @@ app := dfx.New(ws, dfx.Config{...})
 
 See `examples/dfx_example_workspace` for a complete demonstration.
 
+## Undo/Redo System
+
+dfx includes a command-pattern undo/redo system for tracking reversible operations:
+
+```go
+// define a command
+type SetValueCommand struct {
+    dfx.BaseCommand
+    target   *int
+    oldValue int
+    newValue int
+}
+
+func (c *SetValueCommand) Description() string { return fmt.Sprintf("set value to %d", c.newValue) }
+func (c *SetValueCommand) Run()                { *c.target = c.newValue }
+func (c *SetValueCommand) Undo()               { *c.target = c.oldValue }
+
+// create and use the undo system
+undoSystem := dfx.NewUndoSystem()
+undoSystem.Run(&SetValueCommand{target: &myValue, oldValue: myValue, newValue: 42})
+undoSystem.Undo()  // reverts to old value
+undoSystem.Redo()  // re-applies new value
+```
+
+**API:**
+- `NewUndoSystem() *UndoSystem` - Create undo system
+- `Run(cmd Command)` - Execute and track command (supports automatic merging via `MergeableCommand`)
+- `Undo()` / `Redo()` - Navigate command history
+- `Clear()` - Remove all commands from both stacks
+- `CanUndo() bool` / `CanRedo() bool` - Check availability
+- `HistoryComponent()` - Returns a component displaying undo/redo history
+- `RunF func(Command)` - Optional callback invoked whenever a command is executed
+
+**Command Interfaces:**
+- `Command` - Core: `Description()`, `Run()`, `Undo()`
+- `MergeableCommand` - Adds `Merge(other Command) bool` for combining adjacent commands
+- `StampedCommand` - Adds `Stamp() time.Time` for timestamp tracking
+- `FullCommand` - Combines MergeableCommand and StampedCommand
+
+**BaseCommand** - Embeddable helper struct providing automatic timestamp via `Stamp()` and manual override via `SetStamp(time.Time)`.
+
+See `examples/dfx_example_undo` for a complete demonstration.
+
+## Debug Utilities
+
+**SizeDebugger** - Visual component that displays the available drawing area size and draws a border with crossing lines. Useful for debugging layout issues.
+
+```go
+debugger := dfx.NewSizeDebugger()
+debugger.Margin = 8  // inset from edges (default: 4)
+// use as any Component - shows size label and border lines
+// press Shift+Alt+D to toggle the size label
+```
+
 ## Configuration Persistence
 
 dfx provides optional utilities for configuration management in `config.go`. These helpers simplify common patterns like saving/loading JSON configuration, persisting window state, and managing dashboard layouts.
@@ -981,6 +1070,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_dash` - DashManager panel system
 - `dfx_example_undo` - Undo/redo system demo
 - `dfx_example_menu` - Menu-compatible actions
+- `dfx_example_demo` - ImGui demo window
 
 ## Building Examples
 
