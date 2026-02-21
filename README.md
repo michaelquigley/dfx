@@ -442,6 +442,24 @@ waterfall.Draw(state)
 
 See `examples/dfx_example_vumeter` for a complete demonstration.
 
+**LogViewer** - Buffered log display with configurable empty-state behavior:
+
+```go
+buffer := dfx.NewLogBuffer(1000)
+viewer := dfx.NewLogViewer(buffer)
+
+viewer.Visible = true
+viewer.ShowDisabledMessage = true
+viewer.DisabledMessage = "logging capture disabled"
+```
+
+**Visibility behavior:**
+- `Visible == false` renders nothing
+- `Visible == true` and `Buffer != nil` renders the log stream
+- `Visible == true` and `Buffer == nil` renders `DisabledMessage` only when `ShowDisabledMessage == true`
+
+Use `NewSlogHandler(...)` with a shared `LogBuffer` to route `slog` output into the viewer.
+
 ### FileNode Search/Filter
 
 `FileNode` provides a `Find` method for searching trees, along with predicate constructors for common patterns:
@@ -610,10 +628,8 @@ container := &dfx.Container{
         footer,
     },
     OnDraw: func(state *dfx.State) {
-        // Custom layout logic
-        for _, child := range container.Children {
-            child.Draw(state)
-        }
+        // Custom layout logic for this container.
+        // Children are drawn automatically by Container.Draw().
     },
 }
 ```
