@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx"
 )
 
@@ -15,29 +16,29 @@ func main() {
 	root := &dfx.Container{
 		Visible: true,
 		OnDraw: func(state *dfx.State) {
-			dfx.Text("Action Example - Component Actions")
-			dfx.Separator()
+			imgui.Text("Action Example - Component Actions")
+			imgui.Separator()
 
-			if dfx.Button("Main Button") {
+			if imgui.Button("Main Button") {
 				fmt.Println("main button clicked")
 			}
 
 			if showExtra {
-				dfx.SameLine()
-				if dfx.Button("Extra Button") {
+				imgui.SameLine()
+				if imgui.Button("Extra Button") {
 					fmt.Println("extra button clicked")
 				}
 			}
 
-			dfx.Spacing()
-			dfx.Text(fmt.Sprintf("Counter: %d", counter))
+			imgui.Spacing()
+			imgui.Text(fmt.Sprintf("Counter: %d", counter))
 
-			dfx.Spacing()
-			dfx.Text("Keyboard shortcuts:")
-			dfx.Text("  Ctrl+E - Toggle extra button (component action)")
-			dfx.Text("  Ctrl+= - Increment counter (component action)")
-			dfx.Text("  Ctrl+- - Decrement counter (component action)")
-			dfx.Text("  Ctrl+Q - Quit application (global action)")
+			imgui.Spacing()
+			imgui.Text("Keyboard shortcuts:")
+			imgui.Text("  Ctrl+E - Toggle extra button (component action)")
+			imgui.Text("  Ctrl+= - Increment counter (component action)")
+			imgui.Text("  Ctrl+- - Decrement counter (component action)")
+			imgui.Text("  Ctrl+Q - Quit application (global action)")
 		},
 	}
 

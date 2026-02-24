@@ -56,6 +56,7 @@ func (ws *Workspace) Add(id, name string, component Component) {
 			Id:        id,
 			Name:      name,
 			Component: component,
+			index:     len(ws.items),
 		}
 
 		// add to ordered list
@@ -74,30 +75,21 @@ func (ws *Workspace) Add(id, name string, component Component) {
 // Remove removes a workspace by id.
 // if the current workspace is removed, switches to the first available workspace.
 func (ws *Workspace) Remove(id string) {
-	// find item
 	item, exists := ws.itemsById[id]
 	if !exists {
-		return // not found
+		return
 	}
 
-	// find index in ordered list
-	idx := -1
-	for i, it := range ws.items {
-		if it == item {
-			idx = i
-			break
-		}
-	}
-
-	if idx == -1 {
-		return // should not happen
-	}
-
-	// remove from map
+	idx := item.index
 	delete(ws.itemsById, id)
 
 	// remove from ordered list
 	ws.items = append(ws.items[:idx], ws.items[idx+1:]...)
+
+	// update indices for subsequent items
+	for i := idx; i < len(ws.items); i++ {
+		ws.items[i].index = i
+	}
 
 	// adjust current index if needed
 	if len(ws.items) == 0 {
@@ -110,28 +102,13 @@ func (ws *Workspace) Remove(id string) {
 // Switch changes to the workspace with the given id.
 // returns true if the switch was successful.
 func (ws *Workspace) Switch(id string) bool {
-	// find item
 	item, exists := ws.itemsById[id]
 	if !exists {
-		return false // not found
+		return false
 	}
 
-	// find index
-	idx := -1
-	for i, it := range ws.items {
-		if it == item {
-			idx = i
-			break
-		}
-	}
-
-	if idx == -1 {
-		return false // should not happen
-	}
-
-	// switch
 	oldID := ws.Current()
-	ws.currentIndex = idx
+	ws.currentIndex = item.index
 	newID := ws.Current()
 
 	// trigger callback if changed
@@ -239,7 +216,7 @@ func (ws *Workspace) WorkspaceNames() []string {
 // draw renders the workspace selector and current component.
 func (ws *Workspace) draw(state *State) {
 	if len(ws.items) == 0 {
-		Text("no workspaces configured")
+		imgui.Text("no workspaces configured")
 		return
 	}
 
@@ -267,7 +244,7 @@ func (ws *Workspace) draw(state *State) {
 		}
 
 		// add spacing
-		Spacing()
+		imgui.Spacing()
 	}
 
 	// draw current component
@@ -313,4 +290,5 @@ type workspaceItem struct {
 	Id        string    // stable identifier used in code
 	Name      string    // human-facing display name (can include icons, formatting)
 	Component Component // the component to display
+	index     int       // position in the ordered items slice
 }

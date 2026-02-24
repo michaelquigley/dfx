@@ -80,17 +80,17 @@ func main() {
 
 	// top dashboard - debug info
 	state.dashMgr.Top = dfx.NewDash("Debug", dfx.NewFunc(func(s *dfx.State) {
-		dfx.Text(fmt.Sprintf("Config Path: %s", state.cfgPath))
-		dfx.Text(fmt.Sprintf("Save Count: %d", state.saveCount))
-		dfx.Text(fmt.Sprintf("Window: %dx%d at (%d,%d)",
+		imgui.Text(fmt.Sprintf("Config Path: %s", state.cfgPath))
+		imgui.Text(fmt.Sprintf("Save Count: %d", state.saveCount))
+		imgui.Text(fmt.Sprintf("Window: %dx%d at (%d,%d)",
 			state.cfg.Window.Width, state.cfg.Window.Height,
 			state.cfg.Window.X, state.cfg.Window.Y))
 	}))
 
 	// left dashboard - settings
 	state.dashMgr.Left = dfx.NewDash("Settings", dfx.NewFunc(func(s *dfx.State) {
-		dfx.Text("Application Settings")
-		dfx.Separator()
+		imgui.Text("Application Settings")
+		imgui.Separator()
 
 		if newValue, changed := dfx.Checkbox("Show welcome message", state.cfg.ShowWelcome); changed {
 			state.cfg.ShowWelcome = newValue
@@ -100,18 +100,18 @@ func main() {
 			state.cfg.EnableDebug = newValue
 		}
 
-		dfx.Spacing()
+		imgui.Spacing()
 		modes := []string{"Standard", "Advanced", "Expert"}
 		if newIdx, changed := dfx.Combo("Mode", state.cfg.SelectedMode, modes); changed {
 			state.cfg.SelectedMode = newIdx
 			state.message = fmt.Sprintf("switched to '%s' mode", modes[newIdx])
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
-		if dfx.Button("Save Config Now") {
+		if imgui.Button("Save Config Now") {
 			if err := state.saveConfig(); err != nil {
 				state.message = fmt.Sprintf("error saving: %v", err)
 			} else {
@@ -120,12 +120,12 @@ func main() {
 		}
 
 		if state.cfg.EnableDebug {
-			dfx.Spacing()
-			dfx.Separator()
-			dfx.Spacing()
-			dfx.Text("Debug Controls")
+			imgui.Spacing()
+			imgui.Separator()
+			imgui.Spacing()
+			imgui.Text("Debug Controls")
 
-			if dfx.Button("Reset to Defaults") {
+			if imgui.Button("Reset to Defaults") {
 				state.cfg = defaultConfig()
 				state.message = "configuration reset to defaults"
 			}
@@ -135,79 +135,79 @@ func main() {
 	// right dashboard - info
 	state.dashMgr.Right = dfx.NewDash("Info", dfx.NewFunc(func(s *dfx.State) {
 		if state.cfg.ShowWelcome {
-			dfx.Text("Welcome to Configuration Example!")
-			dfx.Spacing()
+			imgui.Text("Welcome to Configuration Example!")
+			imgui.Spacing()
 		}
 
-		dfx.Text("This example demonstrates:")
+		imgui.Text("This example demonstrates:")
 		imgui.BulletText("Loading/saving JSON configuration")
 		imgui.BulletText("Window state persistence")
 		imgui.BulletText("Dashboard state persistence")
 		imgui.BulletText("Application settings persistence")
-		dfx.Spacing()
+		imgui.Spacing()
 
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
-		dfx.Text("Try the following:")
+		imgui.Text("Try the following:")
 		imgui.BulletText("Resize the window")
 		imgui.BulletText("Move the window")
 		imgui.BulletText("Toggle dashboards (Alt+T/L/R/B)")
 		imgui.BulletText("Resize dashboards")
 		imgui.BulletText("Change settings")
 		imgui.BulletText("Close and reopen the app")
-		dfx.Spacing()
+		imgui.Spacing()
 
-		dfx.Text("All changes are automatically saved!")
+		imgui.Text("All changes are automatically saved!")
 	}))
 
 	// bottom dashboard - status bar
 	state.dashMgr.Bottom = dfx.NewDash("Status", dfx.NewFunc(func(s *dfx.State) {
-		dfx.Text(fmt.Sprintf("Counter: %d  |  Status: %s", state.cfg.Counter, state.message))
+		imgui.Text(fmt.Sprintf("Counter: %d  |  Status: %s", state.cfg.Counter, state.message))
 	}))
 
 	// inner component - main content
 	state.dashMgr.Inner = dfx.NewFunc(func(s *dfx.State) {
 		imgui.PushStyleColorVec4(imgui.ColText, imgui.Vec4{X: 0.7, Y: 0.9, Z: 1.0, W: 1.0})
-		dfx.Text("Configuration Persistence Demo")
+		imgui.Text("Configuration Persistence Demo")
 		imgui.PopStyleColor()
 
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
-		dfx.Text(fmt.Sprintf("Current counter value: %d", state.cfg.Counter))
+		imgui.Text(fmt.Sprintf("Current counter value: %d", state.cfg.Counter))
 
-		if dfx.Button("Increment Counter") {
+		if imgui.Button("Increment Counter") {
 			state.cfg.Counter++
 			state.message = fmt.Sprintf("counter incremented to %d", state.cfg.Counter)
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Decrement Counter") {
+		imgui.SameLine()
+		if imgui.Button("Decrement Counter") {
 			state.cfg.Counter--
 			state.message = fmt.Sprintf("counter decremented to %d", state.cfg.Counter)
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
-		dfx.Text("Enter a message:")
+		imgui.Text("Enter a message:")
 		if newValue, changed := dfx.Input("##message", state.cfg.LastMessage); changed {
 			state.cfg.LastMessage = newValue
 			state.message = "message updated"
 		}
 
 		if state.cfg.LastMessage != "" {
-			dfx.Spacing()
-			dfx.Text(fmt.Sprintf("Last saved message: '%s'", state.cfg.LastMessage))
+			imgui.Spacing()
+			imgui.Text(fmt.Sprintf("Last saved message: '%s'", state.cfg.LastMessage))
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
-		dfx.Text("Dashboard visibility can be toggled with:")
+		imgui.Text("Dashboard visibility can be toggled with:")
 		imgui.BulletText("Alt+T - Toggle top (debug)")
 		imgui.BulletText("Alt+L - Toggle left (settings)")
 		imgui.BulletText("Alt+R - Toggle right (info)")

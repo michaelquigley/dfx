@@ -79,15 +79,15 @@ func main() {
 			imgui.TableNextColumn()
 
 			// simple commands (no merge capability)
-			dfx.Text("Simple Commands (no merge):")
-			if dfx.Button("Simple Increment") {
+			imgui.Text("Simple Commands (no merge):")
+			if imgui.Button("Simple Increment") {
 				cmd := &simpleSetValueCommand{
 					oldValue: value,
 					newValue: value + 1,
 				}
 				undoSystem.Run(cmd)
 			}
-			if dfx.Button("Simple Decrement") {
+			if imgui.Button("Simple Decrement") {
 				cmd := &simpleSetValueCommand{
 					oldValue: value,
 					newValue: value - 1,
@@ -95,11 +95,11 @@ func main() {
 				undoSystem.Run(cmd)
 			}
 
-			dfx.Separator()
+			imgui.Separator()
 
 			// mergeable commands
-			dfx.Text("Mergeable Commands:")
-			if dfx.Button("Mergeable Increment") {
+			imgui.Text("Mergeable Commands:")
+			if imgui.Button("Mergeable Increment") {
 				cmd := &mergeableSetValueCommand{
 					oldValue: value,
 					newValue: value + 1,
@@ -107,7 +107,7 @@ func main() {
 				cmd.SetStamp(time.Now()) // explicitly set timestamp
 				undoSystem.Run(cmd)
 			}
-			if dfx.Button("Mergeable Decrement") {
+			if imgui.Button("Mergeable Decrement") {
 				cmd := &mergeableSetValueCommand{
 					oldValue: value,
 					newValue: value - 1,
@@ -116,32 +116,32 @@ func main() {
 				undoSystem.Run(cmd)
 			}
 
-			dfx.Separator()
+			imgui.Separator()
 
 			// undo/redo controls
 			imgui.BeginDisabledV(!undoSystem.CanUndo())
-			if dfx.Button("Undo (Ctrl+Z)") {
+			if imgui.Button("Undo (Ctrl+Z)") {
 				undoSystem.Undo()
 			}
 			imgui.EndDisabled()
 
-			dfx.SameLine()
+			imgui.SameLine()
 			imgui.BeginDisabledV(!undoSystem.CanRedo())
-			if dfx.Button("Redo (Ctrl+Shift+Z)") {
+			if imgui.Button("Redo (Ctrl+Shift+Z)") {
 				undoSystem.Redo()
 			}
 			imgui.EndDisabled()
 
-			if dfx.Button("Clear History") {
+			if imgui.Button("Clear History") {
 				undoSystem.Clear()
 			}
 
-			dfx.Separator()
-			dfx.Text(fmt.Sprintf("Current value: %d", value))
+			imgui.Separator()
+			imgui.Text(fmt.Sprintf("Current value: %d", value))
 
 			// history column
 			imgui.TableNextColumn()
-			dfx.Text("Command History:")
+			imgui.Text("Command History:")
 
 			// use the history component
 			historyComponent := undoSystem.HistoryComponent()

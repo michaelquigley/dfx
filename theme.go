@@ -23,7 +23,9 @@ type HueColorScheme struct {
 	BgValue        float32
 }
 
-// NewHueColorScheme creates a new HSV-based color scheme
+// NewHueColorScheme creates a new HSV-based color scheme.
+// hue is expected in the 0-255 range (matching the ImGui style editor convention),
+// not degrees. sat and value are also in 0-255 range.
 func NewHueColorScheme(name string, hue int, sat, value float32) *HueColorScheme {
 	return &HueColorScheme{
 		name:           name,
@@ -111,55 +113,55 @@ func (m *ModernTheme) Name() string {
 func (m *ModernTheme) Apply() {
 	colors := imgui.CurrentStyle().Colors()
 	colors[imgui.ColText] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 1.0}
-	colors[imgui.ColTextDisabled] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.3991416096687317}
-	colors[imgui.ColWindowBg] = imgui.Vec4{X: 0.03921568766236305, Y: 0.03921568766236305, Z: 0.03921568766236305, W: 0.939999997615814}
+	colors[imgui.ColTextDisabled] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.399}
+	colors[imgui.ColWindowBg] = imgui.Vec4{X: 0.039, Y: 0.039, Z: 0.039, W: 0.94}
 	colors[imgui.ColChildBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.0}
-	colors[imgui.ColPopupBg] = imgui.Vec4{X: 0.05098039284348488, Y: 0.05098039284348488, Z: 0.05098039284348488, W: 0.9399999976158142}
-	colors[imgui.ColBorder] = imgui.Vec4{X: 0.4274509847164154, Y: 0.4274509847164154, Z: 0.4980392158031464, W: 0.5}
+	colors[imgui.ColPopupBg] = imgui.Vec4{X: 0.051, Y: 0.051, Z: 0.051, W: 0.94}
+	colors[imgui.ColBorder] = imgui.Vec4{X: 0.427, Y: 0.427, Z: 0.498, W: 0.5}
 	colors[imgui.ColBorderShadow] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.0}
-	colors[imgui.ColFrameBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.4206008315086365}
-	colors[imgui.ColFrameBgHovered] = imgui.Vec4{X: 0.1411764770746231, Y: 0.1411764770746231, Z: 0.1411764770746231, W: 0.4000000059604645}
-	colors[imgui.ColFrameBgActive] = imgui.Vec4{X: 0.2313725501298904, Y: 0.2313725501298904, Z: 0.2313725501298904, W: 0.8626609444618225}
+	colors[imgui.ColFrameBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.421}
+	colors[imgui.ColFrameBgHovered] = imgui.Vec4{X: 0.141, Y: 0.141, Z: 0.141, W: 0.4}
+	colors[imgui.ColFrameBgActive] = imgui.Vec4{X: 0.231, Y: 0.231, Z: 0.231, W: 0.863}
 	colors[imgui.ColTitleBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 1.0}
-	colors[imgui.ColTitleBgActive] = imgui.Vec4{X: 0.09411764889955521, Y: 0.09411764889955521, Z: 0.09411764889955521, W: 1.0}
-	colors[imgui.ColTitleBgCollapsed] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.2918455004692078}
-	colors[imgui.ColMenuBarBg] = imgui.Vec4{X: 0.1372549086809158, Y: 0.1372549086809158, Z: 0.1372549086809158, W: 1.0}
-	colors[imgui.ColScrollbarBg] = imgui.Vec4{X: 0.01960784383118153, Y: 0.01960784383118153, Z: 0.01960784383118153, W: 0.5299999713897705}
-	colors[imgui.ColScrollbarGrab] = imgui.Vec4{X: 0.3098039329051971, Y: 0.3098039329051971, Z: 0.3098039329051971, W: 1.0}
-	colors[imgui.ColScrollbarGrabHovered] = imgui.Vec4{X: 0.407843142747879, Y: 0.407843142747879, Z: 0.407843142747879, W: 1.0}
-	colors[imgui.ColScrollbarGrabActive] = imgui.Vec4{X: 0.5098039507865906, Y: 0.5098039507865906, Z: 0.5098039507865906, W: 1.0}
-	colors[imgui.ColCheckMark] = imgui.Vec4{X: 0.9803921580314636, Y: 0.2588235437870026, Z: 0.2588235437870026, W: 1.0}
+	colors[imgui.ColTitleBgActive] = imgui.Vec4{X: 0.094, Y: 0.094, Z: 0.094, W: 1.0}
+	colors[imgui.ColTitleBgCollapsed] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.292}
+	colors[imgui.ColMenuBarBg] = imgui.Vec4{X: 0.137, Y: 0.137, Z: 0.137, W: 1.0}
+	colors[imgui.ColScrollbarBg] = imgui.Vec4{X: 0.02, Y: 0.02, Z: 0.02, W: 0.53}
+	colors[imgui.ColScrollbarGrab] = imgui.Vec4{X: 0.31, Y: 0.31, Z: 0.31, W: 1.0}
+	colors[imgui.ColScrollbarGrabHovered] = imgui.Vec4{X: 0.408, Y: 0.408, Z: 0.408, W: 1.0}
+	colors[imgui.ColScrollbarGrabActive] = imgui.Vec4{X: 0.51, Y: 0.51, Z: 0.51, W: 1.0}
+	colors[imgui.ColCheckMark] = imgui.Vec4{X: 0.98, Y: 0.259, Z: 0.259, W: 1.0}
 	colors[imgui.ColSliderGrab] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 1.0}
-	colors[imgui.ColSliderGrabActive] = imgui.Vec4{X: 0.9803921580314636, Y: 0.2588235437870026, Z: 0.2588235437870026, W: 1.0}
-	colors[imgui.ColButton] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.5793991088867188}
+	colors[imgui.ColSliderGrabActive] = imgui.Vec4{X: 0.98, Y: 0.259, Z: 0.259, W: 1.0}
+	colors[imgui.ColButton] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.579}
 	colors[imgui.ColButtonHovered] = imgui.Vec4{X: 1.0, Y: 0.733, Z: 0.124, W: 0.828}
-	colors[imgui.ColButtonActive] = imgui.Vec4{X: 1.0, Y: 0.2313725501298904, Z: 0.2313725501298904, W: 1.0}
-	colors[imgui.ColHeader] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.454935610294342}
-	colors[imgui.ColHeaderHovered] = imgui.Vec4{X: 0.1803921610116959, Y: 0.1803921610116959, Z: 0.1803921610116959, W: 0.800000011920929}
-	colors[imgui.ColHeaderActive] = imgui.Vec4{X: 0.9764705896377563, Y: 0.2588235437870026, Z: 0.2588235437870026, W: 1.0}
+	colors[imgui.ColButtonActive] = imgui.Vec4{X: 1.0, Y: 0.231, Z: 0.231, W: 1.0}
+	colors[imgui.ColHeader] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.455}
+	colors[imgui.ColHeaderHovered] = imgui.Vec4{X: 0.18, Y: 0.18, Z: 0.18, W: 0.8}
+	colors[imgui.ColHeaderActive] = imgui.Vec4{X: 0.976, Y: 0.259, Z: 0.259, W: 1.0}
 	colors[imgui.ColSeparator] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.5}
-	colors[imgui.ColSeparatorHovered] = imgui.Vec4{X: 0.09803921729326248, Y: 0.4000000059604645, Z: 0.7490196228027344, W: 0.7799999713897705}
-	colors[imgui.ColSeparatorActive] = imgui.Vec4{X: 0.09803921729326248, Y: 0.4000000059604645, Z: 0.7490196228027344, W: 1.0}
-	colors[imgui.ColResizeGrip] = imgui.Vec4{X: 0.2588235437870026, Y: 0.5882353186607361, Z: 0.9764705896377563, W: 0.2000000029802322}
-	colors[imgui.ColResizeGripHovered] = imgui.Vec4{X: 0.2588235437870026, Y: 0.5882353186607361, Z: 0.9764705896377563, W: 0.6700000166893005}
-	colors[imgui.ColResizeGripActive] = imgui.Vec4{X: 0.2588235437870026, Y: 0.5882353186607361, Z: 0.9764705896377563, W: 0.949999988079071}
-	colors[imgui.ColTab] = imgui.Vec4{X: 0.105882354080677, Y: 0.105882354080677, Z: 0.105882354080677, W: 1.0}
+	colors[imgui.ColSeparatorHovered] = imgui.Vec4{X: 0.098, Y: 0.4, Z: 0.749, W: 0.78}
+	colors[imgui.ColSeparatorActive] = imgui.Vec4{X: 0.098, Y: 0.4, Z: 0.749, W: 1.0}
+	colors[imgui.ColResizeGrip] = imgui.Vec4{X: 0.259, Y: 0.588, Z: 0.976, W: 0.2}
+	colors[imgui.ColResizeGripHovered] = imgui.Vec4{X: 0.259, Y: 0.588, Z: 0.976, W: 0.67}
+	colors[imgui.ColResizeGripActive] = imgui.Vec4{X: 0.259, Y: 0.588, Z: 0.976, W: 0.95}
+	colors[imgui.ColTab] = imgui.Vec4{X: 0.106, Y: 0.106, Z: 0.106, W: 1.0}
 	colors[imgui.ColTabHovered] = imgui.Vec4{X: 1.0, Y: 0.733, Z: 0.124, W: 0.828}
-	colors[imgui.ColTabSelected] = imgui.Vec4{X: 1.0, Y: 0.2235294133424759, Z: 0.2235294133424759, W: 1.0}
+	colors[imgui.ColTabSelected] = imgui.Vec4{X: 1.0, Y: 0.224, Z: 0.224, W: 1.0}
 	colors[imgui.ColPlotLines] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 1.0}
-	colors[imgui.ColPlotLinesHovered] = imgui.Vec4{X: 1.0, Y: 0.4274509847164154, Z: 0.3490196168422699, W: 1.0}
-	colors[imgui.ColPlotHistogram] = imgui.Vec4{X: 1.0, Y: 0.2156862765550613, Z: 0.2156862765550613, W: 1.0}
+	colors[imgui.ColPlotLinesHovered] = imgui.Vec4{X: 1.0, Y: 0.427, Z: 0.349, W: 1.0}
+	colors[imgui.ColPlotHistogram] = imgui.Vec4{X: 1.0, Y: 0.216, Z: 0.216, W: 1.0}
 	colors[imgui.ColPlotHistogramHovered] = imgui.Vec4{X: 1.0, Y: 0.733, Z: 0.124, W: 0.828}
-	colors[imgui.ColTableHeaderBg] = imgui.Vec4{X: 1.0, Y: 0.2352941185235977, Z: 0.2352941185235977, W: 1.0}
-	colors[imgui.ColTableBorderStrong] = imgui.Vec4{X: 1.0, Y: 0.3176470696926117, Z: 0.3176470696926117, W: 1.0}
-	colors[imgui.ColTableBorderLight] = imgui.Vec4{X: 1.0, Y: 0.5647059082984924, Z: 0.5647059082984924, W: 0.3690987229347229}
-	colors[imgui.ColTableRowBg] = imgui.Vec4{X: 0.7254902124404907, Y: 0.3372549116611481, Z: 1.0, W: 0.0}
-	colors[imgui.ColTableRowBgAlt] = imgui.Vec4{X: 1.0, Y: 0.2745098173618317, Z: 0.2745098173618317, W: 0.1115880012512207}
-	colors[imgui.ColTextSelectedBg] = imgui.Vec4{X: 0.9764705896377563, Y: 0.2588235437870026, Z: 0.2588235437870026, W: 1.0}
-	colors[imgui.ColDragDropTarget] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 0.0, W: 0.8999999761581421}
-	colors[imgui.ColNavWindowingHighlight] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.4678111672401428}
-	colors[imgui.ColNavWindowingDimBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.733905553817749}
-	colors[imgui.ColModalWindowDimBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.7982832789421082}
+	colors[imgui.ColTableHeaderBg] = imgui.Vec4{X: 1.0, Y: 0.235, Z: 0.235, W: 1.0}
+	colors[imgui.ColTableBorderStrong] = imgui.Vec4{X: 1.0, Y: 0.318, Z: 0.318, W: 1.0}
+	colors[imgui.ColTableBorderLight] = imgui.Vec4{X: 1.0, Y: 0.565, Z: 0.565, W: 0.369}
+	colors[imgui.ColTableRowBg] = imgui.Vec4{X: 0.725, Y: 0.337, Z: 1.0, W: 0.0}
+	colors[imgui.ColTableRowBgAlt] = imgui.Vec4{X: 1.0, Y: 0.275, Z: 0.275, W: 0.112}
+	colors[imgui.ColTextSelectedBg] = imgui.Vec4{X: 0.976, Y: 0.259, Z: 0.259, W: 1.0}
+	colors[imgui.ColDragDropTarget] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 0.0, W: 0.9}
+	colors[imgui.ColNavWindowingHighlight] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.468}
+	colors[imgui.ColNavWindowingDimBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.734}
+	colors[imgui.ColModalWindowDimBg] = imgui.Vec4{X: 0.0, Y: 0.0, Z: 0.0, W: 0.798}
 	imgui.CurrentStyle().SetColors(&colors)
 }
 

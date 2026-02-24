@@ -97,42 +97,42 @@ func main() {
 
 	// create main content component
 	root := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("Menu System Example")
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Text("Menu System Example")
+		imgui.Separator()
+		imgui.Spacing()
 
-		dfx.Text(fmt.Sprintf("Counter: %d", counter))
-		dfx.Text(fmt.Sprintf("Status: %s", text))
+		imgui.Text(fmt.Sprintf("Counter: %d", counter))
+		imgui.Text(fmt.Sprintf("Status: %s", text))
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
-		if dfx.Button("Increment (or use Ctrl+=)") {
+		if imgui.Button("Increment (or use Ctrl+=)") {
 			editIncrement.Handler()
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Decrement (or use Ctrl+-)") {
+		imgui.SameLine()
+		if imgui.Button("Decrement (or use Ctrl+-)") {
 			editDecrement.Handler()
 		}
 
-		dfx.SameLine()
-		if dfx.Button("Reset (or use Ctrl+R)") {
+		imgui.SameLine()
+		if imgui.Button("Reset (or use Ctrl+R)") {
 			editReset.Handler()
 		}
 
-		dfx.Spacing()
-		dfx.Text("Try using the keyboard shortcuts!")
-		dfx.Text("All menu actions work via keyboard and menu clicks.")
+		imgui.Spacing()
+		imgui.Text("Try using the keyboard shortcuts!")
+		imgui.Text("All menu actions work via keyboard and menu clicks.")
 
 		// optional dialog
 		if showDialog {
-			dfx.Spacing()
-			dfx.Separator()
-			dfx.Spacing()
-			dfx.Text("Dialog is visible!")
-			dfx.Text("Press Ctrl+D to toggle this dialog")
+			imgui.Spacing()
+			imgui.Separator()
+			imgui.Spacing()
+			imgui.Text("Dialog is visible!")
+			imgui.Text("Press Ctrl+D to toggle this dialog")
 		}
 	})
 

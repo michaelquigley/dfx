@@ -39,58 +39,58 @@ func main() {
 	}
 
 	root := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("dfx Control Wrappers Demo")
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Text("dfx Control Wrappers Demo")
+		imgui.Separator()
+		imgui.Spacing()
 
 		// Combo / IndexedCombo demo
-		dfx.Text("Combo:")
+		imgui.Text("Combo:")
 		if newIndex, changed := dfx.Combo("Select Option", s.selectedOption, s.options); changed {
 			s.selectedOption = newIndex
 			fmt.Printf("combo changed to index %d: '%s'\n", newIndex, s.options[newIndex])
 		}
-		dfx.SameLine()
-		dfx.Text(fmt.Sprintf("Current: %s", s.options[s.selectedOption]))
+		imgui.SameLine()
+		imgui.Text(fmt.Sprintf("Current: %s", s.options[s.selectedOption]))
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// Toggle demo
-		dfx.Text("Toggle - Boolean buttons with visual feedback:")
+		imgui.Text("Toggle - Boolean buttons with visual feedback:")
 
 		// Play toggle with icon
 		if newValue, changed := dfx.Toggle(fonts.ICON_PLAY_ARROW, s.playEnabled); changed {
 			s.playEnabled = newValue
 			fmt.Printf("play enabled: %v\n", s.playEnabled)
 		}
-		dfx.SameLine()
-		dfx.Text(fmt.Sprintf("Play: %v", s.playEnabled))
+		imgui.SameLine()
+		imgui.Text(fmt.Sprintf("Play: %v", s.playEnabled))
 
 		// Mouse tracking toggle with icon
 		if newValue, changed := dfx.Toggle(fonts.ICON_MOUSE, s.mouseTracking); changed {
 			s.mouseTracking = newValue
 			fmt.Printf("mouse tracking: %v\n", s.mouseTracking)
 		}
-		dfx.SameLine()
-		dfx.Text(fmt.Sprintf("Mouse Tracking: %v", s.mouseTracking))
+		imgui.SameLine()
+		imgui.Text(fmt.Sprintf("Mouse Tracking: %v", s.mouseTracking))
 
 		// Loop toggle with icon
 		if newValue, changed := dfx.Toggle(fonts.ICON_LOOP, s.loopEnabled); changed {
 			s.loopEnabled = newValue
 			fmt.Printf("loop enabled: %v\n", s.loopEnabled)
 		}
-		dfx.SameLine()
-		dfx.Text(fmt.Sprintf("Loop: %v", s.loopEnabled))
+		imgui.SameLine()
+		imgui.Text(fmt.Sprintf("Loop: %v", s.loopEnabled))
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// WheelSlider demo
-		dfx.Text("WheelSlider - Hover and use mouse wheel to adjust")
-		dfx.Text("(Ctrl = 10x faster, Alt = 10x slower)")
-		dfx.Spacing()
+		imgui.Text("WheelSlider - Hover and use mouse wheel to adjust")
+		imgui.Text("(Ctrl = 10x faster, Alt = 10x slower)")
+		imgui.Spacing()
 
 		// Zoom slider
 		if newValue, changed := dfx.WheelSlider("Zoom", s.zoom, 0.25, 5.0, 100, "%.2f", imgui.SliderFlagsNone); changed {
@@ -116,24 +116,24 @@ func main() {
 			fmt.Printf("temperature: %.2f\n", s.temperature)
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// Standard controls for comparison
-		dfx.Text("Standard Controls (for comparison):")
+		imgui.Text("Standard Controls (for comparison):")
 
 		// Standard button
-		if dfx.Button("Standard Button") {
+		if imgui.Button("Standard Button") {
 			fmt.Println("standard button clicked")
 		}
-		dfx.SameLine()
+		imgui.SameLine()
 
 		// Standard checkbox
 		if newValue, changed := dfx.Checkbox("Checkbox", s.loopEnabled); changed {
 			s.loopEnabled = newValue
 		}
-		dfx.SameLine()
+		imgui.SameLine()
 
 		// Standard slider
 		_, _ = dfx.Slider("Standard Slider", s.volume, 0.0, 1.0)

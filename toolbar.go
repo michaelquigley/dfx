@@ -71,11 +71,11 @@ func ToolbarExLayout(label string, extra func(*ToolbarLayout)) {
 
 	// draw text centered vertically
 	layout.CenterText()
-	Text(label)
+	imgui.Text(label)
 
 	// draw extra controls
 	if extra != nil {
-		SameLine()
+		imgui.SameLine()
 		extra(layout)
 	}
 

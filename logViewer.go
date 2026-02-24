@@ -39,6 +39,8 @@ type LogMessage struct {
 // LogBuffer is a thread-safe circular buffer for log messages.
 type LogBuffer struct {
 	messages []LogMessage
+	head     int // write position
+	count    int // number of valid entries
 	maxSize  int
 	mu       sync.RWMutex
 }
@@ -46,30 +48,34 @@ type LogBuffer struct {
 // NewLogBuffer creates a new log buffer with the specified maximum size.
 func NewLogBuffer(maxSize int) *LogBuffer {
 	return &LogBuffer{
-		messages: make([]LogMessage, 0, maxSize),
+		messages: make([]LogMessage, maxSize),
 		maxSize:  maxSize,
 	}
 }
 
 // Add appends a log message to the buffer. if the buffer is full,
-// the oldest message is removed.
+// the oldest message is overwritten.
 func (lb *LogBuffer) Add(msg LogMessage) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	lb.messages = append(lb.messages, msg)
-	if len(lb.messages) > lb.maxSize {
-		lb.messages = lb.messages[1:]
+	lb.messages[lb.head] = msg
+	lb.head = (lb.head + 1) % lb.maxSize
+	if lb.count < lb.maxSize {
+		lb.count++
 	}
 }
 
-// Messages returns a copy of all messages in the buffer.
+// Messages returns a copy of all messages in the buffer in order.
 func (lb *LogBuffer) Messages() []LogMessage {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()
 
-	msgs := make([]LogMessage, len(lb.messages))
-	copy(msgs, lb.messages)
+	msgs := make([]LogMessage, lb.count)
+	start := (lb.head - lb.count + lb.maxSize) % lb.maxSize
+	for i := 0; i < lb.count; i++ {
+		msgs[i] = lb.messages[(start+i)%lb.maxSize]
+	}
 	return msgs
 }
 
@@ -80,8 +86,10 @@ func (lb *LogBuffer) Range(f func(index int, msg *LogMessage) bool) {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()
 
-	for i := range lb.messages {
-		if !f(i, &lb.messages[i]) {
+	start := (lb.head - lb.count + lb.maxSize) % lb.maxSize
+	for i := 0; i < lb.count; i++ {
+		idx := (start + i) % lb.maxSize
+		if !f(i, &lb.messages[idx]) {
 			break
 		}
 	}
@@ -92,7 +100,8 @@ func (lb *LogBuffer) Clear() {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	lb.messages = lb.messages[:0]
+	lb.head = 0
+	lb.count = 0
 }
 
 // AllText returns all log messages as a single formatted string.
@@ -101,7 +110,9 @@ func (lb *LogBuffer) AllText() string {
 	defer lb.mu.RUnlock()
 
 	var out strings.Builder
-	for _, msg := range lb.messages {
+	start := (lb.head - lb.count + lb.maxSize) % lb.maxSize
+	for i := 0; i < lb.count; i++ {
+		msg := lb.messages[(start+i)%lb.maxSize]
 		fields := ""
 		if msg.Fields != "" {
 			fields = " " + msg.Fields
@@ -123,40 +134,48 @@ func (lb *LogBuffer) AllText() string {
 func (lb *LogBuffer) Count() int {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()
-	return len(lb.messages)
+	return lb.count
 }
 
 // LogViewer is a component that displays log messages from a LogBuffer.
 type LogViewer struct {
 	Container
-	Buffer          *LogBuffer
-	AutoScroll      bool
-	LevelFilter     slog.Level // minimum level to show
-	ShowTime        bool
-	ShowFunc        bool
-	ShowFields      bool
-	DisabledMessage string
+	Buffer              *LogBuffer
+	AutoScroll          bool
+	LevelFilter         slog.Level // minimum level to show
+	ShowTime            bool
+	ShowFunc            bool
+	ShowFields          bool
+	ShowDisabledMessage bool
+	DisabledMessage     string
 }
 
 // NewLogViewer creates a new log viewer component.
 func NewLogViewer(buffer *LogBuffer) *LogViewer {
 	return &LogViewer{
-		Container:       Container{Visible: true},
-		Buffer:          buffer,
-		AutoScroll:      true,
-		LevelFilter:     slog.LevelInfo,
-		ShowTime:        true,
-		ShowFunc:        true,
-		ShowFields:      true,
-		DisabledMessage: "Logging Capture Disabled",
+		Container:           Container{Visible: true},
+		Buffer:              buffer,
+		AutoScroll:          true,
+		LevelFilter:         slog.LevelInfo,
+		ShowTime:            true,
+		ShowFunc:            true,
+		ShowFields:          true,
+		ShowDisabledMessage: true,
+		DisabledMessage:     "logging capture disabled",
 	}
 }
 
 // Draw renders the log viewer.
 func (lv *LogViewer) Draw(state *State) {
-	if !lv.Visible || lv.Buffer == nil {
-		// render centered disabled message
-		CenterTextDisabled(lv.DisabledMessage)
+	if !lv.Visible {
+		return
+	}
+	if lv.Buffer == nil {
+		if lv.shouldRenderDisabledMessage() {
+			// render centered disabled message
+			CenterTextDisabled(lv.DisabledMessage)
+		}
+		drawContainerExtensions(&lv.Container, state)
 		return
 	}
 
@@ -208,13 +227,23 @@ func (lv *LogViewer) Draw(state *State) {
 	imgui.EndChild()
 	imgui.PopStyleVar() // pop scrollbar size
 
-	// call base container drawing
-	if lv.OnDraw != nil {
-		lv.OnDraw(state)
+	drawContainerExtensions(&lv.Container, state)
+}
+
+func (lv *LogViewer) shouldRenderDisabledMessage() bool {
+	if !lv.ShowDisabledMessage {
+		return false
 	}
-	for _, child := range lv.Children {
-		child.Draw(state)
+	if lv.DisabledMessage == "" {
+		return false
 	}
+	if lv.Buffer != nil {
+		return false
+	}
+	if !lv.Visible {
+		return false
+	}
+	return true
 }
 
 // renderMessage renders a single log message with color formatting.

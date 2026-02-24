@@ -78,8 +78,8 @@ func main() {
 			paused = newValue
 		}
 
-		dfx.Spacing()
-		dfx.Text("Display Mode:")
+		imgui.Spacing()
+		imgui.Text("Display Mode:")
 		if newIndex, changed := dfx.Combo("##mode", modeIndex, modeNames); changed {
 			modeIndex = newIndex
 			mode := dfx.VUMeterMode(newIndex)
@@ -88,8 +88,8 @@ func main() {
 			multiMeter.Mode = mode
 		}
 
-		dfx.Spacing()
-		dfx.Text("Single Meter:")
+		imgui.Spacing()
+		imgui.Text("Single Meter:")
 		if newValue, changed := dfx.WheelSlider("Height##single", singleMeter.Height, 100, 400, 50, "%.0f", imgui.SliderFlagsNone); changed {
 			singleMeter.Height = newValue
 		}
@@ -100,8 +100,8 @@ func main() {
 			singleMeter.SegmentCount = int(newValue)
 		}
 
-		dfx.Spacing()
-		dfx.Text("Peak Hold:")
+		imgui.Spacing()
+		imgui.Text("Peak Hold:")
 		if newValue, changed := dfx.WheelSlider("Peak Hold (ms)", float32(singleMeter.PeakHoldMs), 0, 3000, 50, "%.0f", imgui.SliderFlagsNone); changed {
 			singleMeter.PeakHoldMs = int(newValue)
 			stereoMeter.PeakHoldMs = int(newValue)
@@ -113,8 +113,8 @@ func main() {
 			multiMeter.PeakDecayRate = newValue
 		}
 
-		dfx.Spacing()
-		dfx.Text("Clip Indicator:")
+		imgui.Spacing()
+		imgui.Text("Clip Indicator:")
 		if newValue, changed := dfx.WheelSlider("Clip Hold (ms)", float32(singleMeter.ClipHoldMs), 500, 5000, 50, "%.0f", imgui.SliderFlagsNone); changed {
 			singleMeter.ClipHoldMs = int(newValue)
 			stereoMeter.ClipHoldMs = int(newValue)

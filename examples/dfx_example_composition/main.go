@@ -18,26 +18,26 @@ func main() {
 
 	// sidebar component
 	sidebar := dfx.NewFunc(func(state *dfx.State) {
-		if dfx.BeginChild("sidebar", 150, 0, true) {
-			dfx.Text("Select Item:")
-			dfx.Separator()
+		if imgui.BeginChildStrV("sidebar", imgui.Vec2{X: 150, Y: 0}, imgui.ChildFlagsBorders, imgui.WindowFlagsNone) {
+			imgui.Text("Select Item:")
+			imgui.Separator()
 
 			for i, item := range items {
-				if dfx.Button(item) {
+				if imgui.Button(item) {
 					selectedItem = i
 				}
 			}
 
-			dfx.EndChild()
+			imgui.EndChild()
 		}
 	})
 
 	// main content component
 	content := dfx.NewFunc(func(state *dfx.State) {
-		dfx.SameLine()
-		if dfx.BeginChild("content", 0, 0, false) {
-			dfx.Text(fmt.Sprintf("Selected: %s", items[selectedItem]))
-			dfx.Separator()
+		imgui.SameLine()
+		if imgui.BeginChildStrV("content", imgui.Vec2{X: 0, Y: 0}, imgui.ChildFlagsNone, imgui.WindowFlagsNone) {
+			imgui.Text(fmt.Sprintf("Selected: %s", items[selectedItem]))
+			imgui.Separator()
 
 			// text input
 			newText, changed := dfx.Input("Text Input", textValue)
@@ -46,7 +46,7 @@ func main() {
 			}
 
 			if textValue != "" {
-				dfx.Text("You typed: " + textValue)
+				imgui.Text("You typed: " + textValue)
 			}
 
 			// checkbox
@@ -56,7 +56,7 @@ func main() {
 			}
 
 			if checkValue {
-				dfx.TextColored("Feature is enabled!", 0.2, 1.0, 0.2, 1.0)
+				imgui.TextColored(imgui.Vec4{X: 0.2, Y: 1.0, Z: 0.2, W: 1.0}, "Feature is enabled!")
 			}
 
 			// combo box
@@ -65,8 +65,8 @@ func main() {
 			comboIndex, _ = dfx.Combo("Select Option", comboIndex, comboOptions)
 
 			// color picker
-			dfx.Spacing()
-			dfx.Text("Pick a color:")
+			imgui.Spacing()
+			imgui.Text("Pick a color:")
 			newR, newG, newB, changed := dfx.ColorEdit3("Color", colorR, colorG, colorB)
 			if changed {
 				colorR, colorG, colorB = newR, newG, newB
@@ -79,33 +79,33 @@ func main() {
 			drawList.AddRectFilled(pos, pos.Add(imgui.Vec2{X: 100, Y: 50}), col)
 			imgui.Dummy(imgui.Vec2{X: 100, Y: 50})
 
-			dfx.EndChild()
+			imgui.EndChild()
 		}
 	})
 
 	// create menu bar component
 	menuBar := dfx.NewFunc(func(state *dfx.State) {
-		if dfx.BeginMenu("File") {
-			if dfx.MenuItem("New", "Ctrl+N") {
+		if imgui.BeginMenu("File") {
+			if imgui.MenuItemBoolV("New", "Ctrl+N", false, true) {
 				fmt.Println("new file")
 			}
-			if dfx.MenuItem("Open", "Ctrl+O") {
+			if imgui.MenuItemBoolV("Open", "Ctrl+O", false, true) {
 				fmt.Println("open file")
 			}
-			dfx.Separator()
-			if dfx.MenuItem("Exit", "") {
+			imgui.Separator()
+			if imgui.MenuItemBoolV("Exit", "", false, true) {
 				state.App.Stop()
 			}
-			dfx.EndMenu()
+			imgui.EndMenu()
 		}
-		if dfx.BeginMenu("Edit") {
-			if dfx.MenuItem("Reset", "") {
+		if imgui.BeginMenu("Edit") {
+			if imgui.MenuItemBoolV("Reset", "", false, true) {
 				selectedItem = 0
 				textValue = ""
 				checkValue = false
 				colorR, colorG, colorB = 0.5, 0.5, 0.5
 			}
-			dfx.EndMenu()
+			imgui.EndMenu()
 		}
 	})
 

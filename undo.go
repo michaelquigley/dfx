@@ -60,17 +60,14 @@ func (us *UndoSystem) Run(command Command) {
 	// attempt to merge with previous command if both support it
 	if len(us.undo) > 0 {
 		if mergeableCmd, ok := command.(MergeableCommand); ok {
-			top := us.undo[len(us.undo)-1]
-			if mergeableCmd.Merge(top) {
+			if mergeableCmd.Merge(us.undo[len(us.undo)-1]) {
 				us.undo = us.undo[:len(us.undo)-1]
 			}
 		}
-		us.undo = append(us.undo, command)
-		us.redo = nil
-	} else {
-		us.undo = append(us.undo, command)
-		us.redo = nil
 	}
+
+	us.undo = append(us.undo, command)
+	us.redo = nil
 }
 
 // Undo reverses the last command and moves it to the redo stack.

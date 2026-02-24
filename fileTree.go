@@ -169,14 +169,7 @@ func (ft *FileTree) Draw(state *State) {
 	ft.visitNode(ft.Root)
 
 	imgui.EndChild()
-
-	// call base container drawing
-	if ft.OnDraw != nil {
-		ft.OnDraw(state)
-	}
-	for _, child := range ft.Children {
-		child.Draw(state)
-	}
+	drawContainerExtensions(&ft.Container, state)
 }
 
 // visitNode recursively renders a single node and its children.

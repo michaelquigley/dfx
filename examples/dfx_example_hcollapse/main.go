@@ -71,25 +71,25 @@ func main() {
 
 	// root component
 	root := dfx.NewFunc(func(state *dfx.State) {
-		dfx.Text("HCollapse Demo - Collapsible Mixer Panels")
-		dfx.Separator()
+		imgui.Text("HCollapse Demo - Collapsible Mixer Panels")
+		imgui.Separator()
 
 		// controls row
 		if newValue, changed := dfx.Checkbox("Pause Animation", paused); changed {
 			paused = newValue
 		}
 		imgui.SameLine()
-		if dfx.Button("Toggle Drums") {
+		if imgui.Button("Toggle Drums") {
 			drumsCollapse.Toggle()
 		}
 		imgui.SameLine()
-		if dfx.Button("Toggle Synths") {
+		if imgui.Button("Toggle Synths") {
 			synthsCollapse.Toggle()
 		}
 
-		dfx.Spacing()
-		dfx.Separator()
-		dfx.Spacing()
+		imgui.Spacing()
+		imgui.Separator()
+		imgui.Spacing()
 
 		// simulate meter levels if not paused
 		if !paused {
@@ -125,18 +125,18 @@ func main() {
 		remaining := state.Size.X - drumsCollapse.CurrentWidth - synthsCollapse.CurrentWidth - 20
 		if remaining > 50 {
 			imgui.BeginChildStrV("main", imgui.Vec2{X: remaining, Y: panelHeight}, imgui.ChildFlagsBorders, 0)
-			dfx.Text("Main Content Area")
-			dfx.Separator()
-			dfx.Spacing()
-			dfx.Text("This area expands as panels collapse.")
-			dfx.Spacing()
-			dfx.Text(fmt.Sprintf("Drums panel: %.0fpx", drumsCollapse.CurrentWidth))
-			dfx.Text(fmt.Sprintf("Synths panel: %.0fpx", synthsCollapse.CurrentWidth))
-			dfx.Text(fmt.Sprintf("Main area: %.0fpx", remaining))
-			dfx.Spacing()
-			dfx.Separator()
-			dfx.Spacing()
-			dfx.Text("Tips:")
+			imgui.Text("Main Content Area")
+			imgui.Separator()
+			imgui.Spacing()
+			imgui.Text("This area expands as panels collapse.")
+			imgui.Spacing()
+			imgui.Text(fmt.Sprintf("Drums panel: %.0fpx", drumsCollapse.CurrentWidth))
+			imgui.Text(fmt.Sprintf("Synths panel: %.0fpx", synthsCollapse.CurrentWidth))
+			imgui.Text(fmt.Sprintf("Main area: %.0fpx", remaining))
+			imgui.Spacing()
+			imgui.Separator()
+			imgui.Spacing()
+			imgui.Text("Tips:")
 			imgui.BulletText("Click chevron icons to toggle panels")
 			imgui.BulletText("Drag the resize handle to adjust width")
 			imgui.BulletText("Use keyboard shortcuts [ and ] to toggle")

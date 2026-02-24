@@ -24,7 +24,7 @@ The fundamental abstraction in dfx is the `Component`:
 ```go
 type Component interface {
     Draw(state *State)
-    Actions() []*Action
+    Actions() *ActionRegistry
 }
 ```
 
@@ -50,9 +50,9 @@ type State struct {
 The simplest way to create a component:
 
 ```go
-root := dfx.Func(func(state *dfx.State) {
-    dfx.Text("Hello World!")
-    if dfx.Button("Click Me") {
+root := dfx.NewFunc(func(state *dfx.State) {
+    imgui.Text("Hello World!")
+    if imgui.Button("Click Me") {
         fmt.Println("Button clicked!")
     }
 })
@@ -71,8 +71,8 @@ func NewMyComponent() *MyComponent {
     c := &MyComponent{}
     c.Visible = true
     c.OnDraw = func(state *dfx.State) {
-        dfx.Text(fmt.Sprintf("Counter: %d", c.counter))
-        if dfx.Button("Increment") {
+        imgui.Text(fmt.Sprintf("Counter: %d", c.counter))
+        if imgui.Button("Increment") {
             c.counter++
         }
     }
@@ -90,9 +90,9 @@ package main
 import "github.com/michaelquigley/dfx"
 
 func main() {
-    root := dfx.Func(func(state *dfx.State) {
-        dfx.Text("Hello from dfx!")
-        if dfx.Button("Click Me") {
+    root := dfx.NewFunc(func(state *dfx.State) {
+        imgui.Text("Hello from dfx!")
+        if imgui.Button("Click Me") {
             // handle button click
         }
     })
@@ -110,15 +110,15 @@ func main() {
 ### With Menu Bar
 
 ```go
-menuBar := dfx.Func(func(state *dfx.State) {
-    if dfx.BeginMenu("File") {
-        if dfx.MenuItem("New", "Ctrl+N") {
+menuBar := dfx.NewFunc(func(state *dfx.State) {
+    if imgui.BeginMenu("File") {
+        if imgui.MenuItemBoolV("New", "Ctrl+N", false, true) {
             // handle new
         }
-        if dfx.MenuItem("Open", "Ctrl+O") {
+        if imgui.MenuItemBoolV("Open", "Ctrl+O", false, true) {
             // handle open
         }
-        dfx.EndMenu()
+        imgui.EndMenu()
     }
 })
 
@@ -127,6 +127,29 @@ app := dfx.New(root, dfx.Config{
     MenuBar: menuBar,
 })
 ```
+
+### Application Lifecycle
+
+**Config Callbacks:**
+- `OnSetup(app *App)` - Called once after ImGui context is created
+- `OnShutdown(app *App)` - Called before shutdown
+- `OnTick(app *App)` - Called each frame before drawing
+- `OnClose(app *App)` - Called when window is about to close (can cancel via `SetShouldClose(false)`)
+- `OnSizeChange(width, height int)` - Called when window is resized
+
+**Config Fields:**
+- `Icons []image.Image` - Optional window icons for taskbar/title bar
+
+**App Methods:**
+- `Run() error` - Run the application (blocks until closed)
+- `Wait() error` - Block until `Run()` completes (useful when `Run()` is called from a goroutine)
+- `Stop()` - Request application to stop
+- `SetRoot(root Component)` - Change the root component at runtime
+- `Actions() *ActionRegistry` - Get global action registry
+- `SetWindowTitle(title string)` - Update window title dynamically
+- `SetShouldClose(shouldClose bool)` - Control window close behavior
+- `GetWindowSize() (int, int)` - Get current window dimensions
+- `GetWindowPos() (int, int)` - Get current window position
 
 ## Theming System
 
@@ -162,23 +185,23 @@ dfx.SetTheme(dfx.ModernDark)
 
 dfx provides three font constants with Material Icons merged where applicable:
 - **MainFont** (20px) - Gidole Regular with Material Icons
-- **MonospaceFont** (18px) - JetBrains Mono for code
+- **MonospaceFont** (16px) - JetBrains Mono for code
 - **SmallFont** (16px) - Gidole Regular small with Material Icons, for labels/indicators
 
 ### Using Different Fonts
 
 ```go
 // Default font (with icons)
-dfx.Text("Regular text " + string(fonts.ICON_FAVORITE))
+imgui.Text("Regular text " + string(fonts.ICON_FAVORITE))
 
 // Monospace font
 dfx.PushFont(dfx.MonospaceFont)
-dfx.Text("Monospace code text")
+imgui.Text("Monospace code text")
 dfx.PopFont()
 
 // Small font for labels and indicators
 dfx.PushFont(dfx.SmallFont)
-dfx.Text("CH1")
+imgui.Text("CH1")
 dfx.PopFont()
 ```
 
@@ -194,7 +217,7 @@ app := dfx.New(root, dfx.Config{
 
 ## Controls
 
-dfx provides simplified wrappers for common ImGui controls that return values instead of requiring pointers:
+For trivial ImGui operations (Button, Text, Separator, SameLine, Spacing, TreeNode, TreePop, BeginChild, EndChild, BeginMenu, EndMenu, BeginMenuBar, EndMenuBar, MenuItem), call `imgui.*` directly. dfx provides value-add wrappers for controls that benefit from a cleaner Go-idiomatic API, returning `(newValue, changed)` tuples instead of requiring pointers:
 
 ```go
 // Text input
@@ -209,8 +232,8 @@ value, changed := dfx.Slider("Volume", currentValue, 0.0, 1.0)
 // Checkbox
 checked, changed := dfx.Checkbox("Enable feature", isEnabled)
 
-// Button
-if dfx.Button("Submit") {
+// Button (use imgui directly)
+if imgui.Button("Submit") {
     // handle button click
 }
 
@@ -218,6 +241,12 @@ if dfx.Button("Submit") {
 items := []string{"Option 1", "Option 2", "Option 3"}
 selected, changed := dfx.Combo("Choose", currentIndex, items)
 ```
+
+**Value-add wrappers** (in `controls.go`): Input, InputMultiline, Checkbox, Slider, SliderInt, Combo, ColorEdit3, ColorEdit4, Toggle, WheelSlider.
+
+**Text Utilities** (in `text.go`):
+- `CenterText(text string)` - Draws text centered horizontally and vertically in the available content region
+- `CenterTextDisabled(text string)` - Draws disabled (dimmed) text centered horizontally and vertically
 
 ### Enhanced Controls
 
@@ -230,11 +259,11 @@ dfx.Toolbar("Settings")
 
 // toolbar with extra controls on the right
 dfx.ToolbarEx("Actions", func() {
-    if dfx.Button("Add") {
+    if imgui.Button("Add") {
         // handle add
     }
-    dfx.SameLine()
-    if dfx.Button("Remove") {
+    imgui.SameLine()
+    if imgui.Button("Remove") {
         // handle remove
     }
 })
@@ -432,15 +461,41 @@ waterfall.Draw(state)
 - `RowHeight` - Height of each history row (default: 2)
 - `RowGap` - Gap between rows (default: 0)
 - `HistorySize` - Number of samples to retain (default: 100)
+- `SampleInterval` - Minimum time between samples for throttling (default: 16ms / ~60fps)
+- `Highres` - When true, alternates row opacity for scanline effect
 - `ColorLow/Mid/High/Off` - Zone colors (same defaults as VUMeter)
+
+**Additional Methods:**
+- `SetHistorySize(size int)` - Change history depth (clears buffer)
+- `ChannelCount() int` - Get current channel count
 
 **Features:**
 - **Vertical scrolling**: New data appears at bottom, scrolls upward
 - **Multi-channel**: Channels displayed side-by-side
 - **Color zones**: Green (0-60%), yellow (60-80%), red (80-100%)
 - **Centered bars**: Level represented by bar width, centered in channel
+- **Sample throttling**: Consistent scroll speed via `SampleInterval`
+- **Highres mode**: Scanline effect with alternating row opacity
 
 See `examples/dfx_example_vumeter` for a complete demonstration.
+
+**LogViewer** - Buffered log display with configurable empty-state behavior:
+
+```go
+buffer := dfx.NewLogBuffer(1000)
+viewer := dfx.NewLogViewer(buffer)
+
+viewer.Visible = true
+viewer.ShowDisabledMessage = true
+viewer.DisabledMessage = "logging capture disabled"
+```
+
+**Visibility behavior:**
+- `Visible == false` renders nothing
+- `Visible == true` and `Buffer != nil` renders the log stream
+- `Visible == true` and `Buffer == nil` renders `DisabledMessage` only when `ShowDisabledMessage == true`
+
+Use `NewSlogHandler(...)` with a shared `LogBuffer` to route `slog` output into the viewer.
 
 ### FileNode Search/Filter
 
@@ -513,7 +568,7 @@ Components can define their own keyboard shortcuts that automatically override g
 myComponent := &dfx.Container{
     Visible: true,
     OnDraw: func(state *dfx.State) {
-        dfx.Text("Component with local actions")
+        imgui.Text("Component with local actions")
     },
 }
 
@@ -610,10 +665,8 @@ container := &dfx.Container{
         footer,
     },
     OnDraw: func(state *dfx.State) {
-        // Custom layout logic
-        for _, child := range container.Children {
-            child.Draw(state)
-        }
+        // Custom layout logic for this container.
+        // Children are drawn automatically by Container.Draw().
     },
 }
 ```
@@ -679,12 +732,12 @@ The `Workspace` component provides high-level management of multiple named views
 ```go
 // create workspaces
 editor := dfx.NewFunc(func(state *dfx.State) {
-    dfx.Text("Editor View")
+    imgui.Text("Editor View")
     // editor UI...
 })
 
 viewer := dfx.NewFunc(func(state *dfx.State) {
-    dfx.Text("Viewer")
+    imgui.Text("Viewer")
     // viewer UI...
 })
 
@@ -725,7 +778,7 @@ app := dfx.New(ws, dfx.Config{...})
 - `CurrentComponent()` - get current component
 - `SetName(id, name)` - change display name (ID unchanged)
 - `GetName(id)` - get display name for ID
-- `WorkspaceIDs()` - get list of workspace IDs
+- `WorkspaceIds()` - get list of workspace IDs
 - `WorkspaceNames()` - get list of display names
 
 **Configuration:**
@@ -741,6 +794,60 @@ app := dfx.New(ws, dfx.Config{...})
 - Easy localization (same ID, different display names)
 
 See `examples/dfx_example_workspace` for a complete demonstration.
+
+## Undo/Redo System
+
+dfx includes a command-pattern undo/redo system for tracking reversible operations:
+
+```go
+// define a command
+type SetValueCommand struct {
+    dfx.BaseCommand
+    target   *int
+    oldValue int
+    newValue int
+}
+
+func (c *SetValueCommand) Description() string { return fmt.Sprintf("set value to %d", c.newValue) }
+func (c *SetValueCommand) Run()                { *c.target = c.newValue }
+func (c *SetValueCommand) Undo()               { *c.target = c.oldValue }
+
+// create and use the undo system
+undoSystem := dfx.NewUndoSystem()
+undoSystem.Run(&SetValueCommand{target: &myValue, oldValue: myValue, newValue: 42})
+undoSystem.Undo()  // reverts to old value
+undoSystem.Redo()  // re-applies new value
+```
+
+**API:**
+- `NewUndoSystem() *UndoSystem` - Create undo system
+- `Run(cmd Command)` - Execute and track command (supports automatic merging via `MergeableCommand`)
+- `Undo()` / `Redo()` - Navigate command history
+- `Clear()` - Remove all commands from both stacks
+- `CanUndo() bool` / `CanRedo() bool` - Check availability
+- `HistoryComponent()` - Returns a component displaying undo/redo history
+- `RunF func(Command)` - Optional callback invoked whenever a command is executed
+
+**Command Interfaces:**
+- `Command` - Core: `Description()`, `Run()`, `Undo()`
+- `MergeableCommand` - Adds `Merge(other Command) bool` for combining adjacent commands
+- `StampedCommand` - Adds `Stamp() time.Time` for timestamp tracking
+- `FullCommand` - Combines MergeableCommand and StampedCommand
+
+**BaseCommand** - Embeddable helper struct providing automatic timestamp via `Stamp()` and manual override via `SetStamp(time.Time)`.
+
+See `examples/dfx_example_undo` for a complete demonstration.
+
+## Debug Utilities
+
+**SizeDebugger** - Visual component that displays the available drawing area size and draws a border with crossing lines. Useful for debugging layout issues.
+
+```go
+debugger := dfx.NewSizeDebugger()
+debugger.Margin = 8  // inset from edges (default: 4)
+// use as any Component - shows size label and border lines
+// press Shift+Alt+D to toggle the size label
+```
 
 ## Configuration Persistence
 
@@ -963,6 +1070,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_dash` - DashManager panel system
 - `dfx_example_undo` - Undo/redo system demo
 - `dfx_example_menu` - Menu-compatible actions
+- `dfx_example_demo` - ImGui demo window
 
 ## Building Examples
 

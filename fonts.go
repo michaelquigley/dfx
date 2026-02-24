@@ -11,7 +11,7 @@ import (
 // note: icon fonts are merged into their base fonts, not separate entries
 const (
 	MainFont      = 0 // default font (Gidole Regular, 20px) with Material Icons merged
-	MonospaceFont = 1 // monospace font (JetBrains Mono, 18px)
+	MonospaceFont = 1 // monospace font (JetBrains Mono, 16px)
 	SmallFont     = 2 // small font (Gidole Regular, 16px) with Material Icons merged
 )
 

@@ -20,6 +20,8 @@ type App struct {
 	runErr    error         // stores error from Run()
 }
 
+const menuBarFallbackHeight = 25.0
+
 type Config struct {
 	Title          string
 	Width          int
@@ -121,8 +123,10 @@ func (app *App) Run() error {
 		}
 
 		// draw menu bar if configured
+		menuBarHeight := float32(0)
 		if app.config.MenuBar != nil {
 			if imgui.BeginMainMenuBar() {
+				menuBarHeight = imgui.WindowSize().Y
 				menuState := &State{
 					Size:     imgui.Vec2{X: 0, Y: 0}, // menu bar size is managed by imgui
 					Position: imgui.Vec2{},
@@ -132,6 +136,9 @@ func (app *App) Run() error {
 				}
 				app.config.MenuBar.Draw(menuState)
 				imgui.EndMainMenuBar()
+			}
+			if menuBarHeight <= 0 {
+				menuBarHeight = menuBarFallbackHeight
 			}
 		}
 
@@ -143,16 +150,7 @@ func (app *App) Run() error {
 			imgui.WindowFlagsNoScrollbar |
 			imgui.WindowFlagsNoScrollWithMouse
 
-		// adjust for menu bar if present
-		var windowPos imgui.Vec2
-		var windowSize imgui.Vec2
-		if app.config.MenuBar != nil {
-			windowPos = imgui.Vec2{X: 0, Y: 25} // menu bar height
-			windowSize = size.Sub(imgui.Vec2{X: 0, Y: 25})
-		} else {
-			windowPos = imgui.Vec2{X: 0, Y: 0}
-			windowSize = size
-		}
+		windowPos, windowSize := rootWindowRect(size, menuBarHeight, app.config.MenuBar != nil)
 
 		imgui.SetNextWindowPos(windowPos)
 		imgui.SetNextWindowSize(windowSize)
@@ -186,6 +184,22 @@ func (app *App) Run() error {
 
 	app.runErr = nil
 	return app.runErr
+}
+
+func rootWindowRect(viewportSize imgui.Vec2, menuBarHeight float32, hasMenuBar bool) (imgui.Vec2, imgui.Vec2) {
+	if !hasMenuBar {
+		return imgui.Vec2{X: 0, Y: 0}, viewportSize
+	}
+	if menuBarHeight < 0 {
+		menuBarHeight = 0
+	}
+	windowPos := imgui.Vec2{X: 0, Y: menuBarHeight}
+	windowHeight := viewportSize.Y - menuBarHeight
+	if windowHeight < 0 {
+		windowHeight = 0
+	}
+	windowSize := imgui.Vec2{X: viewportSize.X, Y: windowHeight}
+	return windowPos, windowSize
 }
 
 // Stop signals the app to stop running

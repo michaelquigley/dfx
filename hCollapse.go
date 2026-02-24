@@ -1,8 +1,6 @@
 package dfx
 
 import (
-	"math"
-
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx/fonts"
 )
@@ -287,23 +285,20 @@ func (h *HCollapse) animate() {
 	}
 
 	if h.CurrentWidth < target {
-		h.CurrentWidth += h.pxPerFrame()
+		h.CurrentWidth += h.collapsePxPerFrame()
 		if h.CurrentWidth > target {
 			h.CurrentWidth = target
 		}
 	} else if h.CurrentWidth > target {
-		h.CurrentWidth -= h.pxPerFrame()
+		h.CurrentWidth -= h.collapsePxPerFrame()
 		if h.CurrentWidth < target {
 			h.CurrentWidth = target
 		}
 	}
 }
 
-// pxPerFrame calculates pixels to animate per frame for smooth transitions.
-func (h *HCollapse) pxPerFrame() float32 {
-	msFrame := FramerateToMs / imgui.CurrentIO().Framerate()
-	frames := float32(h.TransitionMs) / msFrame
-	return float32(math.Ceil(float64(h.ExpandedWidth) / float64(frames)))
+func (h *HCollapse) collapsePxPerFrame() float32 {
+	return pxPerFrame(h.ExpandedWidth, h.TransitionMs)
 }
 
 // isFullyExpanded returns true if the animation has completed to expanded state.

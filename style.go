@@ -1,6 +1,10 @@
 package dfx
 
-import "github.com/AllenDang/cimgui-go/imgui"
+import (
+	"math"
+
+	"github.com/AllenDang/cimgui-go/imgui"
+)
 
 const (
 	// default padding and spacing
@@ -23,6 +27,13 @@ const (
 	DefaultScrollbarRounding = 2
 	DefaultGrabRounding      = 2
 )
+
+// pxPerFrame calculates pixels to animate per frame for smooth transitions.
+func pxPerFrame(targetSize float32, transitionMs int) float32 {
+	msFrame := FramerateToMs / imgui.CurrentIO().Framerate()
+	frames := float32(transitionMs) / msFrame
+	return float32(math.Ceil(float64(targetSize) / float64(frames)))
+}
 
 // DefaultStyle sets up the default ImGui style parameters
 // this should be called after font setup but before theme application

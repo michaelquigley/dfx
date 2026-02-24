@@ -11,7 +11,7 @@ func main() {
 	content := dfx.NewFunc(func(state *dfx.State) {
 		imgui.BeginChildStrV("##content", imgui.Vec2{}, 0, imgui.WindowFlagsAlwaysVerticalScrollbar)
 		for i := 0; i < 24; i++ {
-			dfx.Text(fmt.Sprintf("oh yes: %d", i))
+			imgui.Text(fmt.Sprintf("oh yes: %d", i))
 		}
 		imgui.EndChild()
 	})
