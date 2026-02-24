@@ -157,6 +157,10 @@ func parseKey(name string) (imgui.Key, bool) {
 			return imgui.KeyPeriod, true
 		case '/':
 			return imgui.KeySlash, true
+		case '\\':
+			return imgui.KeyBackslash, true
+		case '`':
+			return imgui.KeyGraveAccent, true
 		}
 	}
 
