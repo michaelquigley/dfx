@@ -278,6 +278,11 @@ func (app *App) setupFontsAndTheme() {
 
 // processEvents converts imgui events to our event system
 func (app *App) processEvents(state *State) {
+	// suppress all action dispatch while a text input widget is active
+	if imgui.CurrentIO().WantTextInput() {
+		return
+	}
+
 	// collect all actions to check (component actions first, then global)
 	var actionsToCheck []*ActionRegistry
 
