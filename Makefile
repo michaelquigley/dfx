@@ -1,8 +1,10 @@
-.PHONY: clean build test
+.PHONY: build clean examples
+.DEFAULT_GOAL := build
+GOBIN ?= $(shell go env GOPATH)/bin
 
 clean:
 	go clean
-	rm -f $(GOPATH)/bin/*
+	rm -f ${GOBIN}/*
 
 build:
 	go install ./...

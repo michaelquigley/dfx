@@ -12,7 +12,7 @@ import (
 // Each collapsible section shows a different layout concept with
 // real-time values and interactive examples.
 //
-// See docs/LAYOUT_GUIDE.md for comprehensive documentation.
+// See docs/current/layout-guide.md for comprehensive documentation.
 
 func main() {
 	root := dfx.NewFunc(func(state *dfx.State) {

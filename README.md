@@ -652,7 +652,7 @@ See `examples/dfx_example_menu` for a complete demonstration.
 
 ## Layout and Composition
 
-For a comprehensive guide to Dear ImGui's layout system including child windows, sizing semantics, and practical patterns, see [`docs/LAYOUT_GUIDE.md`](docs/LAYOUT_GUIDE.md). The interactive demo in `examples/dfx_example_layout` demonstrates all concepts with real-time values.
+For a comprehensive guide to Dear ImGui's layout system including child windows, sizing semantics, and practical patterns, see [`docs/current/layout-guide.md`](docs/current/layout-guide.md). The interactive demo in `examples/dfx_example_layout` demonstrates all concepts with real-time values.
 
 Components can contain children for complex layouts:
 
@@ -1065,7 +1065,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_lifecycle` - Window lifecycle callbacks
 - `dfx_example_config` - Configuration persistence with window and dashboard state
 - `dfx_example_container` - Container-based lifecycle with df/da dependency injection
-- `dfx_example_layout` - Comprehensive ImGui layout and sizing tutorial (see [`docs/LAYOUT_GUIDE.md`](docs/LAYOUT_GUIDE.md))
+- `dfx_example_layout` - Comprehensive ImGui layout and sizing tutorial (see [`docs/current/layout-guide.md`](docs/current/layout-guide.md))
 - `dfx_example_multigrid` - MultiGrid layout system
 - `dfx_example_dash` - DashManager panel system
 - `dfx_example_undo` - Undo/redo system demo
