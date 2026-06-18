@@ -32,8 +32,9 @@ type Config struct {
 	OnShutdown     func(*App)     // called before shutdown
 	OnTick         func(*App)     // called each frame before drawing
 	OnClose        func(*App)     // called when window is about to close (can call SetShouldClose to cancel)
-	OnSizeChange   func(int, int) // called when window is resized
-	MenuBar        Component      // optional menu bar component
+	OnSizeChange   func(int, int)    // called when window is resized
+	OnAction       func(ActionEvent) // called whenever an action is invoked (usage telemetry)
+	MenuBar        Component         // optional menu bar component
 	Theme          Theme          // optional theme (defaults to DefaultTheme)
 	DisableFonts   bool           // if true, skip font setup (use default ImGui fonts)
 	DisableTheming bool           // if true, skip theme setup (use default ImGui theme)
@@ -303,12 +304,29 @@ func (app *App) processEvents(state *State) {
 			if imgui.IsKeyPressedBool(action.key) {
 				if action.mods == currentMods {
 					if action.Handler != nil {
-						action.Handler()
+						app.dispatchAction(action, ActionSourceKeyboard)
 						return // stop processing after first match
 					}
 				}
 			}
 		}
+	}
+}
+
+// dispatchAction is the single chokepoint for invoking an action. It notifies the
+// OnAction observer (if configured) before running the handler, so usage telemetry
+// is recorded even if the handler panics or never returns. The observer must not
+// assume it runs on any particular goroutine other than the main UI loop.
+func (app *App) dispatchAction(action *Action, source ActionSource) {
+	if app.config.OnAction != nil {
+		app.config.OnAction(ActionEvent{
+			Action: action,
+			Source: source,
+			Time:   time.Now(),
+		})
+	}
+	if action.Handler != nil {
+		action.Handler()
 	}
 }
 

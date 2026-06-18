@@ -24,7 +24,7 @@ The whole model is small enough to hold in your head:
 - **`Component`** (`component.go`) — the core interface: `Draw(*State)` to render each frame, `Actions() *ActionRegistry` for keyboard shortcuts. `Container` and `Func` are the embeddable/base implementations. Composite components may also implement `ChildActionProvider` (`ChildActions() []Component`) and `LocalActionProvider` (`LocalActions() *ActionRegistry`) to participate in hierarchical action resolution.
 - **`State`** (`component.go`) — passed to every `Draw`: `Size`, `Position`, `IO` (imgui input/output), `App`, and `Parent`. Use `state.Size` for the component's allocated drawing area.
 - **App loop** (`app.go`) — `dfx.New(root, Config{...})` then `app.Run()`. `Config` carries window setup plus lifecycle callbacks: `OnSetup`, `OnTick`, `OnClose`, `OnShutdown`, `OnSizeChange`, plus `MenuBar`, `Theme`, and font/theme toggles.
-- **Action subsystem** (`action.go`) — keybindings resolved child → parent-local → app-global, first match wins. Modifier matching is **exact** (Ctrl+S does not match Ctrl+Shift+S). Conflicts are detected per-registry at registration. See `docs/current/child-actions.md` for the full model.
+- **Action subsystem** (`action.go`) — keybindings resolved child → parent-local → app-global, first match wins. Modifier matching is **exact** (Ctrl+S does not match Ctrl+Shift+S). Conflicts are detected per-registry at registration. Invocations can be observed via `Config.OnAction` for usage telemetry. See `docs/current/child-actions.md` for the full model.
 - **Composition** — `Container`, `Workspace` (`workspace.go`), `DashManager`/`Dash` (`dashManager.go`, `dash.go`), `HCollapse` (`hCollapse.go`), `MultiGrid` (`multiGrid.go`). Widgets: `Fader`, `VuMeter`, `VuWaterfall`, `FileTree`, `LogViewer`, `Toolbar`, `Controls`.
 
 ## Conventions
@@ -32,7 +32,7 @@ The whole model is small enough to hold in your head:
 - **File naming**: camelCase for multi-word files (`dashManager.go`, `fileTree.go`, `hCollapse.go`, `logViewer.go`). Doc files in `docs/` are kebab-case.
 - **UI primitives**: `github.com/AllenDang/cimgui-go/imgui`.
 - **Logging**: `github.com/michaelquigley/df/dl`. **YAML/JSON marshaling**: `df/dd`. **Dependency injection**: `df/da`. **Errors**: `github.com/pkg/errors`.
-- **Changelog**: there is no `CHANGELOG.md` yet. If one is added, use the in-house format — newest-first releases, prose entries each led by `FEATURE` / `CHANGE` / `FIX`, and an `## Unreleased` slot new entries go into. (Not Keep a Changelog.)
+- **Changelog**: `CHANGELOG.md` uses the in-house format — a `## Unreleased` slot pinned at the top that new entries are written into, then newest-first `## vX.Y.Z` releases below. Entries are prose paragraphs (not bullets), each led by `FEATURE` / `CHANGE` / `FIX` and ordered most-important-first; breaking changes lead with a **bolded** clause (no separate tag). No dates, no `### Added`-style subsections — not Keep a Changelog.
 - **Docs**: built behavior is documented under `docs/current/`.
 
 ## Reference docs

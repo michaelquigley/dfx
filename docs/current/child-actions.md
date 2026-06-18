@@ -144,6 +144,35 @@ Behavior notes:
 - invalid `keys` passed to `NewMenuAction` panic during construction
 - shortcut labels shown in menus are generated from parsed modifier/key values
 
+## observing action invocations (`OnAction` hook)
+
+`Config.OnAction func(ActionEvent)` lets an application observe every action that
+fires, for usage telemetry — e.g. building a heatmap of which actions and shortcuts
+are exercised in order to refine keybindings.
+
+```go
+app := dfx.New(root, dfx.Config{
+    OnAction: func(e dfx.ActionEvent) {
+        record(e.Action.Id, e.Action.Keys, e.Source, e.Time)
+    },
+})
+```
+
+`ActionEvent` carries the invoked `*Action` (read-only — `Id`, `Label`, `Keys`),
+the `Source`, and the `Time` it fired.
+
+Mechanics:
+
+- all keyboard invocations route through one chokepoint, `App.dispatchAction`,
+  which fires `OnAction` before running the handler (so telemetry is recorded even
+  if the handler panics)
+- the observer runs synchronously on the main UI loop — keep it cheap, or hand off
+  to a channel/buffer
+- the only `Source` currently emitted is `ActionSourceKeyboard`. `ActionSourceMenu`
+  is reserved: menu-click invocations via `DrawMenuItem()` do not yet route through
+  the hook (the menu path has no `App` reference)
+- a nil-handler action still does not consume the keystroke and is not reported
+
 ## recommended patterns for custom components
 
 When implementing a custom composite:

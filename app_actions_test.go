@@ -70,6 +70,45 @@ func TestHCollapse_IncludesContentAndLocalActions(t *testing.T) {
 	}
 }
 
+func TestDispatchAction_NotifiesOnActionObserver(t *testing.T) {
+	var got []ActionEvent
+	app := New(nil, Config{
+		OnAction: func(e ActionEvent) { got = append(got, e) },
+	})
+
+	var handlerRan bool
+	action := &Action{Id: "save", Keys: "Ctrl+S", Handler: func() { handlerRan = true }}
+
+	app.dispatchAction(action, ActionSourceKeyboard)
+
+	if !handlerRan {
+		t.Fatal("expected handler to run")
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 observed event, got %d", len(got))
+	}
+	if got[0].Action != action {
+		t.Fatal("expected observed event to carry the dispatched action")
+	}
+	if got[0].Source != ActionSourceKeyboard {
+		t.Fatalf("expected source Keyboard, got %v", got[0].Source)
+	}
+	if got[0].Time.IsZero() {
+		t.Fatal("expected event time to be set")
+	}
+}
+
+func TestDispatchAction_NoObserverStillRunsHandler(t *testing.T) {
+	app := New(nil, Config{})
+
+	var ran bool
+	app.dispatchAction(&Action{Id: "x", Handler: func() { ran = true }}, ActionSourceKeyboard)
+
+	if !ran {
+		t.Fatal("expected handler to run when no observer is configured")
+	}
+}
+
 func TestDash_IncludesComponentAndLocalActions(t *testing.T) {
 	content := NewFunc(func(*State) {})
 	content.Actions().MustRegister("content", "Ctrl+1", func() {})

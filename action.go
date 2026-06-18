@@ -3,6 +3,7 @@ package dfx
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 )
@@ -33,6 +34,24 @@ type Action struct {
 	key           imgui.Key
 	mods          KeyModifier
 	shortcutLabel string // formatted shortcut for menu display
+}
+
+// ActionSource identifies how an action was invoked.
+type ActionSource uint8
+
+const (
+	ActionSourceKeyboard ActionSource = iota // triggered by a matching keyboard shortcut
+	ActionSourceMenu                         // triggered by a menu click (reserved; not yet emitted)
+)
+
+// ActionEvent describes a single action invocation, delivered to Config.OnAction.
+// It is intended for usage telemetry (e.g. building a heatmap of which actions and
+// shortcuts are exercised). The Action pointer is the live registered action and
+// should be treated as read-only.
+type ActionEvent struct {
+	Action *Action      // the action that was invoked (Id, Label, Keys)
+	Source ActionSource // how it was triggered
+	Time   time.Time    // when it fired
 }
 
 // ActionRegistry manages actions (unified for both App and Components)
