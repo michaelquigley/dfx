@@ -257,6 +257,24 @@ func (app *App) GetWindowPos() (int, int) {
 	return 0, 0
 }
 
+// SetWindowPos moves the window to the given position.
+// must be called on the UI goroutine (e.g. from an action handler or a Config
+// callback), since the underlying GLFW window operation is main-thread only.
+func (app *App) SetWindowPos(x, y int) {
+	if app.backend != nil {
+		app.backend.SetWindowPos(x, y)
+	}
+}
+
+// SetWindowSize resizes the window to the given dimensions.
+// must be called on the UI goroutine (e.g. from an action handler or a Config
+// callback), since the underlying GLFW window operation is main-thread only.
+func (app *App) SetWindowSize(w, h int) {
+	if app.backend != nil {
+		app.backend.SetWindowSize(w, h)
+	}
+}
+
 // setupFontsAndTheme initializes fonts and applies theme
 func (app *App) setupFontsAndTheme() {
 	// setup fonts unless disabled
