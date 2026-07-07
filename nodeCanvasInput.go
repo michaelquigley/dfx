@@ -8,45 +8,6 @@ import "github.com/AllenDang/cimgui-go/imgui"
 // canvas samples real input into inputSnapshot at End and applies the
 // results; completed gestures produce the Intents the app consumes.
 
-// Intents is what a frame's completed gestures produced, returned by End.
-// the canvas never mutates the graph: the app applies intents (typically as
-// undo commands), and the next frame's declarations are the only truth the
-// canvas renders.
-type Intents[ID comparable] struct {
-	// NodesMoved is emitted once, on drag release: one entry per selected
-	// node that moved, in declaration order.
-	NodesMoved []NodeMove[ID]
-
-	// LinkCreated is emitted when a link drag releases on a compatible pin;
-	// the app validates and applies it (or ignores it).
-	LinkCreated *LinkCreate[ID]
-
-	// SelectionChanged carries full replacement sets for nodes and links,
-	// emitted only when an interaction produced sets differing from the
-	// Selected flags declared this frame.
-	SelectionChanged *SelectionChange[ID]
-}
-
-// NodeMove records one node's movement across a completed drag gesture:
-// From is the declared position at gesture start, To is From plus the
-// gesture's canvas-space offset.
-type NodeMove[ID comparable] struct {
-	ID       ID
-	From, To imgui.Vec2
-}
-
-// LinkCreate records a completed link drag, normalized so FromPin is always
-// the output-side pin and ToPin the input-side pin.
-type LinkCreate[ID comparable] struct {
-	FromPin, ToPin ID
-}
-
-// SelectionChange carries the full replacement selection: one combined set
-// spanning both populations, split by kind, each in declaration order.
-type SelectionChange[ID comparable] struct {
-	Nodes, Links []ID
-}
-
 // inputSnapshot is one frame's sampled input, in screen space. the canvas
 // builds it from imgui at End; tests build it by hand.
 type inputSnapshot struct {

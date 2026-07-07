@@ -11,14 +11,6 @@ import (
 // frame's geometry snapshot. no imgui calls live here (imgui.Vec2 is used as
 // a plain struct only), so everything is unit-testable headlessly.
 
-// View is the NodeCanvas view state: plain, persistable data.
-// the view transform is screen = (canvas + pan) * zoom + origin, where
-// origin is the canvas child region's screen-space top-left.
-type View struct {
-	Pan  imgui.Vec2
-	Zoom float32
-}
-
 // screenFromCanvas applies the view transform to a canvas-space point.
 func screenFromCanvas(p imgui.Vec2, v View, origin imgui.Vec2) imgui.Vec2 {
 	return imgui.Vec2{
