@@ -82,7 +82,21 @@ type NodeCanvas[ID comparable] struct {
 	// threshold and release in one frame — would misread as a click.
 	leftPressPos   imgui.Vec2
 	leftDragSticky bool
+
+	// pending zoom-to-fit: node bounds are detent-dependent (apps simplify
+	// content below 1.0), so a fit resolves over frames, walking down from
+	// the top detent until the bounds declared at the current detent fit —
+	// the first detent that fits its own declared content is by construction
+	// the largest such detent. most recent navigation wins: any other
+	// explicit navigation cancels the pending fit.
+	fitPending  bool
+	fitStarting bool // next Begin jumps to the top detent
+	fitIDs      []ID // empty: all nodes
 }
+
+// fitMargin is the screen-pixel margin zoom-to-fit leaves on every side of
+// the fitted bounds.
+const fitMargin = 40
 
 // framePin carries a pin's per-frame positions: declared-anchored for hit
 // geometry, draw-space (in-flight drag offset applied) for link rendering.
@@ -209,6 +223,13 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 	if nc.pendingView != nil {
 		nc.view = *nc.pendingView
 		nc.pendingView = nil
+	}
+	if nc.fitStarting {
+		// a fresh zoom-to-fit descends from the top: the calling frame sets
+		// the largest configured detent; End measures what actually got
+		// declared there.
+		nc.view.Zoom = nc.detents[len(nc.detents)-1]
+		nc.fitStarting = false
 	}
 	if !nc.styleSet {
 		nc.style = DefaultNodeCanvasStyle()
@@ -393,11 +414,60 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 	nc.gesture = res.state
 	nc.view = res.view
 
+	// most recent navigation wins: a wheel detent step or middle-drag pan
+	// cancels a pending fit; otherwise the fit resolves one step against the
+	// bounds actually declared this frame.
+	if res.viewChanged {
+		nc.fitPending = false
+		nc.fitStarting = false
+	} else if nc.fitPending && !nc.fitStarting {
+		nc.resolveFit(g)
+	}
+
 	nc.retained = g
 	nc.lastNodeCount = nc.nodeIndex
 
 	imgui.EndChild()
 	return res.intents
+}
+
+// resolveFit advances a pending zoom-to-fit by one frame: if the bounds
+// declared at the current detent fit the viewport (or the smallest detent is
+// reached), center and finish; otherwise step down one detent and stay
+// pending. bounded by len(detents) frames.
+func (nc *NodeCanvas[ID]) resolveFit(g *canvasGeometry[ID]) {
+	bounds, ok := nodeBounds(g.nodes, nc.fitIDs)
+	if !ok {
+		nc.fitPending = false
+		return
+	}
+	zoom := nc.view.Zoom
+	if fitsAtZoom(bounds, nc.viewport, zoom, fitMargin) || zoom == nc.detents[0] {
+		nc.view.Pan = centeredPan(bounds, nc.viewport, zoom)
+		nc.fitPending = false
+		return
+	}
+	next := stepDetent(nc.detents, zoom, -1)
+	nc.view = View{Pan: centeredPan(bounds, nc.viewport, next), Zoom: next}
+}
+
+// nodeBounds unions the rects of the nodes matching ids (all nodes when ids
+// is empty); non-node IDs are ignored.
+func nodeBounds[ID comparable](nodes []nodeGeometry[ID], ids []ID) (canvasRect, bool) {
+	var bounds canvasRect
+	found := false
+	for i := range nodes {
+		if len(ids) > 0 && !idInSlice(ids, nodes[i].id) {
+			continue
+		}
+		if !found {
+			bounds = nodes[i].rect
+			found = true
+		} else {
+			bounds = rectUnion(bounds, nodes[i].rect)
+		}
+	}
+	return bounds, found
 }
 
 // NodeContext is the per-node declaration surface handed to a node's content
@@ -655,10 +725,53 @@ func (nc *NodeCanvas[ID]) View() View {
 
 // SetView replaces the view state, with Zoom snapped to the nearest
 // configured detent. callable any time — a call made mid-frame takes effect
-// at the next frame's Begin, never mid-declaration.
+// at the next frame's Begin, never mid-declaration. as an explicit
+// navigation it cancels any pending zoom-to-fit.
 func (nc *NodeCanvas[ID]) SetView(v View) {
 	v.Zoom = nearestDetent(nc.detents, v.Zoom)
 	nc.pendingView = &v
+	nc.fitPending = false
+	nc.fitStarting = false
+}
+
+// ZoomToFit fits nodes into the viewport: all nodes when ids is empty,
+// non-node IDs ignored; a no-op when ids filter to zero nodes or before the
+// first drawn frame. the fit resolves over the next frames (bounded by the
+// detent count), descending from the top detent until the content declared
+// at a detent fits — so app-side per-detent simplification is measured, not
+// guessed. a new call replaces any pending fit; any other explicit
+// navigation cancels it.
+func (nc *NodeCanvas[ID]) ZoomToFit(ids ...ID) {
+	if nc.retained == nil {
+		return
+	}
+	if len(ids) > 0 {
+		if _, ok := nodeBounds(nc.retained.nodes, ids); !ok {
+			return
+		}
+	}
+	nc.fitIDs = append([]ID(nil), ids...)
+	nc.fitPending = true
+	nc.fitStarting = true
+	nc.pendingView = nil // the fit owns the view until it lands or is canceled
+}
+
+// CenterOn pans the bounds of the given nodes (all nodes when empty) to the
+// viewport center; the detent is unchanged. same argument contract as
+// ZoomToFit; cancels any pending fit.
+func (nc *NodeCanvas[ID]) CenterOn(ids ...ID) {
+	if nc.retained == nil {
+		return
+	}
+	bounds, ok := nodeBounds(nc.retained.nodes, ids)
+	if !ok {
+		return
+	}
+	v := nc.View()
+	v.Pan = centeredPan(bounds, nc.viewport, v.Zoom)
+	nc.pendingView = &v
+	nc.fitPending = false
+	nc.fitStarting = false
 }
 
 // Detent returns the current zoom factor.
@@ -702,7 +815,11 @@ func (nc *NodeCanvas[ID]) SetLocked(locked bool) {
 // everything the frame declares.
 func (nc *NodeCanvas[ID]) drawGrid() {
 	drawList := imgui.WindowDrawList()
-	col := imgui.ColorConvertFloat4ToU32(nc.style.GridColor)
+	// the grid fades at reduced detents: cells shrink toward busy, so alpha
+	// tracks the zoom down.
+	gridColor := nc.style.GridColor
+	gridColor.W *= 0.25 + 0.75*nc.frameView.Zoom
+	col := imgui.ColorConvertFloat4ToU32(gridColor)
 	spacing := nc.gridSpacing
 
 	canvasMin := canvasFromScreen(nc.origin, nc.frameView, nc.origin)

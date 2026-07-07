@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/df/dl"
@@ -14,12 +15,19 @@ import (
 // in-memory model. the app owns all graph truth and declares it every frame;
 // completed gestures come back as intents, logged and applied here — node
 // moves run through a dfx UndoSystem command (one gesture, one intent, one
-// undo command; Ctrl+Z / Ctrl+Shift+Z).
+// undo command).
 //
-// interaction: click selects (ctrl toggles, shift adds), drag moves the
-// selection, drag on empty canvas box-selects, drag from a pin creates a
-// link (snaps near a compatible pin), middle-drag pans, wheel zooms through
-// the detents toward the cursor.
+// mouse: click selects (ctrl toggles, shift adds), drag moves the selection,
+// drag on empty canvas box-selects, drag from a pin creates a link (snaps
+// near a compatible pin), middle-drag pans, wheel zooms through the detents
+// toward the cursor. below detent 1.0 the nodes declare simplified,
+// non-interactive content — labels, values, pins — per the reduced-detent
+// contract.
+//
+// keys: F zoom-to-fit all, C center on selection, L toggle locked mode,
+// V save the view, Shift+V restore it (simulated persistence round-trip),
+// Delete removes the selection (app-owned — the canvas has no delete
+// intent), Ctrl+Z / Ctrl+Shift+Z undo/redo.
 
 type node struct {
 	title    string
@@ -55,6 +63,72 @@ func (c *moveNodesCommand) Undo() {
 	}
 }
 
+// deleteSelectionCommand removes the selected nodes and links — deletion is
+// app-owned: the canvas has no delete intent by design, so the app deletes
+// from its own selection through its own undo machinery. deleting a node
+// also removes the links attached to its pins.
+type deleteSelectionCommand struct {
+	nodes        map[string]*node
+	links        map[string]*link
+	removedNodes map[string]*node
+	removedLinks map[string]*link
+}
+
+func newDeleteSelectionCommand(nodes map[string]*node, links map[string]*link) *deleteSelectionCommand {
+	c := &deleteSelectionCommand{
+		nodes:        nodes,
+		links:        links,
+		removedNodes: make(map[string]*node),
+		removedLinks: make(map[string]*link),
+	}
+	for id, n := range nodes {
+		if n.selected {
+			c.removedNodes[id] = n
+		}
+	}
+	for id, l := range links {
+		if l.selected {
+			c.removedLinks[id] = l
+			continue
+		}
+		// cascade: the example's pins are named "<node>.<pin>", so a link
+		// touching a deleted node's pins goes with it.
+		for nodeID := range c.removedNodes {
+			if strings.HasPrefix(l.from, nodeID+".") || strings.HasPrefix(l.to, nodeID+".") {
+				c.removedLinks[id] = l
+				break
+			}
+		}
+	}
+	return c
+}
+
+func (c *deleteSelectionCommand) empty() bool {
+	return len(c.removedNodes) == 0 && len(c.removedLinks) == 0
+}
+
+func (c *deleteSelectionCommand) Description() string {
+	return fmt.Sprintf("delete %d node(s), %d link(s)", len(c.removedNodes), len(c.removedLinks))
+}
+
+func (c *deleteSelectionCommand) Run() {
+	for id := range c.removedNodes {
+		delete(c.nodes, id)
+	}
+	for id := range c.removedLinks {
+		delete(c.links, id)
+	}
+}
+
+func (c *deleteSelectionCommand) Undo() {
+	for id, n := range c.removedNodes {
+		c.nodes[id] = n
+	}
+	for id, l := range c.removedLinks {
+		c.links[id] = l
+	}
+}
+
 func main() {
 	nodes := map[string]*node{
 		"source": {title: fonts.ICON_MUSIC_NOTE + " source", pos: imgui.Vec2{X: 60, Y: 120}},
@@ -75,8 +149,22 @@ func main() {
 	resonance := float32(0.3)
 	level := float32(0.8)
 
+	locked := false
+	var savedView *dfx.View
+
 	undo := dfx.NewUndoSystem()
 	nc := dfx.NewNodeCanvas[string](dfx.NodeCanvasConfig{})
+
+	selectedNodes := func() []string {
+		var ids []string
+		for id, n := range nodes {
+			if n.selected {
+				ids = append(ids, id)
+			}
+		}
+		sort.Strings(ids)
+		return ids
+	}
 
 	applyIntents := func(intents dfx.Intents[string]) {
 		if sc := intents.SelectionChanged; sc != nil {
@@ -132,21 +220,32 @@ func main() {
 
 		nc.Node("filter", nodes["filter"].pos, dfx.NodeFlags{Selected: nodes["filter"].selected}, func(n *dfx.NodeContext[string]) {
 			n.TitleBar(func() { n.Label(nodes["filter"].title) })
-			// node content owns its widget widths: the canvas window's
-			// default item width is meaningless inside a node.
-			imgui.PushItemWidth(140 * n.Detent())
-			imgui.SliderFloat("cutoff", &cutoff, 20, 20000)
-			imgui.SliderFloat("res", &resonance, 0, 1)
-			imgui.PopItemWidth()
+			if n.Detent() < 1.0 {
+				// reduced-detent contract: labels, values, pins — nothing
+				// interactive.
+				n.Label(fmt.Sprintf("cutoff %.0f", cutoff))
+				n.Label(fmt.Sprintf("res %.2f", resonance))
+			} else {
+				// node content owns its widget widths: the canvas window's
+				// default item width is meaningless inside a node.
+				imgui.PushItemWidth(140)
+				imgui.SliderFloat("cutoff", &cutoff, 20, 20000)
+				imgui.SliderFloat("res", &resonance, 0, 1)
+				imgui.PopItemWidth()
+			}
 			n.Input("filter.in", "in")
 			n.Output("filter.out", "out")
 		})
 
 		nc.Node("gain", nodes["gain"].pos, dfx.NodeFlags{Selected: nodes["gain"].selected}, func(n *dfx.NodeContext[string]) {
 			n.TitleBar(func() { n.Label(nodes["gain"].title) })
-			imgui.PushItemWidth(140 * n.Detent())
-			imgui.SliderFloat("level", &level, 0, 1)
-			imgui.PopItemWidth()
+			if n.Detent() < 1.0 {
+				n.Label(fmt.Sprintf("level %.2f", level))
+			} else {
+				imgui.PushItemWidth(140)
+				imgui.SliderFloat("level", &level, 0, 1)
+				imgui.PopItemWidth()
+			}
 			n.Input("gain.in", "in")
 			n.Input("gain.side", "sidechain")
 			n.Output("gain.out", "out")
@@ -184,6 +283,35 @@ func main() {
 	})
 	root.Actions().MustRegister("redo", "Ctrl+Shift+Z", func() {
 		undo.Redo()
+	})
+	root.Actions().MustRegister("delete selection", "Delete", func() {
+		cmd := newDeleteSelectionCommand(nodes, links)
+		if !cmd.empty() {
+			undo.Run(cmd)
+			dl.Infof("deleted: %s", cmd.Description())
+		}
+	})
+	root.Actions().MustRegister("zoom to fit", "F", func() {
+		nc.ZoomToFit()
+	})
+	root.Actions().MustRegister("center on selection", "C", func() {
+		nc.CenterOn(selectedNodes()...)
+	})
+	root.Actions().MustRegister("toggle locked", "L", func() {
+		locked = !locked
+		nc.SetLocked(locked)
+		dl.Infof("locked: %v", locked)
+	})
+	root.Actions().MustRegister("save view", "V", func() {
+		v := nc.View()
+		savedView = &v
+		dl.Infof("view saved: pan=(%v, %v) zoom=%v", v.Pan.X, v.Pan.Y, v.Zoom)
+	})
+	root.Actions().MustRegister("restore view", "Shift+V", func() {
+		if savedView != nil {
+			nc.SetView(*savedView)
+			dl.Infof("view restored: pan=(%v, %v) zoom=%v", savedView.Pan.X, savedView.Pan.Y, savedView.Zoom)
+		}
 	})
 
 	app := dfx.New(root, dfx.Config{

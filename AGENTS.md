@@ -26,6 +26,7 @@ The whole model is small enough to hold in your head:
 - **App loop** (`app.go`) — `dfx.New(root, Config{...})` then `app.Run()`. `Config` carries window setup plus lifecycle callbacks: `OnSetup`, `OnTick`, `OnClose`, `OnShutdown`, `OnSizeChange`, plus `MenuBar`, `Theme`, and font/theme toggles.
 - **Action subsystem** (`action.go`) — keybindings resolved child → parent-local → app-global, first match wins. Modifier matching is **exact** (Ctrl+S does not match Ctrl+Shift+S). Conflicts are detected per-registry at registration. Invocations can be observed via `Config.OnAction` for usage telemetry. See `docs/current/child-actions.md` for the full model.
 - **Composition** — `Container`, `Workspace` (`workspace.go`), `DashManager`/`Dash` (`dashManager.go`, `dash.go`), `HCollapse` (`hCollapse.go`), `MultiGrid` (`multiGrid.go`). Widgets: `Fader`, `VuMeter`, `VuWaterfall`, `FileTree`, `LogViewer`, `Toolbar`, `Controls`.
+- **NodeCanvas** (`nodeCanvas.go`, `nodeCanvasGeometry.go`, `nodeCanvasInput.go`, `nodeCanvasStyle.go`) — zoomable, pannable node-graph editing surface: the app declares the graph every frame, the canvas owns view/gesture state and reports intents. See `docs/current/node-canvas.md`.
 
 ## Conventions
 
