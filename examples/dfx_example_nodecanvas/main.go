@@ -30,9 +30,9 @@ import (
 // intent), Ctrl+Z / Ctrl+Shift+Z undo/redo.
 
 type node struct {
-	title    string
 	pos      imgui.Vec2
 	selected bool
+	content  func(n *dfx.NodeContext[string]) // the node's per-frame content closure
 }
 
 type link struct {
@@ -52,14 +52,21 @@ func (c *moveNodesCommand) Description() string {
 }
 
 func (c *moveNodesCommand) Run() {
+	// apply defensively: a node can be deleted between the drag and an
+	// undo/redo of the move (or by pressing Delete mid-drag), so a move
+	// targeting a vanished node is simply dropped.
 	for _, m := range c.moves {
-		c.nodes[m.ID].pos = m.To
+		if n := c.nodes[m.ID]; n != nil {
+			n.pos = m.To
+		}
 	}
 }
 
 func (c *moveNodesCommand) Undo() {
 	for _, m := range c.moves {
-		c.nodes[m.ID].pos = m.From
+		if n := c.nodes[m.ID]; n != nil {
+			n.pos = m.From
+		}
 	}
 }
 
@@ -130,12 +137,61 @@ func (c *deleteSelectionCommand) Undo() {
 }
 
 func main() {
+	cutoff := float32(1200)
+	resonance := float32(0.3)
+	level := float32(0.8)
+
+	// each node carries its own content closure. the app declares only the
+	// nodes that currently exist each frame, so a deleted node simply drops
+	// out of the declaration loop below — there are no hardcoded per-node
+	// draw calls to guard against a shrinking model.
 	nodes := map[string]*node{
-		"source": {title: fonts.ICON_MUSIC_NOTE + " source", pos: imgui.Vec2{X: 60, Y: 120}},
-		"filter": {title: fonts.ICON_TUNE + " filter", pos: imgui.Vec2{X: 320, Y: 80}},
-		"gain":   {title: fonts.ICON_GRAPHIC_EQ + " gain", pos: imgui.Vec2{X: 620, Y: 140}},
-		"meter":  {title: fonts.ICON_SPEAKER + " meter", pos: imgui.Vec2{X: 880, Y: 180}},
-		"notes":  {title: "", pos: imgui.Vec2{X: 320, Y: 340}},
+		"source": {pos: imgui.Vec2{X: 60, Y: 120}, content: func(n *dfx.NodeContext[string]) {
+			n.TitleBar(func() { n.Label(fonts.ICON_MUSIC_NOTE + " source") })
+			n.Label("sine 440hz")
+			n.Output("source.out", "out")
+		}},
+		"filter": {pos: imgui.Vec2{X: 320, Y: 80}, content: func(n *dfx.NodeContext[string]) {
+			n.TitleBar(func() { n.Label(fonts.ICON_TUNE + " filter") })
+			if n.Detent() < 1.0 {
+				// reduced-detent contract: labels, values, pins — nothing
+				// interactive.
+				n.Label(fmt.Sprintf("cutoff %.0f", cutoff))
+				n.Label(fmt.Sprintf("res %.2f", resonance))
+			} else {
+				// node content owns its widget widths: the canvas window's
+				// default item width is meaningless inside a node.
+				imgui.PushItemWidth(140)
+				imgui.SliderFloat("cutoff", &cutoff, 20, 20000)
+				imgui.SliderFloat("res", &resonance, 0, 1)
+				imgui.PopItemWidth()
+			}
+			n.Input("filter.in", "in")
+			n.Output("filter.out", "out")
+		}},
+		"gain": {pos: imgui.Vec2{X: 620, Y: 140}, content: func(n *dfx.NodeContext[string]) {
+			n.TitleBar(func() { n.Label(fonts.ICON_GRAPHIC_EQ + " gain") })
+			if n.Detent() < 1.0 {
+				n.Label(fmt.Sprintf("level %.2f", level))
+			} else {
+				imgui.PushItemWidth(140)
+				imgui.SliderFloat("level", &level, 0, 1)
+				imgui.PopItemWidth()
+			}
+			n.Input("gain.in", "in")
+			n.Input("gain.side", "sidechain")
+			n.Output("gain.out", "out")
+		}},
+		"meter": {pos: imgui.Vec2{X: 880, Y: 180}, content: func(n *dfx.NodeContext[string]) {
+			n.TitleBar(func() { n.Label(fonts.ICON_SPEAKER + " meter") })
+			n.Label("-12.4 dB")
+			n.Input("meter.in", "in")
+		}},
+		// a bare, title-less, label-only card.
+		"notes": {pos: imgui.Vec2{X: 320, Y: 340}, content: func(n *dfx.NodeContext[string]) {
+			n.Label("patch: warm pad")
+			n.Label("bpm: 96")
+		}},
 	}
 	links := map[string]*link{
 		"l.source-filter": {from: "source.out", to: "filter.in"},
@@ -144,10 +200,6 @@ func main() {
 		"l.gain-meter":    {from: "gain.out", to: "meter.in"},
 	}
 	linkSeq := 0
-
-	cutoff := float32(1200)
-	resonance := float32(0.3)
-	level := float32(0.8)
 
 	locked := false
 	var savedView *dfx.View
@@ -212,59 +264,21 @@ func main() {
 	root := dfx.NewFunc(func(state *dfx.State) {
 		nc.Begin(state)
 
-		nc.Node("source", nodes["source"].pos, dfx.NodeFlags{Selected: nodes["source"].selected}, func(n *dfx.NodeContext[string]) {
-			n.TitleBar(func() { n.Label(nodes["source"].title) })
-			n.Label("sine 440hz")
-			n.Output("source.out", "out")
-		})
+		// declare the nodes that currently exist, in a stable order — a
+		// deleted node is simply absent this frame, and map iteration would
+		// otherwise shuffle declaration order (and with it z-order
+		// tie-breaks) frame to frame.
+		nodeIDs := make([]string, 0, len(nodes))
+		for id := range nodes {
+			nodeIDs = append(nodeIDs, id)
+		}
+		sort.Strings(nodeIDs)
+		for _, id := range nodeIDs {
+			nd := nodes[id]
+			nc.Node(id, nd.pos, dfx.NodeFlags{Selected: nd.selected}, nd.content)
+		}
 
-		nc.Node("filter", nodes["filter"].pos, dfx.NodeFlags{Selected: nodes["filter"].selected}, func(n *dfx.NodeContext[string]) {
-			n.TitleBar(func() { n.Label(nodes["filter"].title) })
-			if n.Detent() < 1.0 {
-				// reduced-detent contract: labels, values, pins — nothing
-				// interactive.
-				n.Label(fmt.Sprintf("cutoff %.0f", cutoff))
-				n.Label(fmt.Sprintf("res %.2f", resonance))
-			} else {
-				// node content owns its widget widths: the canvas window's
-				// default item width is meaningless inside a node.
-				imgui.PushItemWidth(140)
-				imgui.SliderFloat("cutoff", &cutoff, 20, 20000)
-				imgui.SliderFloat("res", &resonance, 0, 1)
-				imgui.PopItemWidth()
-			}
-			n.Input("filter.in", "in")
-			n.Output("filter.out", "out")
-		})
-
-		nc.Node("gain", nodes["gain"].pos, dfx.NodeFlags{Selected: nodes["gain"].selected}, func(n *dfx.NodeContext[string]) {
-			n.TitleBar(func() { n.Label(nodes["gain"].title) })
-			if n.Detent() < 1.0 {
-				n.Label(fmt.Sprintf("level %.2f", level))
-			} else {
-				imgui.PushItemWidth(140)
-				imgui.SliderFloat("level", &level, 0, 1)
-				imgui.PopItemWidth()
-			}
-			n.Input("gain.in", "in")
-			n.Input("gain.side", "sidechain")
-			n.Output("gain.out", "out")
-		})
-
-		nc.Node("meter", nodes["meter"].pos, dfx.NodeFlags{Selected: nodes["meter"].selected}, func(n *dfx.NodeContext[string]) {
-			n.TitleBar(func() { n.Label(nodes["meter"].title) })
-			n.Label("-12.4 dB")
-			n.Input("meter.in", "in")
-		})
-
-		// a bare, title-less, label-only card.
-		nc.Node("notes", nodes["notes"].pos, dfx.NodeFlags{Selected: nodes["notes"].selected}, func(n *dfx.NodeContext[string]) {
-			n.Label("patch: warm pad")
-			n.Label("bpm: 96")
-		})
-
-		// declare links in a stable order — map iteration would shuffle
-		// declaration order (and with it z-order tie-breaks) every frame.
+		// declare links likewise in a stable order.
 		linkIDs := make([]string, 0, len(links))
 		for id := range links {
 			linkIDs = append(linkIDs, id)
