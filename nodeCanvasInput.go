@@ -22,8 +22,10 @@ type inputSnapshot struct {
 	// the release frame).
 	leftDragging bool
 
-	// wheel is this frame's vertical wheel movement; only its sign is used,
-	// stepping one detent per frame.
+	// wheel is this frame's completed detent-step direction, ±1 or 0. the
+	// canvas samples raw wheel travel, accumulates it against
+	// WheelStepsPerZoomLevel, and reports here only when the threshold
+	// crosses — one step per frame at most. only the sign is used.
 	wheel float32
 
 	ctrl, shift bool
@@ -62,6 +64,35 @@ const (
 	gestureLinkDrag
 	gesturePan
 )
+
+// advanceWheel folds this frame's raw wheel delta into the accumulated
+// travel and reports whether the threshold — in imgui wheel units, one
+// classic notch being 1.0 — was crossed, in which direction. a direction
+// change resets the accumulator; the remainder after a step carries to the
+// next frame. so fine-scroll devices (fractional ticks) and fast flicks
+// (several units in one frame) both behave: a flick steps at most one
+// detent per frame and its leftover travel keeps stepping on subsequent
+// frames instead of jumping the whole detent range in one. a non-positive
+// threshold reads as 1.0.
+func advanceWheel(accum, wheel, threshold float32) (float32, int) {
+	if threshold <= 0 {
+		threshold = 1
+	}
+	if wheel == 0 {
+		return accum, 0
+	}
+	if accum != 0 && (accum > 0) != (wheel > 0) {
+		accum = 0
+	}
+	accum += wheel
+	if abs32(accum) >= threshold {
+		if accum > 0 {
+			return accum - threshold, 1
+		}
+		return accum + threshold, -1
+	}
+	return accum, 0
+}
 
 // gestureState is the canvas's in-flight gesture: the only input state
 // retained across frames. anchors are absolute — every derived value (drag

@@ -30,6 +30,10 @@ type NodeCanvas[ID comparable] struct {
 	style       NodeCanvasStyle
 	styleSet    bool
 
+	// wheelStepsPerZoomLevel is the accumulated wheel travel (imgui wheel
+	// units) that produces one detent step.
+	wheelStepsPerZoomLevel float32
+
 	view        View
 	pendingView *View
 	gesture     gestureState[ID]
@@ -83,6 +87,12 @@ type NodeCanvas[ID comparable] struct {
 	leftPressPos   imgui.Vec2
 	leftDragSticky bool
 
+	// wheelAccum is the sub-threshold wheel travel carried across frames:
+	// raw wheel deltas accumulate here until they cross
+	// wheelStepsPerZoomLevel, at which point the snapshot reports one
+	// detent step (per frame at most) and the remainder keeps carrying.
+	wheelAccum float32
+
 	// pending zoom-to-fit: node bounds are detent-dependent (apps simplify
 	// content below 1.0), so a fit resolves over frames, walking down from
 	// the top detent until the bounds declared at the current detent fit —
@@ -130,6 +140,13 @@ type NodeCanvasConfig struct {
 	// GridSpacing is the grid cell size in canvas units, exposed for
 	// app-side snap logic. defaults to 50.
 	GridSpacing float32
+
+	// WheelStepsPerZoomLevel is the wheel travel — in imgui wheel units,
+	// one classic notch being 1.0 — that must accumulate before the wheel
+	// produces a single detent step. fine-scroll devices report fractional
+	// ticks, so the same value governs every wheel type. raising it makes
+	// the wheel feel less sensitive; default 1.0 is one notch, one detent.
+	WheelStepsPerZoomLevel float32
 
 	// Locked suppresses node dragging only; selection, panning, zooming,
 	// and link creation remain live.
@@ -206,13 +223,19 @@ func NewNodeCanvas[ID comparable](cfg NodeCanvasConfig) *NodeCanvas[ID] {
 		gridSpacing = 50
 	}
 
+	wheelSteps := cfg.WheelStepsPerZoomLevel
+	if wheelSteps <= 0 {
+		wheelSteps = 1
+	}
+
 	return &NodeCanvas[ID]{
-		detents:     detents,
-		gridSpacing: gridSpacing,
-		locked:      cfg.Locked,
-		style:       cfg.Style,
-		styleSet:    cfg.Style != (NodeCanvasStyle{}),
-		view:        View{Zoom: detents[len(detents)-1]},
+		detents:                detents,
+		gridSpacing:            gridSpacing,
+		locked:                 cfg.Locked,
+		style:                  cfg.Style,
+		styleSet:               cfg.Style != (NodeCanvasStyle{}),
+		wheelStepsPerZoomLevel: wheelSteps,
+		view:                   View{Zoom: detents[len(detents)-1]},
 	}
 }
 
@@ -859,6 +882,25 @@ func (nc *NodeCanvas[ID]) sampleInput() inputSnapshot {
 	leftDown := imgui.IsMouseDown(imgui.MouseButtonLeft)
 	leftReleased := imgui.IsMouseReleased(imgui.MouseButtonLeft)
 
+	// wheel travel is accumulated canvas-side and reported as one detent
+	// step (sign only) once the threshold crosses. accumulation happens
+	// only where the state machine could actually step — canvas hovered,
+	// no popup open, no canvas item hovered, no gesture in flight — and
+	// resets otherwise, so scrolling elsewhere in the app or mid-gesture
+	// never banks travel that would later produce a phantom step. the
+	// gesture sample is one frame stale (it is last frame's End result),
+	// the same accepted staleness as origin and viewport.
+	itemHovered := hovered && imgui.IsAnyItemHovered()
+	anyPopup := imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel)
+	var wheel float32
+	if hovered && !anyPopup && !itemHovered && nc.gesture.kind == gestureIdle {
+		var dir int
+		nc.wheelAccum, dir = advanceWheel(nc.wheelAccum, io.MouseWheel(), nc.wheelStepsPerZoomLevel)
+		wheel = float32(dir)
+	} else {
+		nc.wheelAccum = 0
+	}
+
 	// sticky drag tracking against the press anchor: once the threshold is
 	// exceeded at any point during the press, leftDragging holds through
 	// the release frame.
@@ -881,16 +923,16 @@ func (nc *NodeCanvas[ID]) sampleInput() inputSnapshot {
 		middlePressed:  imgui.IsMouseClickedBool(imgui.MouseButtonMiddle),
 		middleDown:     imgui.IsMouseDown(imgui.MouseButtonMiddle),
 		middleReleased: imgui.IsMouseReleased(imgui.MouseButtonMiddle),
-		wheel:          io.MouseWheel(),
+		wheel:          wheel,
 		ctrl:           io.KeyCtrl(),
 		shift:          io.KeyShift(),
 		canvasHovered:  hovered,
 		// the canvas-scoped arbitration flags: item-hovered gates on the
 		// canvas child (or a descendant) being hovered, so items elsewhere
 		// in the app never suppress canvas input.
-		itemHoveredInCanvas: hovered && imgui.IsAnyItemHovered(),
+		itemHoveredInCanvas: itemHovered,
 		itemActiveInCanvas:  nc.itemActiveInCanvas(),
-		anyPopupOpen:        imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel),
+		anyPopupOpen:        anyPopup,
 	}
 }
 

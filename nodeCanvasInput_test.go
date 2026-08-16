@@ -576,6 +576,74 @@ func TestNodeCanvas_WheelIgnoredDuringGesture(t *testing.T) {
 	}
 }
 
+// TestNodeCanvas_WheelAccumulation covers the canvas-side accumulator the
+// machine's wheel input comes from: threshold crossing, remainder carry,
+// direction reset, and fast-flick saturation at one step per frame.
+func TestNodeCanvas_WheelAccumulation(t *testing.T) {
+	// default threshold: one notch steps one detent, nothing left over.
+	if a, d := advanceWheel(0, 1, 1); a != 0 || d != 1 {
+		t.Fatalf("one notch at threshold 1: accum=%v dir=%d", a, d)
+	}
+
+	// threshold 2: the first notch banks, the second steps with nothing left.
+	a, d := advanceWheel(0, 1, 2)
+	if a != 1 || d != 0 {
+		t.Fatalf("first notch: accum=%v dir=%d, want 1 0", a, d)
+	}
+	if a, d = advanceWheel(a, 1, 2); a != 0 || d != 1 {
+		t.Fatalf("second notch: accum=%v dir=%d, want 0 1", a, d)
+	}
+
+	// remainder carries: 1.5 banked, next notch crosses with 0.5 left, and
+	// that leftover keeps carrying across idle frames.
+	if a, d = advanceWheel(0, 1.5, 2); a != 1.5 || d != 0 {
+		t.Fatalf("bank 1.5: accum=%v dir=%d", a, d)
+	}
+	if a, d = advanceWheel(a, 1, 2); a != 0.5 || d != 1 {
+		t.Fatalf("cross with remainder: accum=%v dir=%d, want 0.5 1", a, d)
+	}
+	if a, d = advanceWheel(a, 0, 2); a != 0.5 || d != 0 {
+		t.Fatalf("idle frame dropped the remainder: accum=%v dir=%d", a, d)
+	}
+
+	// fine-scroll device: fractional ticks accumulate to a step.
+	acc, stepped := float32(0), 0
+	for i := 0; i < 7; i++ {
+		var dir int
+		acc, dir = advanceWheel(acc, 0.3, 2)
+		stepped += dir
+	}
+	if stepped != 1 || !approx32(acc, 0.1) {
+		t.Fatalf("seven ticks of 0.3 at threshold 2: steps=%d accum=%v, want 1 0.1", stepped, acc)
+	}
+
+	// direction change resets the banked travel.
+	if a, d = advanceWheel(1.5, -0.5, 2); a != -0.5 || d != 0 {
+		t.Fatalf("direction change: accum=%v dir=%d, want -0.5 0", a, d)
+	}
+
+	// a fast flick reports one step per frame and banks the excess for
+	// following same-direction frames — the state machine steps at most
+	// one detent per frame, so a whole detent range is never jumped in a
+	// single frame.
+	if a, d = advanceWheel(0, 5, 2); a != 3 || d != 1 {
+		t.Fatalf("flick: accum=%v dir=%d, want 3 1", a, d)
+	}
+	if a, d = advanceWheel(a, 1, 2); a != 2 || d != 1 {
+		t.Fatalf("flick follow-through: accum=%v dir=%d, want 2 1", a, d)
+	}
+
+	// negative travel steps down symmetrically.
+	if a, d = advanceWheel(0, -2, 2); a != 0 || d != -1 {
+		t.Fatalf("negative: accum=%v dir=%d, want 0 -1", a, d)
+	}
+
+	// a non-positive threshold reads as 1.0.
+	if a, d = advanceWheel(0, 1, 0); a != 0 || d != 1 {
+		t.Fatalf("zero threshold: accum=%v dir=%d, want 0 1", a, d)
+	}
+}
+
 func TestNodeCanvas_MiddlePressIgnoredDuringGesture(t *testing.T) {
 	g := testGraph(nil, nil)
 	params := testGestureParams()

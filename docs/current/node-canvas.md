@@ -75,7 +75,7 @@ type Intents[ID comparable] struct {
 
 **Left button** — click a node to select it (ctrl-click toggles, shift-click adds; ctrl wins when both are held); drag a selected node to move the whole selection; drag on empty canvas box-selects (preview drawn by the canvas, committed on release); click a link to select it; click empty canvas to clear. A plain press on an already-selected node preserves the set so a multi-drag can start from any member; the collapse to that node emits on release-without-drag instead. Drag from a pin pulls a link with snap when within the snap radius of a compatible-side pin; release on a pin emits `LinkCreated`, release elsewhere ends the gesture with no intent.
 
-**Middle-drag** pans. **Wheel** steps the zoom detent toward the cursor — the canvas point under the mouse stays fixed. **Right button** is reserved and does nothing.
+**Middle-drag** pans. **Wheel** steps the zoom detent toward the cursor — the canvas point under the mouse stays fixed. Wheel travel accumulates, and a detent steps per `Config.WheelStepsPerZoomLevel` notches (imgui wheel units; one classic notch is 1.0, default 1.0): fine-scroll devices report fractional ticks, so the same value governs every wheel type, and at most one detent steps per frame — sub-threshold remainder carries across frames, a direction change resets it, and the canvas's own banking resets whenever it could not step (not hovered, popup open, an in-canvas item hovered, or a gesture in flight), so scrolling elsewhere in the app or mid-gesture never produces a phantom step. Raise the value when the wheel feels too sensitive. **Right button** is reserved and does nothing.
 
 A release is a release wherever the mouse is — a node dragged past the canvas edge still emits its `NodesMoved`. Genuinely lost button state (focus loss) cancels with no intent.
 
@@ -98,7 +98,7 @@ type View struct { Pan imgui.Vec2; Zoom float32 } // plain, persistable data
 - `CenterOn(ids...)` — pan only, detent unchanged.
 - `SetStyle(s)` — replace the style, e.g. after a theme change.
 
-**Detents** are the only zoom levels (`Config.Detents`, default `{0.25, 0.5, 0.75, 1.0}`, sorted ascending, last entry 1.0 and the maximum). Discrete detents bound the set of font sizes ever rasterized and make zoom levels feel like named views.
+**Detents** are the only zoom levels (`Config.Detents`, default `{0.25, 0.5, 0.75, 1.0}`, sorted ascending, last entry 1.0 and the maximum). Discrete detents bound the set of font sizes ever rasterized and make zoom levels feel like named views. Wheel sensitivity is tuned per canvas with `Config.WheelStepsPerZoomLevel` (see Interaction grammar).
 
 ## Style
 

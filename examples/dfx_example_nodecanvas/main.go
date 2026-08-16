@@ -205,7 +205,7 @@ func main() {
 	var savedView *dfx.View
 
 	undo := dfx.NewUndoSystem()
-	nc := dfx.NewNodeCanvas[string](dfx.NodeCanvasConfig{})
+	nc := dfx.NewNodeCanvas[string](dfx.NodeCanvasConfig{WheelStepsPerZoomLevel: 2}) // two notches per detent: a gentler wheel
 
 	selectedNodes := func() []string {
 		var ids []string
