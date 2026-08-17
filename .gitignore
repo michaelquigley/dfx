@@ -5,6 +5,10 @@
 *.so
 *.dylib
 
+# example binaries, built at the repo root by `go build ./examples/...`
+# (never committed)
+/dfx_example_*
+
 # Test binary, built with `go test -c`
 *.test
 

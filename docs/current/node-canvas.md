@@ -52,7 +52,7 @@ Node, pin, and link IDs share one `comparable` type and one ID space; the app gu
 
 ### Content and detents
 
-The content closure runs with the canvas's font pushed at `base * detent`. At detent 1.0 — the editing detent — imgui/dfx widgets behave normally (wrap them in `PushItemWidth`/`PopItemWidth`; the canvas window's default item width is meaningless inside a node). **Below 1.0, content must not emit anything interactive** — nothing ID-bearing, hoverable, or activatable — or hover capture would carve holes in the canvas's hit-testing. Declare simplified content instead: labels, values, pins. `NodeContext.Detent()` lets closures branch; `Label` is the primitive that honors the contract. Pins must be declared at every detent so links keep their anchors.
+The content closure runs with the canvas's font pushed at `base * detent`. At detent 1.0 and above — the editing range — imgui/dfx widgets behave normally (wrap them in `PushItemWidth`/`PopItemWidth`; the canvas window's default item width is meaningless inside a node). **Below 1.0, content must not emit anything interactive** — nothing ID-bearing, hoverable, or activatable — or hover capture would carve holes in the canvas's hit-testing. Declare simplified content instead: labels, values, pins. `NodeContext.Detent()` lets closures branch; `Label` is the primitive that honors the contract. Pins must be declared at every detent so links keep their anchors.
 
 Content that opens child windows of its own (`BeginChild`-style scroll regions) is not supported.
 
@@ -98,7 +98,7 @@ type View struct { Pan imgui.Vec2; Zoom float32 } // plain, persistable data
 - `CenterOn(ids...)` — pan only, detent unchanged.
 - `SetStyle(s)` — replace the style, e.g. after a theme change.
 
-**Detents** are the only zoom levels (`Config.Detents`, default `{0.25, 0.5, 0.75, 1.0}`, sorted ascending, last entry 1.0 and the maximum). Discrete detents bound the set of font sizes ever rasterized and make zoom levels feel like named views. Wheel sensitivity is tuned per canvas with `Config.WheelStepsPerZoomLevel` (see Interaction grammar).
+**Detents** are the only zoom levels (`Config.Detents`, default `{0.25, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5}` — 0.1 steps across the working range, one coarser step from 0.4 to the 0.25 zoom-out floor — sorted ascending). **1.0 — the editing detent — must be a member of the set; entries above it are allowed**, so the wheel can zoom in past 100% (full interactive content applies at every detent ≥ 1.0). Discrete detents bound the set of font sizes ever rasterized and make zoom levels feel like named views. A canvas opens at the editing detent (1.0), and `ZoomToFit` — which descends from the largest configured detent — can resolve above 1.0 for small graphs. Wheel sensitivity is tuned per canvas with `Config.WheelStepsPerZoomLevel` (see Interaction grammar).
 
 ## Style
 

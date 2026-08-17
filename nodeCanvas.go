@@ -133,8 +133,13 @@ type LinkFlags struct{ Selected bool }
 
 // NodeCanvasConfig configures a NodeCanvas at construction.
 type NodeCanvasConfig struct {
-	// Detents are the only zoom levels, sorted ascending; the last entry is
-	// the maximum and must be 1.0. defaults to {0.25, 0.5, 0.75, 1.0}.
+	// Detents are the only zoom levels, sorted ascending. 1.0 — the
+	// editing detent — must be a member of the set; entries above it are
+	// allowed (full interactive content continues to apply at 1.0 and
+	// above), so a canvas can zoom in past 100%. defaults to
+	// {0.25, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5} —
+	// 0.1 steps across the working range, one coarser step into the deep
+	// zoom-out region.
 	Detents []float32
 
 	// GridSpacing is the grid cell size in canvas units, exposed for
@@ -211,11 +216,18 @@ func NewNodeCanvas[ID comparable](cfg NodeCanvasConfig) *NodeCanvas[ID] {
 	detents := make([]float32, len(cfg.Detents))
 	copy(detents, cfg.Detents)
 	if len(detents) == 0 {
-		detents = []float32{0.25, 0.5, 0.75, 1.0}
+		detents = []float32{0.25, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5}
 	}
 	sort.Slice(detents, func(i, j int) bool { return detents[i] < detents[j] })
-	if detents[len(detents)-1] != 1.0 {
-		dl.Debugf("NodeCanvasConfig.Detents last entry is %v; the contract requires 1.0", detents[len(detents)-1])
+	hasEditing := false
+	for _, d := range detents {
+		if d == 1.0 {
+			hasEditing = true
+			break
+		}
+	}
+	if !hasEditing {
+		dl.Debugf("NodeCanvasConfig.Detents does not include 1.0; the contract requires the editing detent in the set")
 	}
 
 	gridSpacing := cfg.GridSpacing
@@ -235,7 +247,10 @@ func NewNodeCanvas[ID comparable](cfg NodeCanvasConfig) *NodeCanvas[ID] {
 		style:                  cfg.Style,
 		styleSet:               cfg.Style != (NodeCanvasStyle{}),
 		wheelStepsPerZoomLevel: wheelSteps,
-		view:                   View{Zoom: detents[len(detents)-1]},
+		// the canvas opens at the editing detent, not the largest
+		// configured one: with detents above 1.0, starting at the top
+		// would open the graph zoomed in.
+		view: View{Zoom: 1.0},
 	}
 }
 
@@ -312,9 +327,9 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 // top-left in canvas space — the app-owned anchor: padding and title metrics
 // offset content inward from it, never the card away from it, and content
 // growth extends the rect right/down while the anchor stays fixed. the
-// content closure runs with the canvas's scaled font pushed; at detent 1.0
-// imgui/dfx widgets behave normally, below 1.0 content must not emit
-// anything interactive — use NodeContext.Label and the pin rows.
+// content closure runs with the canvas's scaled font pushed; at detent
+// 1.0 and above imgui/dfx widgets behave normally, below 1.0 content must
+// not emit anything interactive — use NodeContext.Label and the pin rows.
 func (nc *NodeCanvas[ID]) Node(id ID, pos imgui.Vec2, flags NodeFlags, content func(n *NodeContext[ID])) {
 	drawList := imgui.WindowDrawList()
 	idx := nc.nodeIndex
