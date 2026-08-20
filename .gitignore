@@ -36,3 +36,7 @@ vendor/
 debug
 debug.test
 __debug_bin
+
+# mercurius
+.mercurius
+mercurius.yaml

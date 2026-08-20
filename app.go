@@ -18,6 +18,17 @@ type App struct {
 	startTime time.Time
 	done      chan struct{} // signals Run() completion
 	runErr    error         // stores error from Run()
+
+	// window geometry mutations are deferred to a frame boundary rather than applied
+	// where they are requested. glfwSetWindowSize/glfwSetWindowPos can dispatch a
+	// surface configure synchronously -- wayland does -- which re-enters the render
+	// loop through glfw's window-refresh callback and opens a second imgui frame
+	// inside the current one, tripping imgui's "forgot to call Render()" assertion.
+	// applying them from the afterRender hook keeps the call outside any frame.
+	pendingSize    [2]int
+	hasPendingSize bool
+	pendingPos     [2]int
+	hasPendingPos  bool
 }
 
 const menuBarFallbackHeight = 25.0
@@ -109,6 +120,9 @@ func (app *App) Run() error {
 			app.config.OnSizeChange(width, height)
 		})
 	}
+
+	// flush deferred window geometry between frames, never during one
+	app.backend.SetAfterRenderHook(app.applyPendingGeometry)
 
 	// run the main loop
 	app.running = true
@@ -257,21 +271,38 @@ func (app *App) GetWindowPos() (int, int) {
 	return 0, 0
 }
 
-// SetWindowPos moves the window to the given position.
+// SetWindowPos moves the window to the given position. the move is applied at the
+// next frame boundary rather than immediately, since a geometry change made during
+// a frame can re-enter the render loop; a later call before that boundary supersedes
+// an earlier one.
 // must be called on the UI goroutine (e.g. from an action handler or a Config
 // callback), since the underlying GLFW window operation is main-thread only.
 func (app *App) SetWindowPos(x, y int) {
-	if app.backend != nil {
-		app.backend.SetWindowPos(x, y)
-	}
+	app.pendingPos, app.hasPendingPos = [2]int{x, y}, true
 }
 
-// SetWindowSize resizes the window to the given dimensions.
+// SetWindowSize resizes the window to the given dimensions. applied at the next
+// frame boundary; see SetWindowPos.
 // must be called on the UI goroutine (e.g. from an action handler or a Config
 // callback), since the underlying GLFW window operation is main-thread only.
 func (app *App) SetWindowSize(w, h int) {
-	if app.backend != nil {
-		app.backend.SetWindowSize(w, h)
+	app.pendingSize, app.hasPendingSize = [2]int{w, h}, true
+}
+
+// applyPendingGeometry flushes deferred window geometry to the backend. it is the
+// backend's afterRender hook, so it runs between frames. size is applied before
+// position, the order callers request them in.
+func (app *App) applyPendingGeometry() {
+	if app.backend == nil {
+		return
+	}
+	if app.hasPendingSize {
+		app.hasPendingSize = false
+		app.backend.SetWindowSize(app.pendingSize[0], app.pendingSize[1])
+	}
+	if app.hasPendingPos {
+		app.hasPendingPos = false
+		app.backend.SetWindowPos(app.pendingPos[0], app.pendingPos[1])
 	}
 }
 
