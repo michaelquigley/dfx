@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.6
+
 FIX: **`App.SetWindowSize` and `App.SetWindowPos` now take effect at the next frame boundary rather than at the moment they are called.** Applying window geometry from inside a frame crashes on Wayland: the GLFW call dispatches a surface configure synchronously, which re-enters the render loop through GLFW's window-refresh callback and opens a second ImGui frame inside the current one, tripping ImGui's "Forgot to call Render() or EndFrame()" assertion. X11 issues the same call asynchronously to the window manager, which is why the hazard stayed invisible there. Both setters now record the request and flush it from the backend's `afterRender` hook, outside any frame; a later request before that boundary supersedes an earlier one, and a boundary with nothing pending does not reassert geometry. Applications that called either setter and immediately read the geometry back will now observe the old value until the frame ends.
 
 ## v0.1.5
