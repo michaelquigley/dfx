@@ -339,6 +339,9 @@ func main() {
 		Title:  "dfx NodeCanvas",
 		Width:  1280,
 		Height: 800,
+		OnShutdown: func(_ *dfx.App) {
+			nc.Destroy()
+		},
 	})
 
 	if err := app.Run(); err != nil {

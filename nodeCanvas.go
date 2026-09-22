@@ -23,6 +23,9 @@ import (
 // does not police it. IDs must also be unique and stable frame-to-frame in
 // their fmt.Sprint form (pointer-kind IDs format by address instead), since
 // that form scopes per-node imgui widget state.
+//
+// call Destroy when the owner discards the canvas to release its native
+// drawing buffers. a canvas must not be copied after its first Begin.
 type NodeCanvas[ID comparable] struct {
 	detents     []float32
 	gridSpacing float32
@@ -70,6 +73,8 @@ type NodeCanvas[ID comparable] struct {
 	splitter      *imgui.DrawListSplitter
 	splitCap      int32
 	lastNodeCount int
+	inFrame       bool
+	destroyed     bool
 
 	// retained is the last completed frame's geometry: derived view-side
 	// state backing queries that arrive before this frame's declarations
@@ -264,10 +269,32 @@ func NewNodeCanvas[ID comparable](cfg NodeCanvasConfig) *NodeCanvas[ID] {
 	}
 }
 
+// Destroy releases the canvas's native drawing buffers and retained Go state.
+// call it on the GUI thread, outside Begin/End, when the owner discards the
+// canvas (or from Config.OnShutdown). it is safe before the first Begin,
+// after imgui context shutdown, and on repeated calls. the canvas cannot be
+// drawn again after Destroy. there is no garbage-collector cleanup fallback.
+func (nc *NodeCanvas[ID]) Destroy() {
+	if nc.inFrame {
+		panic("cannot destroy node canvas between Begin and End")
+	}
+	if nc.splitter != nil {
+		nc.splitter.Destroy()
+	}
+	*nc = NodeCanvas[ID]{destroyed: true}
+}
+
 // Begin establishes the canvas child region, draws the grid, and pushes the
 // detent-scaled font. call it once per frame inside the owning component's
 // Draw, declare nodes and links, then call End.
 func (nc *NodeCanvas[ID]) Begin(state *State) {
+	if nc.destroyed {
+		panic("cannot begin a destroyed node canvas")
+	}
+	if nc.inFrame {
+		panic("node canvas Begin requires the previous End")
+	}
+	nc.inFrame = true
 	if nc.pendingView != nil {
 		nc.view = *nc.pendingView
 		nc.pendingView = nil
@@ -422,6 +449,9 @@ func (nc *NodeCanvas[ID]) Link(id, fromPin, toPin ID, flags LinkFlags) {
 // samples input, runs the gesture state machine against this frame's
 // geometry, commits view mutations, and returns the frame's intents.
 func (nc *NodeCanvas[ID]) End() Intents[ID] {
+	if !nc.inFrame {
+		panic("node canvas End requires Begin")
+	}
 	drawList := imgui.WindowDrawList()
 
 	geomLinks, drawCubics := nc.resolveLinks()
@@ -474,6 +504,7 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 	nc.lastNodeCount = nc.nodeIndex
 
 	imgui.EndChild()
+	nc.inFrame = false
 	return res.intents
 }
 

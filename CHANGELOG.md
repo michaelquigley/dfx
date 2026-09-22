@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+FIX: `NodeCanvas.Destroy()` releases the owned native draw-list splitter and its channel buffers when an editor is closed or replaced. Cleanup is explicit, safe before the first draw and on repeated calls, and supported after ImGui context shutdown; the node-canvas example wires it into `OnShutdown`. A destroyed canvas cannot be drawn again, and destruction during `Begin`/`End` is rejected.
+
 FIX: `NodeCanvas` panning preserves the last valid view when application focus, mouse position, or held-button state is lost. Unavailable coordinates are rejected before both preview rendering and view commit, preventing the graph from disappearing or grid drawing from stalling. Normal pan releases outside the canvas still commit their final position.
 
 FIX: Starting a middle-button pan immediately cancels a pending `NodeCanvas` zoom-to-fit, even before the pointer moves, so automatic fitting no longer competes with manual navigation.

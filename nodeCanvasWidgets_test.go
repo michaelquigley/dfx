@@ -27,9 +27,7 @@ func newCanvasWidgetTest(t *testing.T) *canvasWidgetTest {
 	io.SetBackendFlags(imgui.BackendFlagsRendererHasTextures)
 	h := &canvasWidgetTest{nc: NewNodeCanvas[string](NodeCanvasConfig{}), io: io}
 	t.Cleanup(func() {
-		if h.nc.splitter != nil {
-			h.nc.splitter.Destroy()
-		}
+		h.nc.Destroy()
 		imgui.DestroyContextV(ctx)
 		runtime.UnlockOSThread()
 	})

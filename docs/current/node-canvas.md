@@ -12,6 +12,20 @@
 
 **The canvas reports intents; the app applies them.** A completed gesture produces an intent — nodes moved, link created, selection changed — returned from `End`. The app decides what to do with it (typically: run an undo command). The canvas never assumes an intent was accepted; the next frame's declarations are the only truth it renders.
 
+### Resource lifetime
+
+Keep a canvas for the lifetime of its editor. Its native draw-list splitter reuses channel buffers across frames, retaining capacity for the largest graph drawn. Garbage collection does not free these C++ allocations: call `nc.Destroy()` on the GUI thread, outside a `Begin`/`End` pair, when closing or replacing the editor. Do not copy a canvas after its first `Begin`.
+
+`Destroy` releases the native splitter and retained Go state. It is safe before the first draw and on repeated calls; a destroyed canvas cannot be drawn again. It also works after ImGui context shutdown, so an app-owned canvas can use `Config.OnShutdown`, as the example does:
+
+```go
+OnShutdown: func(_ *dfx.App) {
+    nc.Destroy()
+},
+```
+
+For editors opened and closed during a long-running session, destroy each canvas when its owner closes; waiting for application shutdown would retain its buffers throughout the session. ImGui's own window caches belong to the context and are separate from the canvas-owned splitter.
+
 ## Declaration cycle
 
 `NodeCanvas` is a widget, not a `Component`: drive it from inside an owning component's `Draw`.
