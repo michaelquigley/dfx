@@ -132,7 +132,7 @@ app := dfx.New(root, dfx.Config{
 
 **Config Callbacks:**
 - `OnSetup(app *App)` - Called once after ImGui context is created
-- `OnShutdown(app *App)` - Called before shutdown
+- `OnShutdown(app *App)` - Called after backend and ImGui context teardown
 - `OnTick(app *App)` - Called each frame before drawing
 - `OnClose(app *App)` - Called when window is about to close (can cancel via `SetShouldClose(false)`)
 - `OnSizeChange(width, height int)` - Called when window is resized
@@ -339,8 +339,7 @@ hwValue, changed := dfx.FaderI("##hw", hardwareValue, 0, 32767, params)
 - `DecibelTaper(dbRange)` - UI position linear with dB; for hardware values proportional to amplitude
 - `CustomTaper(apply, invert)` - User-defined taper functions
 
-**Multi-Representation Pattern:**
-Advanced faders support maintaining multiple value representations (normalized, hardware, display) synchronized via conversion functions:
+**Multi-Representation Pattern:** Advanced faders support maintaining multiple value representations (normalized, hardware, display) synchronized via conversion functions:
 
 ```go
 type FaderState struct {
@@ -359,8 +358,7 @@ func updateFromNormalized(state *FaderState, norm float32) {
 // FaderN for normalized, FaderI for hardware, FaderF for display values
 ```
 
-**Faders with Scales:**
-The `FaderWithScaleN/F/I` functions add tick marks and labels next to faders, perfect for audio applications that need visual reference marks:
+**Faders with Scales:** The `FaderWithScaleN/F/I` functions add tick marks and labels next to faders, perfect for audio applications that need visual reference marks:
 
 ```go
 // Example: dB fader with scale

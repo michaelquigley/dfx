@@ -29,7 +29,7 @@ type Config struct {
 	X              int            // window X position (0 = don't set)
 	Y              int            // window Y position (0 = don't set)
 	OnSetup        func(*App)     // called once after imgui context created
-	OnShutdown     func(*App)     // called before shutdown
+	OnShutdown     func(*App)     // called after backend and imgui context teardown
 	OnTick         func(*App)     // called each frame before drawing
 	OnClose        func(*App)     // called when window is about to close (can call SetShouldClose to cancel)
 	OnSizeChange   func(int, int)    // called when window is resized
