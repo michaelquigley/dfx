@@ -174,6 +174,15 @@ func stepIdle[ID comparable](res *gestureResult[ID], in inputSnapshot, g *canvas
 		return
 	}
 
+	// raising is independent of widget-first selection/drag arbitration:
+	// clicking a control brings its node forward without stealing the click.
+	if in.leftPressed {
+		hit := hitTest(g, in.mouse, params.hit)
+		if hit.kind == hitNode || hit.kind == hitPin {
+			res.intents.NodeRaised = &hit.node
+		}
+	}
+
 	if in.leftPressed && !in.itemHoveredInCanvas && !in.itemActiveInCanvas {
 		pressLeft(res, in, g, params)
 		return

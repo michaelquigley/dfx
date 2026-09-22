@@ -17,7 +17,8 @@ import (
 // moves run through a dfx UndoSystem command (one gesture, one intent, one
 // undo command).
 //
-// mouse: click selects (ctrl toggles, shift adds), drag moves the selection,
+// mouse: click brings a node forward; its background also selects (ctrl
+// toggles, shift adds). drag moves the selection,
 // drag on empty canvas box-selects, drag from a pin creates a link (snaps
 // near a compatible pin), middle-drag pans, wheel zooms through the detents
 // toward the cursor. over a slider, wheel adjusts its value (Ctrl 10x faster,
@@ -201,6 +202,9 @@ func main() {
 		"l.gain-meter":    {from: "gain.out", to: "meter.in"},
 	}
 	linkSeq := 0
+	// back to front. keep deleted IDs in this small example so undo restores
+	// their stack position; missing nodes are skipped when declaring.
+	nodeOrder := []string{"filter", "gain", "meter", "notes", "source"}
 
 	locked := false
 	var savedView *dfx.View
@@ -220,6 +224,15 @@ func main() {
 	}
 
 	applyIntents := func(intents dfx.Intents[string]) {
+		if raised := intents.NodeRaised; raised != nil {
+			for i, id := range nodeOrder {
+				if id == *raised {
+					copy(nodeOrder[i:], nodeOrder[i+1:])
+					nodeOrder[len(nodeOrder)-1] = id
+					break
+				}
+			}
+		}
 		if sc := intents.SelectionChanged; sc != nil {
 			for _, n := range nodes {
 				n.selected = false
@@ -265,18 +278,11 @@ func main() {
 	root := dfx.NewFunc(func(state *dfx.State) {
 		nc.Begin(state)
 
-		// declare the nodes that currently exist, in a stable order — a
-		// deleted node is simply absent this frame, and map iteration would
-		// otherwise shuffle declaration order (and with it z-order
-		// tie-breaks) frame to frame.
-		nodeIDs := make([]string, 0, len(nodes))
-		for id := range nodes {
-			nodeIDs = append(nodeIDs, id)
-		}
-		sort.Strings(nodeIDs)
-		for _, id := range nodeIDs {
-			nd := nodes[id]
-			nc.Node(id, nd.pos, dfx.NodeFlags{Selected: nd.selected}, nd.content)
+		// the app owns stacking, just as it owns positions and selection.
+		for _, id := range nodeOrder {
+			if nd := nodes[id]; nd != nil {
+				nc.Node(id, nd.pos, dfx.NodeFlags{Selected: nd.selected}, nd.content)
+			}
 		}
 
 		// declare links likewise in a stable order.

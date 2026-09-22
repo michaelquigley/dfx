@@ -52,7 +52,8 @@ func withMods(in inputSnapshot, ctrl, shift bool) inputSnapshot {
 }
 
 // run steps the machine through a sequence of snapshots against a fixed
-// geometry, returning the final result; intermediate intents fail the test.
+// geometry, returning the final result; intermediate graph edits fail the
+// test. a press may independently request NodeRaised before its release.
 func run(t *testing.T, g *canvasGeometry[string], params gestureParams, ins ...inputSnapshot) gestureResult[string] {
 	t.Helper()
 	var st gestureState[string]
@@ -81,10 +82,10 @@ func wantSelection(t *testing.T, res gestureResult[string], nodes, links []strin
 	}
 }
 
-func wantNoIntents(t *testing.T, res gestureResult[string]) {
+func wantNoGraphEdits(t *testing.T, res gestureResult[string]) {
 	t.Helper()
 	if res.intents.SelectionChanged != nil || res.intents.NodesMoved != nil || res.intents.LinkCreated != nil {
-		t.Fatalf("expected no intents, got %+v", res.intents)
+		t.Fatalf("expected no graph edits, got %+v", res.intents)
 	}
 }
 
@@ -96,7 +97,7 @@ func TestNodeCanvas_IdleGate(t *testing.T) {
 	in := snapPress(150, 140)
 	in.canvasHovered = false
 	res := stepGesture(gestureState[string]{}, in, g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gestureIdle {
 		t.Fatalf("expected idle, got %v", res.state.kind)
 	}
@@ -105,7 +106,7 @@ func TestNodeCanvas_IdleGate(t *testing.T) {
 	in = snapPress(150, 140)
 	in.anyPopupOpen = true
 	res = stepGesture(gestureState[string]{}, in, g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gestureIdle {
 		t.Fatalf("expected idle, got %v", res.state.kind)
 	}
@@ -125,7 +126,7 @@ func TestNodeCanvas_WidgetFirstArbitration(t *testing.T) {
 	in := snapPress(150, 140)
 	in.itemHoveredInCanvas = true
 	res := stepGesture(gestureState[string]{}, in, g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gestureIdle {
 		t.Fatal("left press initiated over a hovered item")
 	}
@@ -154,6 +155,36 @@ func TestNodeCanvas_WidgetFirstArbitration(t *testing.T) {
 	}
 }
 
+func TestNodeCanvas_RaiseOnPress(t *testing.T) {
+	g := testGraph(nil, nil)
+	for _, tc := range []struct {
+		name   string
+		in     inputSnapshot
+		locked bool
+		want   string
+	}{
+		{"body", snapPress(150, 140), false, "a"},
+		{"locked", snapPress(150, 140), true, "a"},
+		{"widget", inputSnapshot{mouse: imgui.Vec2{X: 150, Y: 140}, leftPressed: true, canvasHovered: true, itemHoveredInCanvas: true, itemActiveInCanvas: true}, false, "a"},
+		{"empty", snapPress(800, 600), false, ""},
+		{"outside", inputSnapshot{mouse: imgui.Vec2{X: 150, Y: 140}, leftPressed: true}, false, ""},
+		{"popup", inputSnapshot{mouse: imgui.Vec2{X: 150, Y: 140}, leftPressed: true, canvasHovered: true, anyPopupOpen: true}, false, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			params := testGestureParams()
+			params.locked = tc.locked
+			res := stepGesture(gestureState[string]{}, tc.in, g, params)
+			if tc.want == "" {
+				if res.intents.NodeRaised != nil {
+					t.Fatalf("unexpected raise: %v", *res.intents.NodeRaised)
+				}
+			} else if res.intents.NodeRaised == nil || *res.intents.NodeRaised != tc.want {
+				t.Fatalf("expected raise of %q: %+v", tc.want, res.intents)
+			}
+		})
+	}
+}
+
 func TestNodeCanvas_PlainClickUnselectedNode(t *testing.T) {
 	g := testGraph(nil, nil)
 	res := run(t, g, testGestureParams(), snapPress(150, 140))
@@ -164,7 +195,7 @@ func TestNodeCanvas_PlainClickUnselectedNode(t *testing.T) {
 
 	// release without drag: selection already applied on press, no more intents.
 	res2 := stepGesture(res.state, snapRelease(150, 140, false), g, testGestureParams())
-	wantNoIntents(t, res2)
+	wantNoGraphEdits(t, res2)
 	if res2.state.kind != gestureIdle {
 		t.Fatalf("expected idle, got %v", res2.state.kind)
 	}
@@ -183,7 +214,7 @@ func TestNodeCanvas_PlainPressSelectedNodePreservesThenCollapses(t *testing.T) {
 	// press emits nothing: the set is preserved so a multi-drag can start
 	// from any member.
 	res := run(t, g, params, snapPress(150, 140))
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gesturePressedNode || !res.state.collapseOnRelease {
 		t.Fatalf("expected pressedNode with pending collapse, got %+v", res.state)
 	}
@@ -197,10 +228,10 @@ func TestNodeCanvas_PlainClickSoleSelectedNodeEmitsNothing(t *testing.T) {
 	g := testGraph([]string{"a"}, nil)
 	params := testGestureParams()
 	res := run(t, g, params, snapPress(150, 140))
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	// the collapse target equals the declared selection: no intent.
 	res = stepGesture(res.state, snapRelease(150, 140, false), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 }
 
 func TestNodeCanvas_DragSelectedNodesMovesWholeSelection(t *testing.T) {
@@ -274,7 +305,7 @@ func TestNodeCanvas_CtrlToggle(t *testing.T) {
 	}
 	res = stepGesture(res.state, snapDrag(180, 170), g, params)
 	res = stepGesture(res.state, snapRelease(200, 190, true), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 }
 
 func TestNodeCanvas_ShiftAdd(t *testing.T) {
@@ -288,7 +319,7 @@ func TestNodeCanvas_ShiftAdd(t *testing.T) {
 	// still arms the drag.
 	g = testGraph([]string{"a", "b"}, nil)
 	res = run(t, g, params, withMods(snapPress(150, 140), false, true))
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gesturePressedNode || !idSlicesEqual(res.state.dragSet, []string{"a", "b"}) {
 		t.Fatalf("expected armed drag of {a b}, got %+v", res.state)
 	}
@@ -329,7 +360,7 @@ func TestNodeCanvas_ClickEmptyClears(t *testing.T) {
 	// press emits nothing; the clear lands on release-before-threshold.
 	g := testGraph([]string{"a"}, []string{"l1"})
 	res := run(t, g, params, snapPress(600, 400))
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gesturePressedEmpty {
 		t.Fatalf("expected pressedEmpty, got %v", res.state.kind)
 	}
@@ -340,7 +371,7 @@ func TestNodeCanvas_ClickEmptyClears(t *testing.T) {
 	g = testGraph(nil, nil)
 	res = run(t, g, params, snapPress(600, 400))
 	res = stepGesture(res.state, snapRelease(600, 400, false), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 }
 
 func TestNodeCanvas_BoxSelect(t *testing.T) {
@@ -372,7 +403,7 @@ func TestNodeCanvas_BoxSelectCancelEmitsNothing(t *testing.T) {
 	res := run(t, g, params, snapPress(50, 50), snapDrag(150, 100))
 	// button state vanished without a release event: cancel, no intent.
 	res = stepGesture(res.state, inputSnapshot{mouse: imgui.Vec2{X: 150, Y: 100}}, g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 	if res.state.kind != gestureIdle {
 		t.Fatalf("expected idle after cancel, got %v", res.state.kind)
 	}
@@ -443,12 +474,12 @@ func TestNodeCanvas_LinkDragReleaseOffPinEmitsNothing(t *testing.T) {
 	params := testGestureParams()
 	res := run(t, g, params, snapPress(200, 140), snapDrag(250, 140))
 	res = stepGesture(res.state, snapRelease(500, 400, true), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 
 	// release near a same-side pin: not compatible, no intent.
 	res = run(t, g, params, snapPress(200, 140), snapDrag(250, 140))
 	res = stepGesture(res.state, snapRelease(398, 141, true), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 }
 
 func TestNodeCanvas_PinClickEmitsNothing(t *testing.T) {
@@ -459,7 +490,7 @@ func TestNodeCanvas_PinClickEmitsNothing(t *testing.T) {
 		t.Fatalf("expected pressedPin, got %v", res.state.kind)
 	}
 	res = stepGesture(res.state, snapRelease(200, 140, false), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 }
 
 func TestNodeCanvas_LockedMode(t *testing.T) {
@@ -478,7 +509,7 @@ func TestNodeCanvas_LockedMode(t *testing.T) {
 	// dragging after a locked press does nothing.
 	res = stepGesture(res.state, snapDrag(180, 170), g, params)
 	res = stepGesture(res.state, snapRelease(200, 190, true), g, params)
-	wantNoIntents(t, res)
+	wantNoGraphEdits(t, res)
 
 	// box select stays live.
 	g = testGraph(nil, nil)

@@ -40,7 +40,8 @@ nc.Link("l1", "source.out", "filter.in", dfx.LinkFlags{Selected: sel})
 intents := nc.End()
 ```
 
-- `Node`'s `pos` is the outer node rect's top-left in **canvas space** — the app-owned anchor. Padding and title metrics offset content inward from it; content growth extends the rect right/down while the anchor stays fixed. Node size derives from content.
+- `Node`'s `pos` is the outer node rect's top-left in **canvas space** — the app-owned anchor. Padding and title metrics offset content inward from it; content growth extends the rect right/down while the anchor stays fixed. Node size derives from content. Its content callback executes synchronously, once, inside `Node`.
+- Declare nodes **back to front**: the last node declared is frontmost. The application owns this order. `NodeRaised` requests a change; the canvas never silently reorders declarations.
 - `TitleBar`, when used, must be the first call in the content closure; its measured extent is the title band height (violations are debug-logged).
 - `Input`/`Output` declare pin rows: a label in flow plus a circular marker on the node's left (inputs) or right (outputs) edge, anchored to the row.
 - `Label` draws text through the drawlist and advances layout with an ID-less spacer — it measures like an item but stays invisible to hover/active arbitration.
@@ -60,12 +61,14 @@ Content that opens child windows of its own (`BeginChild`-style scroll regions) 
 
 ```go
 type Intents[ID comparable] struct {
+    NodeRaised       *ID                 // left press on node, widget, or pin: bring node forward
     NodesMoved       []NodeMove[ID]       // once, on drag release: {ID, From, To} per moved node
     LinkCreated      *LinkCreate[ID]      // {FromPin, ToPin}, normalized output→input
     SelectionChanged *SelectionChange[ID] // full replacement sets for nodes and links
 }
 ```
 
+- `NodeRaised` emits on a left press on a node, including its widgets and pins, independently of selection and locked mode. Move that ID to the end of the application's node declaration order to bring it forward next frame. Widget clicks keep their ordinary behavior and do not select or drag the node. An application may ignore the request. The example keeps an ordered ID slice and retains deleted IDs in it so undo restores their stacking position.
 - `NodesMoved` emits once per completed drag — one gesture, one intent, one undo command. `From` is the declared position at gesture start; `To` is `From` plus the gesture's canvas-space offset. During the drag the canvas renders declared positions plus the in-flight offset; the model stays untouched until release.
 - `LinkCreated` is side-compatible by construction (the canvas knows sides, not types); the app validates semantics and applies or ignores it.
 - `SelectionChanged` carries full replacement sets, emitted only when an interaction produced sets differing from the `Selected` flags declared that frame. Selection is one combined set spanning nodes and links.
@@ -80,6 +83,10 @@ type Intents[ID comparable] struct {
 A release is a release wherever the mouse is — a node dragged past the canvas edge still emits its `NodesMoved`. Genuinely lost button state (focus loss) cancels with no intent.
 
 **Widget-first arbitration**: the canvas claims a left gesture only when no imgui item inside it is hovered or active; the wheel steps the detent only when no item is hovered; middle-drag pan needs neither. While any popup is open, the canvas initiates nothing. Item state elsewhere in the app never suppresses canvas input.
+
+**Overlapping nodes**: new widget mouse input is routed to one node, the frontmost node under the pointer in the last completed frame. A foreground node's background blocks covered widgets too. Already-active widgets keep their capture through drag and release, even outside their node or while declarations are reordered. Keyboard focus remains intact, and popup windows receive their own input outside the node's bounds. This applies to ordinary ImGui/dfx widgets that honor ImGui hover; custom content that reads raw mouse buttons or coordinates must implement its own arbitration.
+
+Routing uses retained geometry because callbacks execute synchronously, before later nodes have been declared. A new node becomes eligible after its first measured frame. Changes to the routed node's position or declaration index, or to the canvas transform/viewport, suppress new widget mouse input for the handover frame; suppressed clicks and wheel input over node regions do not fall through into canvas selection or zoom. Deleting the routed node also waits a frame before exposing the underlying controls. Changes declared later in the frame (including a newly covering node or a content-size change) cannot retroactively revoke input already delivered to the previously visible node: routing settles on the next frame, and only one node receives new widget mouse input in any frame. Applications should apply graph/layout changes between declaration cycles.
 
 **Locked mode** (`Config.Locked` or `SetLocked`) suppresses node dragging only; selection, panning, zooming, and link creation stay live.
 
@@ -108,4 +115,6 @@ type View struct { Pan imgui.Vec2; Zoom float32 } // plain, persistable data
 
 Everything draws through `ImDrawList` with the view transform applied canvas-side. The canvas owns an `imgui.DrawListSplitter` (never the drawlist's `ChannelsSplit`, which cannot nest with the splits imgui widgets perform internally): channel 0 for links, then a chrome/content channel pair per node, so chrome draws after content measures it but sits visually behind. Splitter capacity comes from last frame's node count plus eight spare nodes; overflow shares the final pair for one frame. In-flight previews (box select, link drag) draw after the merge, as true foreground. The scaled font push uses `imgui.CurrentStyle().FontSizeBase()` — never `imgui.FontSize()`, which is post-global-scale and would double-apply DPI scaling.
 
-Input commits only at `End`: the gesture state machine (pure functions over an input snapshot, headless-tested in `nodeCanvasInput_test.go`) resolves against the same frame's geometry. `Begin` computes frame-local draw values for already-active gestures from absolute anchors — never accumulated deltas — so drawn and committed values agree by construction.
+Canvas gestures commit only at `End`: the gesture state machine (pure functions over an input snapshot, headless-tested in `nodeCanvasInput_test.go`) resolves against the same frame's geometry. `Begin` computes frame-local draw values for already-active gestures from absolute anchors — never accumulated deltas — so drawn and committed values agree by construction.
+
+Widget input is synchronous inside `Node`, before the canvas gesture commit. `nodeCanvasWidgets.go` masks the canvas window's ImGui hover and wheel values while covered content runs, then restores them; it never disables the widget or clears its active ID. Popup-window hover is left alone. `nodeCanvasWidgets_test.go` exercises this boundary with real ImGui contexts, frames, and queued mouse events, without a display or renderer.

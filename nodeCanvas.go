@@ -77,6 +77,11 @@ type NodeCanvas[ID comparable] struct {
 	// frame.
 	retained *canvasGeometry[ID]
 
+	// inputNode is the frontmost node under the mouse in the last completed
+	// frame. synchronous content callbacks use it to share one mouse owner.
+	inputNode     *nodeGeometry[ID]
+	inputNodeSeen bool
+
 	// hover is the hit resolved at the last End, consumed by node chrome the
 	// following frame (the normal one-frame immediate-mode cadence).
 	hover hitResult[ID]
@@ -175,6 +180,11 @@ type View struct {
 // the app applies intents (typically as undo commands); the canvas never
 // assumes an intent was accepted.
 type Intents[ID comparable] struct {
+	// NodeRaised requests that the app move this node to the end of its
+	// declaration order (frontmost). emitted on left press, including on a
+	// widget or pin, independently of selection and locked mode.
+	NodeRaised *ID
+
 	// NodesMoved is emitted once, on drag release: one entry per selected
 	// node that moved, in declaration order.
 	NodesMoved []NodeMove[ID]
@@ -297,6 +307,7 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 		mouseCanvas := canvasFromScreen(imgui.MousePos(), nc.frameView, nc.origin)
 		nc.frameDragOffset = nc.gesture.dragOffset(mouseCanvas)
 	}
+	nc.prepareNodeInput()
 
 	nc.drawGrid()
 
@@ -355,9 +366,7 @@ func (nc *NodeCanvas[ID]) Node(id ID, pos imgui.Vec2, flags NodeFlags, content f
 	imgui.PushIDStr(nodeScope(id))
 	imgui.BeginGroup()
 	ctx := &NodeContext[ID]{nc: nc, groupStart: contentStart}
-	if content != nil {
-		content(ctx)
-	}
+	nc.drawNodeContent(id, pos, idx, ctx, content)
 	imgui.EndGroup()
 	// EndGroup propagates item status flags within the window: this is the
 	// canvas-scoped active-item arbitration sample.
@@ -426,7 +435,7 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 		links:    geomLinks,
 	}
 
-	in := nc.sampleInput()
+	in := nc.sampleInput(g)
 
 	// hover resolves against this frame's geometry, gated by the
 	// widget-first cascade. links drawn below use it this frame; node chrome
@@ -888,14 +897,19 @@ func nodeScope(id any) string {
 // sampleInput builds the frame's input snapshot. it runs inside the canvas
 // child window, before EndChild, so window-scoped queries answer for the
 // canvas.
-func (nc *NodeCanvas[ID]) sampleInput() inputSnapshot {
+func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	io := imgui.CurrentIO()
 	mouse := imgui.MousePos()
-	hovered := imgui.IsWindowHoveredV(imgui.HoveredFlagsChildWindows)
+	// active widgets have their own arbitration below. they must not hide
+	// the canvas window itself, notably on the click that raises their node.
+	hovered := imgui.IsWindowHoveredV(imgui.HoveredFlagsChildWindows | imgui.HoveredFlagsAllowWhenBlockedByActiveItem)
 
 	leftPressed := imgui.IsMouseClickedBool(imgui.MouseButtonLeft)
 	leftDown := imgui.IsMouseDown(imgui.MouseButtonLeft)
 	leftReleased := imgui.IsMouseReleased(imgui.MouseButtonLeft)
+	// an unmeasured/reordered node must not turn a suppressed widget click
+	// into a canvas gesture. middle pan and already-active gestures stay live.
+	nodeInputReady := nc.nodeInputReady(g, mouse)
 
 	// wheel travel is accumulated canvas-side and reported as one detent
 	// step (sign only) once the threshold crosses. accumulation happens
@@ -908,7 +922,7 @@ func (nc *NodeCanvas[ID]) sampleInput() inputSnapshot {
 	itemHovered := hovered && imgui.IsAnyItemHovered()
 	anyPopup := imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel)
 	var wheel float32
-	if hovered && !anyPopup && !itemHovered && nc.gesture.kind == gestureIdle {
+	if hovered && !anyPopup && !itemHovered && nodeInputReady && nc.gesture.kind == gestureIdle {
 		var dir int
 		nc.wheelAccum, dir = advanceWheel(nc.wheelAccum, io.MouseWheel(), nc.wheelStepsPerZoomLevel)
 		wheel = float32(dir)
@@ -931,7 +945,7 @@ func (nc *NodeCanvas[ID]) sampleInput() inputSnapshot {
 
 	return inputSnapshot{
 		mouse:          mouse,
-		leftPressed:    leftPressed,
+		leftPressed:    leftPressed && nodeInputReady,
 		leftDown:       leftDown,
 		leftReleased:   leftReleased,
 		leftDragging:   nc.leftDragSticky,
