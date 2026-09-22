@@ -298,10 +298,8 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 	nc.frameDragOffset = imgui.Vec2{}
 	switch nc.gesture.kind {
 	case gesturePan:
-		mouse := imgui.MousePos()
-		nc.frameView.Pan = imgui.Vec2{
-			X: nc.gesture.panStart.X + (mouse.X-nc.gesture.pressScreen.X)/nc.view.Zoom,
-			Y: nc.gesture.panStart.Y + (mouse.Y-nc.gesture.pressScreen.Y)/nc.view.Zoom,
+		if in := samplePanInput(); in.panAvailable() {
+			nc.frameView.Pan = nc.gesture.panPosition(in.mouse, nc.view.Zoom)
 		}
 	case gestureDragNodes:
 		mouseCanvas := canvasFromScreen(imgui.MousePos(), nc.frameView, nc.origin)
@@ -894,12 +892,25 @@ func nodeScope(id any) string {
 	return fmt.Sprint(id)
 }
 
+// samplePanInput is shared by Begin's preview and End's commit. focus loss
+// and ImGui's unavailable-position sentinel must never enter pan arithmetic.
+func samplePanInput() inputSnapshot {
+	return inputSnapshot{
+		mouse:            imgui.MousePos(),
+		mouseUnavailable: !imgui.IsMousePosValid() || imgui.CurrentIO().AppFocusLost(),
+		middlePressed:    imgui.IsMouseClickedBool(imgui.MouseButtonMiddle),
+		middleDown:       imgui.IsMouseDown(imgui.MouseButtonMiddle),
+		middleReleased:   imgui.IsMouseReleased(imgui.MouseButtonMiddle),
+	}
+}
+
 // sampleInput builds the frame's input snapshot. it runs inside the canvas
 // child window, before EndChild, so window-scoped queries answer for the
 // canvas.
 func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	io := imgui.CurrentIO()
-	mouse := imgui.MousePos()
+	panInput := samplePanInput()
+	mouse := panInput.mouse
 	// active widgets have their own arbitration below. they must not hide
 	// the canvas window itself, notably on the click that raises their node.
 	hovered := imgui.IsWindowHoveredV(imgui.HoveredFlagsChildWindows | imgui.HoveredFlagsAllowWhenBlockedByActiveItem)
@@ -944,18 +955,19 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	}
 
 	return inputSnapshot{
-		mouse:          mouse,
-		leftPressed:    leftPressed && nodeInputReady,
-		leftDown:       leftDown,
-		leftReleased:   leftReleased,
-		leftDragging:   nc.leftDragSticky,
-		middlePressed:  imgui.IsMouseClickedBool(imgui.MouseButtonMiddle),
-		middleDown:     imgui.IsMouseDown(imgui.MouseButtonMiddle),
-		middleReleased: imgui.IsMouseReleased(imgui.MouseButtonMiddle),
-		wheel:          wheel,
-		ctrl:           io.KeyCtrl(),
-		shift:          io.KeyShift(),
-		canvasHovered:  hovered,
+		mouse:            mouse,
+		mouseUnavailable: panInput.mouseUnavailable,
+		leftPressed:      leftPressed && nodeInputReady,
+		leftDown:         leftDown,
+		leftReleased:     leftReleased,
+		leftDragging:     nc.leftDragSticky,
+		middlePressed:    panInput.middlePressed,
+		middleDown:       panInput.middleDown,
+		middleReleased:   panInput.middleReleased,
+		wheel:            wheel,
+		ctrl:             io.KeyCtrl(),
+		shift:            io.KeyShift(),
+		canvasHovered:    hovered,
 		// the canvas-scoped arbitration flags: item-hovered gates on the
 		// canvas child (or a descendant) being hovered, so items elsewhere
 		// in the app never suppress canvas input.

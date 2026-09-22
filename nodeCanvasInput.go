@@ -12,6 +12,9 @@ import "github.com/AllenDang/cimgui-go/imgui"
 // builds it from imgui at End; tests build it by hand.
 type inputSnapshot struct {
 	mouse imgui.Vec2
+	// mouseUnavailable includes application focus loss even when the last
+	// reported coordinates remain valid. a pan must cancel in either case.
+	mouseUnavailable bool
 
 	leftPressed, leftDown, leftReleased       bool
 	middlePressed, middleDown, middleReleased bool
@@ -124,6 +127,19 @@ type gestureState[ID comparable] struct {
 // from the absolute mouse position against the press anchor.
 func (st *gestureState[ID]) dragOffset(mouseCanvas imgui.Vec2) imgui.Vec2 {
 	return imgui.Vec2{X: mouseCanvas.X - st.pressCanvas.X, Y: mouseCanvas.Y - st.pressCanvas.Y}
+}
+
+// panAvailable distinguishes a valid release (including outside the canvas)
+// from lost input. the preview and commit use the same predicate.
+func (in inputSnapshot) panAvailable() bool {
+	return !in.mouseUnavailable && (in.middleDown || in.middleReleased)
+}
+
+func (st *gestureState[ID]) panPosition(mouse imgui.Vec2, zoom float32) imgui.Vec2 {
+	return imgui.Vec2{
+		X: st.panStart.X + (mouse.X-st.pressScreen.X)/zoom,
+		Y: st.panStart.Y + (mouse.Y-st.pressScreen.Y)/zoom,
+	}
 }
 
 // gestureParams is the configuration the state machine steps under.
@@ -402,18 +418,17 @@ func completeActive[ID comparable](res *gestureResult[ID], in inputSnapshot, g *
 }
 
 // stepPan recomputes the pan from the absolute mouse position against the
-// press anchor and commits it to the view each frame; release (or lost
-// button state) returns to idle with the last applied pan kept.
+// press anchor and commits it to the view each frame. lost input cancels
+// with the last applied pan kept; a valid release commits its final position.
 func stepPan[ID comparable](res *gestureResult[ID], in inputSnapshot) {
-	if in.middleDown || in.middleReleased {
-		pan := imgui.Vec2{
-			X: res.state.panStart.X + (in.mouse.X-res.state.pressScreen.X)/res.view.Zoom,
-			Y: res.state.panStart.Y + (in.mouse.Y-res.state.pressScreen.Y)/res.view.Zoom,
-		}
-		if pan != res.view.Pan {
-			res.view.Pan = pan
-			res.viewChanged = true
-		}
+	if !in.panAvailable() {
+		res.state = gestureState[ID]{kind: gestureIdle}
+		return
+	}
+	pan := res.state.panPosition(in.mouse, res.view.Zoom)
+	if pan != res.view.Pan {
+		res.view.Pan = pan
+		res.viewChanged = true
 	}
 	if !in.middleDown {
 		res.state = gestureState[ID]{kind: gestureIdle}

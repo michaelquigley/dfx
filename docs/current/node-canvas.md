@@ -82,6 +82,8 @@ type Intents[ID comparable] struct {
 
 A release is a release wherever the mouse is — a node dragged past the canvas edge still emits its `NodesMoved`. Genuinely lost button state (focus loss) cancels with no intent.
 
+Middle-button panning also cancels on application focus loss, an unavailable mouse position, or lost button state. Both the drawing preview and the committed view keep the last valid pan; restored input requires a fresh middle-button press. A normal release outside the canvas, with a valid position, still commits that final position.
+
 **Widget-first arbitration**: the canvas claims a left gesture only when no imgui item inside it is hovered or active; the wheel steps the detent only when no item is hovered; middle-drag pan needs neither. While any popup is open, the canvas initiates nothing. Item state elsewhere in the app never suppresses canvas input.
 
 **Overlapping nodes**: new widget mouse input is routed to one node, the frontmost node under the pointer in the last completed frame. A foreground node's background blocks covered widgets too. Already-active widgets keep their capture through drag and release, even outside their node or while declarations are reordered. Keyboard focus remains intact, and popup windows receive their own input outside the node's bounds. This applies to ordinary ImGui/dfx widgets that honor ImGui hover; custom content that reads raw mouse buttons or coordinates must implement its own arbitration.
