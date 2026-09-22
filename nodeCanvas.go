@@ -456,13 +456,14 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 		detents: nc.detents,
 		locked:  nc.locked,
 	})
+	panStarted := nc.gesture.kind != gesturePan && res.state.kind == gesturePan
 	nc.gesture = res.state
 	nc.view = res.view
 
-	// most recent navigation wins: a wheel detent step or middle-drag pan
-	// cancels a pending fit; otherwise the fit resolves one step against the
-	// bounds actually declared this frame.
-	if res.viewChanged {
+	// most recent navigation wins: accepting a pan cancels a pending fit
+	// immediately, even before movement. don't infer that from viewChanged:
+	// Begin already applied any in-flight pan to the frame's drawing view.
+	if res.viewChanged || panStarted {
 		nc.fitPending = false
 		nc.fitStarting = false
 	} else if nc.fitPending && !nc.fitStarting {

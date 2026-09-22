@@ -103,7 +103,7 @@ type View struct { Pan imgui.Vec2; Zoom float32 } // plain, persistable data
 - `View()` / `SetView(v)` — get/set view state, callable any time (no draw-frame lifecycle constraint). `SetView` snaps `Zoom` to the nearest configured detent and applies at the next `Begin`; reads are pending-first, so a write-then-read round-trips.
 - `Detent()` — the current zoom factor. `GridSpacing()` — effective grid spacing for app-side snap logic.
 - `CanvasFromScreen` / `ScreenFromCanvas` — the transform pair (`screen = (canvas + pan) * zoom + origin`), computed against the last begun canvas rect; keyboard action handlers (which run before component drawing) see the previous frame's rect, one frame stale and visually indistinguishable.
-- `ZoomToFit(ids...)` — fits nodes (all when empty; non-node IDs ignored). Because node bounds are detent-dependent, the fit resolves over the next few frames, descending from the top detent until the content actually declared at a detent fits — bounded by the detent count. The most recent navigation wins: any other explicit navigation (wheel, `SetView`, `CenterOn`, pan) cancels a pending fit.
+- `ZoomToFit(ids...)` — fits nodes (all when empty; non-node IDs ignored). Because node bounds are detent-dependent, the fit resolves over the next few frames, descending from the top detent until the content actually declared at a detent fits — bounded by the detent count. The most recent navigation wins: any other explicit navigation (wheel, `SetView`, `CenterOn`, pan) cancels a pending fit. Starting a pan cancels immediately on the accepted middle-button press, before any pointer movement.
 - `CenterOn(ids...)` — pan only, detent unchanged.
 - `SetStyle(s)` — replace the style, e.g. after a theme change.
 

@@ -151,8 +151,8 @@ type gestureParams struct {
 
 // gestureResult is one step's outcome: the successor state, the (possibly
 // mutated) view, and any intents completed gestures produced. viewChanged
-// reports explicit navigation (wheel detent step, middle-drag pan) so the
-// canvas can cancel a pending zoom-to-fit.
+// reports changes relative to the supplied geometry's view; pan initiation
+// is tracked separately by the canvas to cancel a pending zoom-to-fit.
 type gestureResult[ID comparable] struct {
 	state       gestureState[ID]
 	view        View

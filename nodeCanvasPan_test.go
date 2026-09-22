@@ -102,3 +102,51 @@ func TestNodeCanvas_PanReleaseOutsideCanvasCommitsFinalPosition(t *testing.T) {
 		})
 	}
 }
+
+func TestNodeCanvas_PanStartCancelsZoomToFit(t *testing.T) {
+	for _, phase := range []string{"starting", "descending"} {
+		t.Run(phase, func(t *testing.T) {
+			h := newCanvasWidgetTest(t)
+			var drawn View
+			draw := func() {
+				drawn = h.nc.frameView
+				h.nc.Node("near", imgui.Vec2{X: 100, Y: 100}, NodeFlags{}, func(n *NodeContext[string]) { n.Label("near") })
+				h.nc.Node("far", imgui.Vec2{X: 4000, Y: 100}, NodeFlags{}, func(n *NodeContext[string]) { n.Label("far") })
+			}
+			h.point(imgui.Vec2{X: 450, Y: 350})
+			h.frame(draw)
+			h.frame(draw)
+			h.nc.ZoomToFit()
+			if phase == "descending" {
+				h.frame(draw)
+				if !h.nc.fitPending || h.nc.View().Zoom >= drawn.Zoom {
+					t.Fatal("test graph did not start a multi-frame fit")
+				}
+			}
+
+			// no motion: accepting the middle press alone must cancel the fit.
+			h.io.AddMouseButtonEvent(2, true)
+			h.frame(draw)
+			if h.nc.fitPending || h.nc.fitStarting || h.nc.View() != drawn || h.nc.gesture.kind != gesturePan {
+				t.Fatalf("pan press failed to cancel fit: drawn=%+v committed=%+v pending=%v starting=%v gesture=%v", drawn, h.nc.View(), h.nc.fitPending, h.nc.fitStarting, h.nc.gesture.kind)
+			}
+			start := h.nc.View()
+			h.frame(draw)
+			if h.nc.View() != start {
+				t.Fatal("stationary pan allowed fit to keep changing the view")
+			}
+			h.point(imgui.Vec2{X: 510, Y: 380})
+			h.frame(draw)
+			want := View{Pan: imgui.Vec2{X: start.Pan.X + 60/start.Zoom, Y: start.Pan.Y + 30/start.Zoom}, Zoom: start.Zoom}
+			if h.nc.View() != want || drawn != want {
+				t.Fatalf("pan after fit cancellation: drawn=%+v committed=%+v, want %+v", drawn, h.nc.View(), want)
+			}
+			h.io.AddMouseButtonEvent(2, false)
+			h.frame(draw)
+			h.frame(draw)
+			if h.nc.View() != want || h.nc.fitPending || h.nc.gesture.kind != gestureIdle {
+				t.Fatal("fit resumed after pan release")
+			}
+		})
+	}
+}
