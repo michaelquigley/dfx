@@ -20,7 +20,8 @@ import (
 // mouse: click selects (ctrl toggles, shift adds), drag moves the selection,
 // drag on empty canvas box-selects, drag from a pin creates a link (snaps
 // near a compatible pin), middle-drag pans, wheel zooms through the detents
-// toward the cursor. below detent 1.0 the nodes declare simplified,
+// toward the cursor. over a slider, wheel adjusts its value (Ctrl 10x faster,
+// Alt 10x finer). below detent 1.0 the nodes declare simplified,
 // non-interactive content — labels, values, pins — per the reduced-detent
 // contract.
 //
@@ -162,8 +163,8 @@ func main() {
 				// node content owns its widget widths: the canvas window's
 				// default item width is meaningless inside a node.
 				imgui.PushItemWidth(140)
-				imgui.SliderFloat("cutoff", &cutoff, 20, 20000)
-				imgui.SliderFloat("res", &resonance, 0, 1)
+				cutoff, _ = dfx.WheelSlider("cutoff", cutoff, 20, 20000, 100, "%.0f", imgui.SliderFlagsNone)
+				resonance, _ = dfx.WheelSlider("res", resonance, 0, 1, 100, "%.3f", imgui.SliderFlagsNone)
 				imgui.PopItemWidth()
 			}
 			n.Input("filter.in", "in")
@@ -175,7 +176,7 @@ func main() {
 				n.Label(fmt.Sprintf("level %.2f", level))
 			} else {
 				imgui.PushItemWidth(140)
-				imgui.SliderFloat("level", &level, 0, 1)
+				level, _ = dfx.WheelSlider("level", level, 0, 1, 100, "%.3f", imgui.SliderFlagsNone)
 				imgui.PopItemWidth()
 			}
 			n.Input("gain.in", "in")
