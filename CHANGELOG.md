@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.7
+
 FIX: The full-window root uses square corners so its background covers the native window's corners. The rounding override applies only to the root; application content retains the configured style.
 
 FIX: `NodeCanvas.Destroy()` releases the owned native draw-list splitter and its channel buffers when an editor is closed or replaced. Cleanup is explicit, safe before the first draw and on repeated calls, and supported after ImGui context shutdown; the node-canvas example wires it into `OnShutdown`. A destroyed canvas cannot be drawn again, and destruction during `Begin`/`End` is rejected.
