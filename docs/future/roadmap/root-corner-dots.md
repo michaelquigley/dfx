@@ -1,6 +1,6 @@
 ---
 title: root corner dots
-state: researching
+state: evaluating
 created: 2026-09-22
 tags: [enhancement]
 milestone: v0.1.x
