@@ -170,7 +170,12 @@ func (app *App) Run() error {
 		imgui.SetNextWindowPos(windowPos)
 		imgui.SetNextWindowSize(windowSize)
 
-		if imgui.BeginV("##dfx_root", nil, rootFlags) {
+		// the root fills the native window; rounded corners expose the backend
+		// background. restore the style before drawing application content.
+		imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, 0)
+		rootVisible := imgui.BeginV("##dfx_root", nil, rootFlags)
+		imgui.PopStyleVar()
+		if rootVisible {
 			// create state for root component
 			io := imgui.CurrentIO()
 			state := &State{
