@@ -676,7 +676,7 @@ func (nc *NodeCanvas[ID]) drawNodeChrome(drawList *imgui.DrawList, channel int32
 	} else if nc.hover.kind == hitNode && nc.hover.node == id {
 		borderColor = nc.style.NodeBorderColorHovered
 	}
-	drawList.AddRectV(screenMin, screenMax, imgui.ColorConvertFloat4ToU32(borderColor), rounding, imgui.DrawFlagsRoundCornersAll, thickness*zoom)
+	drawList.AddRectV(screenMin, screenMax, imgui.ColorConvertFloat4ToU32(borderColor), rounding, thickness*zoom, imgui.DrawFlagsRoundCornersAll)
 
 	for _, p := range ctx.pins {
 		edgeX := drawRect.Min.X
@@ -764,7 +764,7 @@ func (nc *NodeCanvas[ID]) drawGesturePreviews(drawList *imgui.DrawList, in input
 		a := screenFromCanvas(nc.gesture.pressCanvas, nc.frameView, nc.origin)
 		r := normalizedRect(a, in.mouse)
 		drawList.AddRectFilledV(r.Min, r.Max, imgui.ColorConvertFloat4ToU32(nc.style.BoxSelectFillColor), 0, imgui.DrawFlagsNone)
-		drawList.AddRectV(r.Min, r.Max, imgui.ColorConvertFloat4ToU32(nc.style.BoxSelectBorderColor), 0, imgui.DrawFlagsNone, 1)
+		drawList.AddRectV(r.Min, r.Max, imgui.ColorConvertFloat4ToU32(nc.style.BoxSelectBorderColor), 0, 1, imgui.DrawFlagsNone)
 
 	case gestureLinkDrag:
 		// the preview locks to a compatible pin within the snap radius.
@@ -904,11 +904,11 @@ func (nc *NodeCanvas[ID]) drawGrid() {
 
 	for x := float32(math.Floor(float64(canvasMin.X/spacing))) * spacing; x <= canvasMax.X; x += spacing {
 		sx := screenFromCanvas(imgui.Vec2{X: x}, nc.frameView, nc.origin).X
-		drawList.AddLineV(imgui.Vec2{X: sx, Y: nc.origin.Y}, imgui.Vec2{X: sx, Y: nc.origin.Y + nc.viewport.Y}, col, 1)
+		drawList.AddLineArgs(imgui.Vec2{X: sx, Y: nc.origin.Y}, imgui.Vec2{X: sx, Y: nc.origin.Y + nc.viewport.Y}, col, 1)
 	}
 	for y := float32(math.Floor(float64(canvasMin.Y/spacing))) * spacing; y <= canvasMax.Y; y += spacing {
 		sy := screenFromCanvas(imgui.Vec2{Y: y}, nc.frameView, nc.origin).Y
-		drawList.AddLineV(imgui.Vec2{X: nc.origin.X, Y: sy}, imgui.Vec2{X: nc.origin.X + nc.viewport.X, Y: sy}, col, 1)
+		drawList.AddLineArgs(imgui.Vec2{X: nc.origin.X, Y: sy}, imgui.Vec2{X: nc.origin.X + nc.viewport.X, Y: sy}, col, 1)
 	}
 }
 

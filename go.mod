@@ -3,7 +3,7 @@ module github.com/michaelquigley/dfx
 go 1.25.4
 
 require (
-	github.com/AllenDang/cimgui-go v1.5.0
+	github.com/AllenDang/cimgui-go v1.6.0
 	github.com/michaelquigley/df v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627

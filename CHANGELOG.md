@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.8
+
+CHANGE: Upgraded cimgui-go to v1.6.0 and adapted `NodeCanvas` rectangle and grid drawing calls to the updated draw-list API.
+
 ## v0.1.7
 
 FIX: The full-window root uses square corners so its background covers the native window's corners. The rounding override applies only to the root; application content retains the configured style.

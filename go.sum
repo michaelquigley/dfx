@@ -1,5 +1,5 @@
-github.com/AllenDang/cimgui-go v1.5.0 h1:wnS4h1wWyE+3x59cHJnNSszka7pIR+pehim6ifOk9Rg=
-github.com/AllenDang/cimgui-go v1.5.0/go.mod h1:w7LE33Ex/ZOHqaFBWBHOIVMY4yLSwGLpJMUpX/fb5p4=
+github.com/AllenDang/cimgui-go v1.6.0 h1:fv1M00FcNz3OMK1q0nOt208DxItmRGipSKcKitED4js=
+github.com/AllenDang/cimgui-go v1.6.0/go.mod h1:gz4dVFwmfoyUkBgVzBhiCJj1JXXWISQa8SQ190MlouY=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf h1:FPsprx82rdrX2jiKyS17BH6IrTmUBYqZa/CXT4uvb+I=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
