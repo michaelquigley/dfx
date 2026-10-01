@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.10
+
 FEATURE: `SetupFonts` merges supplemental Material Symbols into the main and small UI fonts, including the 1:1 `fonts.ICON_SYMBOL_VIEW_REAL_SIZE` glyph. The fixed-style supplement excludes all codepoints already supplied by Material Icons, preserving existing icon artwork and font slots. New supported symbols use the additive `ICON_SYMBOL_*` constant namespace; source, licensing, generation, and supported codepoint range are documented in `docs/current/icon-fonts.md`.
 
 ## v0.1.9
