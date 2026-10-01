@@ -10,3 +10,6 @@ var JetBrainsMonoMedium []byte
 
 //go:embed MaterialIcons-Regular.ttf
 var MaterialIconsRegular []byte
+
+//go:embed MaterialSymbolsSupplement.ttf
+var MaterialSymbolsSupplement []byte

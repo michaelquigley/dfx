@@ -10,9 +10,9 @@ import (
 // font indices for easy access
 // note: icon fonts are merged into their base fonts, not separate entries
 const (
-	MainFont      = 0 // default font (Gidole Regular, 20px) with Material Icons merged
+	MainFont      = 0 // default font (Gidole Regular, 20px) with icons and supplemental symbols merged
 	MonospaceFont = 1 // monospace font (JetBrains Mono, 16px)
-	SmallFont     = 2 // small font (Gidole Regular, 16px) with Material Icons merged
+	SmallFont     = 2 // small font (Gidole Regular, 16px) with icons and supplemental symbols merged
 )
 
 var Fonts []*imgui.Font
@@ -49,6 +49,7 @@ func SetupFonts() {
 	materialConfig.SetGlyphRanges(glyphRanges.Data())
 	materialConfig.SetMergeMode(true) // merge with previous font
 	imgui.CurrentIO().Fonts().AddFont(materialConfig)
+	mergeMaterialSymbols(20.0, 5, glyphRanges.Data())
 
 	// add JetBrains Mono as monospace font
 	monoConfig := imgui.NewFontConfig()
@@ -76,6 +77,21 @@ func SetupFonts() {
 	smallMaterialConfig.SetGlyphRanges(glyphRanges.Data())
 	smallMaterialConfig.SetMergeMode(true) // merge with previous font (small font)
 	imgui.CurrentIO().Fonts().AddFont(smallMaterialConfig)
+	mergeMaterialSymbols(16.0, 3, glyphRanges.Data())
+}
+
+// mergeMaterialSymbols adds the fixed-style supplemental symbols to the preceding font. its cmap
+// excludes all codepoints in Material Icons, so existing icons retain their original artwork.
+func mergeMaterialSymbols(size, offset float32, ranges *imgui.Wchar) {
+	config := imgui.NewFontConfig()
+	config.SetFontData(uintptr(unsafe.Pointer(&fonts.MaterialSymbolsSupplement[0])))
+	config.SetFontDataSize(int32(len(fonts.MaterialSymbolsSupplement)))
+	config.SetFontDataOwnedByAtlas(false)
+	config.SetSizePixels(size)
+	config.SetGlyphOffset(imgui.Vec2{Y: offset})
+	config.SetGlyphRanges(ranges)
+	config.SetMergeMode(true)
+	imgui.CurrentIO().Fonts().AddFont(config)
 }
 
 // font sizes corresponding to each font index
