@@ -111,8 +111,10 @@ func TestNodeCanvas_CoveringChromeBlocksWidgetAndAllowsSelection(t *testing.T) {
 	h.frame(draw)
 	h.point(rect.center())
 	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, true)
 	h.io.AddMouseWheelEvent(0, 1)
 	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, false)
 	if back != 0.5 || h.nc.View().Zoom != 1.1 {
 		t.Fatalf("chrome wheel: back=%v zoom=%v", back, h.nc.View().Zoom)
 	}
@@ -305,5 +307,96 @@ func TestNodeCanvas_SynchronousContentAndMouseStateRestoration(t *testing.T) {
 	h.frame(draw)
 	if calls != 3 || !approx32(value, 0.51) {
 		t.Fatalf("callback or input state leaked: calls=%d value=%v", calls, value)
+	}
+}
+
+// TestNodeCanvas_ZoomRequiresCtrl pins the modifier gate: a bare wheel over
+// the canvas is unassigned (it gets nudged during middle-button pans), only
+// ctrl+wheel steps the detent, and travel banked without ctrl never counts
+// toward a later modified step.
+func TestNodeCanvas_ZoomRequiresCtrl(t *testing.T) {
+	h := newCanvasWidgetTest(t)
+	draw := func() {
+		h.nc.Node("a", imgui.Vec2{X: 100, Y: 100}, NodeFlags{}, func(n *NodeContext[string]) {
+			n.Label("node")
+		})
+	}
+	h.frame(draw)
+	h.point(imgui.Vec2{X: 600, Y: 500}) // empty canvas
+	h.frame(draw)
+
+	h.io.AddMouseWheelEvent(0, 1)
+	h.frame(draw)
+	if z := h.nc.View().Zoom; z != 1 {
+		t.Fatalf("bare wheel stepped the detent: zoom=%v", z)
+	}
+
+	h.io.AddKeyEvent(imgui.ModCtrl, true)
+	h.io.AddMouseWheelEvent(0, 1)
+	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, false)
+	if z := h.nc.View().Zoom; z != 1.1 {
+		t.Fatalf("ctrl+wheel did not step the detent: zoom=%v", z)
+	}
+	h.frame(draw) // let the new detent measure
+
+	// two notches per detent: a notch banked without ctrl must not combine
+	// with a later ctrl notch into a step.
+	h.nc.wheelStepsPerZoomLevel = 2
+	h.io.AddMouseWheelEvent(0, 1)
+	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, true)
+	h.io.AddMouseWheelEvent(0, 1)
+	h.frame(draw)
+	if z := h.nc.View().Zoom; z != 1.1 {
+		t.Fatalf("unmodified travel leaked into a ctrl step: zoom=%v", z)
+	}
+	h.io.AddMouseWheelEvent(0, 1)
+	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, false)
+	if z := h.nc.View().Zoom; !approx32(z, 1.2) {
+		t.Fatalf("two ctrl notches did not step: zoom=%v", z)
+	}
+}
+
+// TestNodeCanvas_ZoomOverlay covers the lower-right zoom readout: it is
+// drawn (vertices land in the canvas drawlist and vanish under
+// HideZoomOverlay), it reads as a whole percentage, and it is not an item —
+// a ctrl+wheel over the overlay still steps the detent.
+func TestNodeCanvas_ZoomOverlay(t *testing.T) {
+	for zoom, want := range map[float32]string{0.25: "25%", 0.7: "70%", 1: "100%", 1.1: "110%", 1.5: "150%"} {
+		if got := zoomLabel(zoom); got != want {
+			t.Fatalf("zoomLabel(%v) = %q, want %q", zoom, got, want)
+		}
+	}
+
+	h := newCanvasWidgetTest(t)
+	var dl *imgui.DrawList
+	draw := func() {
+		dl = imgui.WindowDrawList()
+		h.nc.Node("a", imgui.Vec2{X: 100, Y: 100}, NodeFlags{}, func(n *NodeContext[string]) {
+			n.Label("node")
+		})
+	}
+	h.frame(draw)
+	shown := len(dl.VtxBuffer().Slice())
+	h.nc.hideZoomOverlay = true
+	h.frame(draw)
+	hidden := len(dl.VtxBuffer().Slice())
+	if shown <= hidden {
+		t.Fatalf("overlay emitted no vertices: shown=%d hidden=%d", shown, hidden)
+	}
+	h.nc.hideZoomOverlay = false
+
+	// the overlay is not an item: a modified wheel over it zooms.
+	corner := imgui.Vec2{X: h.nc.origin.X + h.nc.viewport.X - 12, Y: h.nc.origin.Y + h.nc.viewport.Y - 12}
+	h.point(corner)
+	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, true)
+	h.io.AddMouseWheelEvent(0, 1)
+	h.frame(draw)
+	h.io.AddKeyEvent(imgui.ModCtrl, false)
+	if z := h.nc.View().Zoom; z != 1.1 {
+		t.Fatalf("overlay captured input: zoom=%v", z)
 	}
 }

@@ -30,6 +30,8 @@ type NodeCanvasStyle struct {
 	LinkColorSelected       imgui.Vec4
 	BoxSelectFillColor      imgui.Vec4
 	BoxSelectBorderColor    imgui.Vec4
+	ZoomOverlayBgColor      imgui.Vec4
+	ZoomOverlayTextColor    imgui.Vec4
 
 	// render metrics, canvas-space
 	NodeRounding            float32
@@ -44,6 +46,12 @@ type NodeCanvasStyle struct {
 	PinHitRadius    float32
 	LinkHitDistance float32
 	LinkSnapRadius  float32
+
+	// zoom overlay metrics, screen px: the overlay is viewport chrome and
+	// does not scale with the graph.
+	ZoomOverlayPadding  float32
+	ZoomOverlayMargin   float32
+	ZoomOverlayRounding float32
 }
 
 // hitParams extracts the screen-pixel tolerances the hit-testing and gesture
@@ -87,6 +95,8 @@ func DefaultNodeCanvasStyle() NodeCanvasStyle {
 		LinkColorSelected:       withAlpha(emphasis, 1),
 		BoxSelectFillColor:      withAlpha(emphasis, 0.2),
 		BoxSelectBorderColor:    withAlpha(emphasis, 0.8),
+		ZoomOverlayBgColor:      withAlpha(body, 0.75),
+		ZoomOverlayTextColor:    withAlpha(text, 0.85),
 
 		NodeRounding:            4,
 		NodePadding:             8,
@@ -99,6 +109,10 @@ func DefaultNodeCanvasStyle() NodeCanvasStyle {
 		PinHitRadius:    10,
 		LinkHitDistance: 6,
 		LinkSnapRadius:  24,
+
+		ZoomOverlayPadding:  4,
+		ZoomOverlayMargin:   8,
+		ZoomOverlayRounding: 3,
 	}
 }
 

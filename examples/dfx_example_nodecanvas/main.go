@@ -20,9 +20,9 @@ import (
 // mouse: click brings a node forward; its background also selects (ctrl
 // toggles, shift adds). drag moves the selection,
 // drag on empty canvas box-selects, drag from a pin creates a link (snaps
-// near a compatible pin), middle-drag pans, wheel zooms through the detents
-// toward the cursor. over a slider, wheel adjusts its value (Ctrl 10x faster,
-// Alt 10x finer). below detent 1.0 the nodes declare simplified,
+// near a compatible pin), middle-drag pans, ctrl+wheel zooms through the
+// detents toward the cursor (a bare wheel does nothing). over a slider,
+// wheel adjusts its value (Ctrl 10x faster, Alt 10x finer). below detent 1.0 the nodes declare simplified,
 // non-interactive content — labels, values, pins — per the reduced-detent
 // contract.
 //

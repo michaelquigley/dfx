@@ -27,11 +27,12 @@ import (
 // call Destroy when the owner discards the canvas to release its native
 // drawing buffers. a canvas must not be copied after its first Begin.
 type NodeCanvas[ID comparable] struct {
-	detents     []float32
-	gridSpacing float32
-	locked      bool
-	style       NodeCanvasStyle
-	styleSet    bool
+	detents         []float32
+	gridSpacing     float32
+	locked          bool
+	hideZoomOverlay bool
+	style           NodeCanvasStyle
+	styleSet        bool
 
 	// wheelStepsPerZoomLevel is the accumulated wheel travel (imgui wheel
 	// units) that produces one detent step.
@@ -157,7 +158,7 @@ type NodeCanvasConfig struct {
 	GridSpacing float32
 
 	// WheelStepsPerZoomLevel is the wheel travel — in imgui wheel units,
-	// one classic notch being 1.0 — that must accumulate before the wheel
+	// one classic notch being 1.0 — that must accumulate before ctrl+wheel
 	// produces a single detent step. fine-scroll devices report fractional
 	// ticks, so the same value governs every wheel type. raising it makes
 	// the wheel feel less sensitive; default 1.0 is one notch, one detent.
@@ -166,6 +167,13 @@ type NodeCanvasConfig struct {
 	// Locked suppresses node dragging only; selection, panning, zooming,
 	// and link creation remain live.
 	Locked bool
+
+	// HideZoomOverlay suppresses the zoom percentage the canvas draws in
+	// its lower-right corner. the overlay is on by default: it is viewport
+	// chrome drawn through the drawlist in the unscaled UI font, never an
+	// imgui item, so it costs nothing in hit-testing and cannot capture
+	// input.
+	HideZoomOverlay bool
 
 	// Style is a complete style value. the zero value derives
 	// DefaultNodeCanvasStyle() lazily at the first Begin, when an imgui
@@ -259,6 +267,7 @@ func NewNodeCanvas[ID comparable](cfg NodeCanvasConfig) *NodeCanvas[ID] {
 		detents:                detents,
 		gridSpacing:            gridSpacing,
 		locked:                 cfg.Locked,
+		hideZoomOverlay:        cfg.HideZoomOverlay,
 		style:                  cfg.Style,
 		styleSet:               cfg.Style != (NodeCanvasStyle{}),
 		wheelStepsPerZoomLevel: wheelSteps,
@@ -480,6 +489,12 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 	nc.splitter.Merge(drawList)
 	nc.drawGesturePreviews(drawList, in, g)
 	imgui.PopFont()
+	// the zoom overlay is viewport chrome, not canvas content: it draws
+	// after the scaled font pops so it reads at UI size at every detent,
+	// and above everything else as the last thing the frame emits.
+	if !nc.hideZoomOverlay {
+		nc.drawZoomOverlay(drawList)
+	}
 
 	res := stepGesture(nc.gesture, in, g, gestureParams{
 		hit:     nc.style.hitParams(),
@@ -785,6 +800,31 @@ func (nc *NodeCanvas[ID]) drawGesturePreviews(drawList *imgui.DrawList, in input
 	}
 }
 
+// drawZoomOverlay draws the current detent as a percentage in a small
+// pill anchored to the canvas's lower-right corner. pure drawlist output:
+// no item is emitted, so the overlay never participates in hover or
+// active arbitration and a gesture started over it behaves exactly as
+// over empty canvas. metrics are screen pixels — the overlay sits on the
+// viewport, not in the graph, so it does not scale with zoom.
+func (nc *NodeCanvas[ID]) drawZoomOverlay(drawList *imgui.DrawList) {
+	text := zoomLabel(nc.frameView.Zoom)
+	textSize := imgui.CalcTextSize(text)
+	pad, margin := nc.style.ZoomOverlayPadding, nc.style.ZoomOverlayMargin
+	max := imgui.Vec2{
+		X: nc.origin.X + nc.viewport.X - margin,
+		Y: nc.origin.Y + nc.viewport.Y - margin,
+	}
+	min := imgui.Vec2{X: max.X - textSize.X - 2*pad, Y: max.Y - textSize.Y - 2*pad}
+	drawList.AddRectFilledV(min, max, imgui.ColorConvertFloat4ToU32(nc.style.ZoomOverlayBgColor), nc.style.ZoomOverlayRounding, imgui.DrawFlagsNone)
+	drawList.AddTextVec2(imgui.Vec2{X: min.X + pad, Y: min.Y + pad}, imgui.ColorConvertFloat4ToU32(nc.style.ZoomOverlayTextColor), text)
+}
+
+// zoomLabel formats a zoom factor as a whole percentage: 0.25 → "25%",
+// 1.0 → "100%", 1.1 → "110%". rounding absorbs float32 detent noise.
+func zoomLabel(zoom float32) string {
+	return fmt.Sprintf("%d%%", int(math.Round(float64(zoom)*100)))
+}
+
 // textColor is the current imgui text color, used by drawlist text.
 func (nc *NodeCanvas[ID]) textColor() uint32 {
 	return imgui.ColorConvertFloat4ToU32(imgui.CurrentStyle().Colors()[imgui.ColText])
@@ -955,17 +995,21 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	nodeInputReady := nc.nodeInputReady(g, mouse)
 
 	// wheel travel is accumulated canvas-side and reported as one detent
-	// step (sign only) once the threshold crosses. accumulation happens
-	// only where the state machine could actually step — canvas hovered,
+	// step (sign only) once the threshold crosses. zoom is ctrl+wheel: a
+	// bare wheel is unassigned on purpose, because the wheel gets nudged
+	// while the middle button is held for a pan, and a zoom riding on top
+	// of a pan is never what was meant. accumulation happens only where
+	// the state machine could actually step — ctrl held, canvas hovered,
 	// no popup open, no canvas item hovered, no gesture in flight — and
-	// resets otherwise, so scrolling elsewhere in the app or mid-gesture
-	// never banks travel that would later produce a phantom step. the
-	// gesture sample is one frame stale (it is last frame's End result),
-	// the same accepted staleness as origin and viewport.
+	// resets otherwise, so scrolling elsewhere in the app, mid-gesture, or
+	// without the modifier never banks travel that would later produce a
+	// phantom step. the gesture sample is one frame stale (it is last
+	// frame's End result), the same accepted staleness as origin and
+	// viewport.
 	itemHovered := hovered && imgui.IsAnyItemHovered()
 	anyPopup := imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel)
 	var wheel float32
-	if hovered && !anyPopup && !itemHovered && nodeInputReady && nc.gesture.kind == gestureIdle {
+	if io.KeyCtrl() && hovered && !anyPopup && !itemHovered && nodeInputReady && nc.gesture.kind == gestureIdle {
 		var dir int
 		nc.wheelAccum, dir = advanceWheel(nc.wheelAccum, io.MouseWheel(), nc.wheelStepsPerZoomLevel)
 		wheel = float32(dir)

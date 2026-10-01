@@ -26,9 +26,11 @@ type inputSnapshot struct {
 	leftDragging bool
 
 	// wheel is this frame's completed detent-step direction, ±1 or 0. the
-	// canvas samples raw wheel travel, accumulates it against
-	// WheelStepsPerZoomLevel, and reports here only when the threshold
-	// crosses — one step per frame at most. only the sign is used.
+	// canvas samples raw wheel travel while ctrl is held, accumulates it
+	// against WheelStepsPerZoomLevel, and reports here only when the
+	// threshold crosses — one step per frame at most. only the sign is
+	// used; the modifier gate lives in sampleInput, so the machine never
+	// sees an unmodified wheel.
 	wheel float32
 
 	ctrl, shift bool
