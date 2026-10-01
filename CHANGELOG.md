@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.9
+
 FEATURE: `NodeCanvas` shows the current zoom as a whole percentage in a small overlay anchored to the canvas's lower-right corner, drawn in the unscaled UI font so it reads the same at every detent. It is pure drawlist chrome rather than an imgui item, so it never captures input or carves a hole in hit-testing. `NodeCanvasConfig.HideZoomOverlay` turns it off; `NodeCanvasStyle` gains `ZoomOverlayBgColor`, `ZoomOverlayTextColor`, and screen-pixel `ZoomOverlayPadding`, `ZoomOverlayMargin`, and `ZoomOverlayRounding`, derived from the theme by `DefaultNodeCanvasStyle`. Custom styles built from a zero value rather than the default will draw the overlay with zero-alpha colors and no padding until those fields are set.
 
 CHANGE: **`NodeCanvas` zoom now requires Ctrl+wheel; a bare wheel over the canvas does nothing.** The wheel tends to get nudged while the middle button is held for a pan, and an unmodified wheel that zoomed turned pans into pan-plus-zoom. Wheel travel banks only while Ctrl is held, so notches scrolled without the modifier never combine with a later Ctrl notch into a step. `WheelSlider`'s Ctrl fast mode is unaffected: over a hovered slider the widget still owns the wheel, modified or not.
