@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+FEATURE: `NodeCanvas` declarations can carry their own colors. `NodeFlags.Accent` colors a node's title band and pins, and `LinkFlags.Color` sets a link's normal color; the zero value keeps the style. A selected colored node or link shows its selection as a thicker line in a brighter highlight of its own color rather than the style's selection color, so selection never clashes with the color. Hover keeps the style's color. The node-canvas example accents its filter node and one link.
+
 ## v0.1.10
 
 FEATURE: `SetupFonts` merges supplemental Material Symbols into the main and small UI fonts, including the 1:1 `fonts.ICON_SYMBOL_VIEW_REAL_SIZE` glyph. The fixed-style supplement excludes all codepoints already supplied by Material Icons, preserving existing icon artwork and font slots. New supported symbols use the additive `ICON_SYMBOL_*` constant namespace; source, licensing, generation, and supported codepoint range are documented in `docs/current/icon-fonts.md`.

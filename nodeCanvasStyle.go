@@ -120,3 +120,65 @@ func withAlpha(c imgui.Vec4, a float32) imgui.Vec4 {
 	c.W = a
 	return c
 }
+
+// highlight is the selected form of a declared color: lifted 30% toward white, fully opaque. selection shows as a
+// thicker line in the element's own color, brighter than its unselected state.
+func highlight(c imgui.Vec4) imgui.Vec4 {
+	const lift = 0.3
+	return imgui.Vec4{X: c.X + (1-c.X)*lift, Y: c.Y + (1-c.Y)*lift, Z: c.Z + (1-c.Z)*lift, W: 1}
+}
+
+// titleBandColor resolves a node's title band: the declared accent when set, whether or not the node is selected;
+// otherwise the style's selected or normal band color.
+func titleBandColor(s *NodeCanvasStyle, flags NodeFlags) imgui.Vec4 {
+	if flags.Accent != (imgui.Vec4{}) {
+		return flags.Accent
+	}
+	if flags.Selected {
+		return s.TitleBandColorSelected
+	}
+	return s.TitleBandColor
+}
+
+// nodeBorderColor resolves a node's border: selected, a highlight of the accent when set or the style's selected
+// color; otherwise the style's hover or normal color.
+func nodeBorderColor(s *NodeCanvasStyle, flags NodeFlags, hovered bool) imgui.Vec4 {
+	switch {
+	case flags.Selected && flags.Accent != (imgui.Vec4{}):
+		return highlight(flags.Accent)
+	case flags.Selected:
+		return s.NodeBorderColorSelected
+	case hovered:
+		return s.NodeBorderColorHovered
+	}
+	return s.NodeBorderColor
+}
+
+// pinColor resolves a pin marker: the style's hover color while hovered, the node's accent when set, the style's
+// pin color otherwise.
+func pinColor(s *NodeCanvasStyle, flags NodeFlags, hovered bool) imgui.Vec4 {
+	if hovered {
+		return s.PinColorHovered
+	}
+	if flags.Accent != (imgui.Vec4{}) {
+		return flags.Accent
+	}
+	return s.PinColor
+}
+
+// linkColor resolves a link: selected, a highlight of the declared color when set or the style's selected color;
+// then the style's hover color; then the declared color; then the style's link color.
+func linkColor(s *NodeCanvasStyle, selected, hovered bool, declared imgui.Vec4) imgui.Vec4 {
+	set := declared != (imgui.Vec4{})
+	switch {
+	case selected && set:
+		return highlight(declared)
+	case selected:
+		return s.LinkColorSelected
+	case hovered:
+		return s.LinkColorHovered
+	case set:
+		return declared
+	}
+	return s.LinkColor
+}

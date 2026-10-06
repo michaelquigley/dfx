@@ -34,12 +34,14 @@ import (
 type node struct {
 	pos      imgui.Vec2
 	selected bool
+	accent   imgui.Vec4                       // optional title band and pin color; zero keeps the style
 	content  func(n *dfx.NodeContext[string]) // the node's per-frame content closure
 }
 
 type link struct {
 	from, to string
 	selected bool
+	color    imgui.Vec4 // optional normal color; zero keeps the style
 }
 
 // moveNodesCommand applies one completed drag gesture as one undoable
@@ -153,7 +155,9 @@ func main() {
 			n.Label("sine 440hz")
 			n.Output("source.out", "out")
 		}},
-		"filter": {pos: imgui.Vec2{X: 320, Y: 80}, content: func(n *dfx.NodeContext[string]) {
+		// the filter declares an accent: its title band and pins take the color, and selected, its border thickens
+		// in a highlight of the accent.
+		"filter": {pos: imgui.Vec2{X: 320, Y: 80}, accent: imgui.Vec4{X: 0.32, Y: 0.55, Z: 0.85, W: 1}, content: func(n *dfx.NodeContext[string]) {
 			n.TitleBar(func() { n.Label(fonts.ICON_TUNE + " filter") })
 			if n.Detent() < 1.0 {
 				// reduced-detent contract: labels, values, pins — nothing
@@ -196,7 +200,7 @@ func main() {
 		}},
 	}
 	links := map[string]*link{
-		"l.source-filter": {from: "source.out", to: "filter.in"},
+		"l.source-filter": {from: "source.out", to: "filter.in", color: imgui.Vec4{X: 0.32, Y: 0.55, Z: 0.85, W: 0.9}}, // colored; hover and selection keep the style
 		"l.filter-gain":   {from: "filter.out", to: "gain.in"},
 		"l.source-side":   {from: "source.out", to: "gain.side"},
 		"l.gain-meter":    {from: "gain.out", to: "meter.in"},
@@ -281,7 +285,7 @@ func main() {
 		// the app owns stacking, just as it owns positions and selection.
 		for _, id := range nodeOrder {
 			if nd := nodes[id]; nd != nil {
-				nc.Node(id, nd.pos, dfx.NodeFlags{Selected: nd.selected}, nd.content)
+				nc.Node(id, nd.pos, dfx.NodeFlags{Selected: nd.selected, Accent: nd.accent}, nd.content)
 			}
 		}
 
@@ -293,7 +297,7 @@ func main() {
 		sort.Strings(linkIDs)
 		for _, id := range linkIDs {
 			l := links[id]
-			nc.Link(id, l.from, l.to, dfx.LinkFlags{Selected: l.selected})
+			nc.Link(id, l.from, l.to, dfx.LinkFlags{Selected: l.selected, Color: l.color})
 		}
 
 		applyIntents(nc.End())

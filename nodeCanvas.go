@@ -134,13 +134,26 @@ type linkDecl[ID comparable] struct {
 	id       ID
 	from, to ID
 	selected bool
+	color    imgui.Vec4
 }
 
 // NodeFlags carries a node's per-frame declared state.
-type NodeFlags struct{ Selected bool }
+type NodeFlags struct {
+	Selected bool
+	// Accent colors this node's title band and the pins declared inside it, in place of the style's
+	// TitleBandColor and PinColor, and its selected border, which takes a highlight of the accent in place of
+	// NodeBorderColorSelected. the zero value means unset: the style applies. hover keeps the style's colors.
+	Accent imgui.Vec4
+}
 
 // LinkFlags carries a link's per-frame declared state.
-type LinkFlags struct{ Selected bool }
+type LinkFlags struct {
+	Selected bool
+	// Color is this link's normal color, in place of the style's LinkColor; selected, the link draws thicker in a
+	// highlight of it in place of LinkColorSelected. the zero value means unset: the style applies. hover keeps the
+	// style's color.
+	Color imgui.Vec4
+}
 
 // NodeCanvasConfig configures a NodeCanvas at construction.
 type NodeCanvasConfig struct {
@@ -451,7 +464,7 @@ func (nc *NodeCanvas[ID]) Node(id ID, pos imgui.Vec2, flags NodeFlags, content f
 // pin presence is a per-frame invariant: a link whose endpoint pin was not
 // declared this frame is skipped for rendering and hit-testing.
 func (nc *NodeCanvas[ID]) Link(id, fromPin, toPin ID, flags LinkFlags) {
-	nc.frameLinks = append(nc.frameLinks, linkDecl[ID]{id: id, from: fromPin, to: toPin, selected: flags.Selected})
+	nc.frameLinks = append(nc.frameLinks, linkDecl[ID]{id: id, from: fromPin, to: toPin, selected: flags.Selected, color: flags.Color})
 }
 
 // End finishes the frame: it resolves and draws links, merges the splitter,
@@ -674,22 +687,16 @@ func (nc *NodeCanvas[ID]) drawNodeChrome(drawList *imgui.DrawList, channel int32
 	drawList.AddRectFilledV(screenMin, screenMax, imgui.ColorConvertFloat4ToU32(nc.style.NodeBodyColor), rounding, imgui.DrawFlagsRoundCornersAll)
 
 	if ctx.titleUsed {
-		bandColor := nc.style.TitleBandColor
-		if flags.Selected {
-			bandColor = nc.style.TitleBandColorSelected
-		}
+		bandColor := titleBandColor(&nc.style, flags)
 		bandBottom := screenFromCanvas(imgui.Vec2{Y: drawRect.Min.Y + 2*nc.style.NodePadding + ctx.titleHeight}, nc.frameView, nc.origin).Y
 		drawList.AddRectFilledV(screenMin, imgui.Vec2{X: screenMax.X, Y: bandBottom},
 			imgui.ColorConvertFloat4ToU32(bandColor), rounding, imgui.DrawFlagsRoundCornersTop)
 	}
 
-	borderColor := nc.style.NodeBorderColor
+	borderColor := nodeBorderColor(&nc.style, flags, nc.hover.kind == hitNode && nc.hover.node == id)
 	thickness := nc.style.BorderThickness
 	if flags.Selected {
-		borderColor = nc.style.NodeBorderColorSelected
 		thickness = nc.style.BorderThicknessSelected
-	} else if nc.hover.kind == hitNode && nc.hover.node == id {
-		borderColor = nc.style.NodeBorderColorHovered
 	}
 	drawList.AddRectV(screenMin, screenMax, imgui.ColorConvertFloat4ToU32(borderColor), rounding, thickness*zoom, imgui.DrawFlagsRoundCornersAll)
 
@@ -699,10 +706,7 @@ func (nc *NodeCanvas[ID]) drawNodeChrome(drawList *imgui.DrawList, channel int32
 			edgeX = drawRect.Max.X
 		}
 		center := screenFromCanvas(imgui.Vec2{X: edgeX, Y: p.drawY}, nc.frameView, nc.origin)
-		pinColor := nc.style.PinColor
-		if nc.hover.kind == hitPin && nc.hover.pin == p.id {
-			pinColor = nc.style.PinColorHovered
-		}
+		pinColor := pinColor(&nc.style, flags, nc.hover.kind == hitPin && nc.hover.pin == p.id)
 		drawList.AddCircleFilled(center, nc.style.PinRadius*zoom, imgui.ColorConvertFloat4ToU32(pinColor))
 	}
 }
@@ -729,7 +733,7 @@ func (nc *NodeCanvas[ID]) resolveLinks() ([]linkGeometry[ID], [][4]imgui.Vec2) {
 			declared = linkCubic(to.declared, from.declared, nc.style.LinkTangent)
 			drawn = linkCubic(to.draw, from.draw, nc.style.LinkTangent)
 		}
-		geom = append(geom, linkGeometry[ID]{id: ld.id, cubic: declared, selected: ld.selected, declIndex: len(geom)})
+		geom = append(geom, linkGeometry[ID]{id: ld.id, cubic: declared, selected: ld.selected, color: ld.color, declIndex: len(geom)})
 		draw = append(draw, drawn)
 	}
 	return geom, draw
@@ -741,13 +745,11 @@ func (nc *NodeCanvas[ID]) drawLinks(drawList *imgui.DrawList, geom []linkGeometr
 	zoom := nc.frameView.Zoom
 
 	for i := range geom {
-		color := nc.style.LinkColor
+		hovered := nc.hover.kind == hitLink && nc.hover.link == geom[i].id
+		color := linkColor(&nc.style, geom[i].selected, hovered, geom[i].color)
 		thickness := nc.style.LinkThickness
 		if geom[i].selected {
-			color = nc.style.LinkColorSelected
 			thickness = nc.style.LinkThickness * 1.5
-		} else if nc.hover.kind == hitLink && nc.hover.link == geom[i].id {
-			color = nc.style.LinkColorHovered
 		}
 
 		c := drawCubics[i]

@@ -277,6 +277,7 @@ type linkGeometry[ID comparable] struct {
 	id        ID
 	cubic     [4]imgui.Vec2 // canvas-space control points
 	selected  bool          // as declared this frame
+	color     imgui.Vec4    // declared normal color; zero means the style's
 	declIndex int
 }
 

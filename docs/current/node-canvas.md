@@ -127,6 +127,19 @@ type View struct { Pan imgui.Vec2; Zoom float32 } // plain, persistable data
 
 ## Style
 
+### Per-declaration colors
+
+`NodeFlags.Accent` and `LinkFlags.Color` let a declaration carry its own color for the frame it is declared in; the zero `imgui.Vec4` means unset, and the style applies.
+
+- An accented node's title band and pin markers take the accent in place of `TitleBandColor` and `PinColor`. Selected, its border thickens (`BorderThicknessSelected`) and takes a highlight of the accent (lifted 30% toward white, opaque) in place of `NodeBorderColorSelected`. Hover keeps `NodeBorderColorHovered` and `PinColorHovered`.
+- A colored link draws in its color in place of `LinkColor`. Selected, it thickens and takes a highlight of its color in place of `LinkColorSelected`. Hover keeps `LinkColorHovered`.
+
+Selection is therefore always a thicker line in the element's own color; an element without a declared color uses the style's selected color.
+
+These are declarations, not style: they are re-declared every frame like `Selected`, and nothing about them is retained.
+
+### The style value
+
 `NodeCanvasStyle` is plain data: colors plus metrics, with unit spaces pinned per group — render metrics (rounding, padding, border and link thickness, pin radius, link tangent) are canvas-space and scale with zoom; hit and snap tolerances (pin hit radius, link hit distance, link snap radius) and the zoom overlay's padding, margin, and rounding are screen-pixel constants. A zero-valued `Config.Style` derives `DefaultNodeCanvasStyle()` from the active dfx theme lazily at the first `Begin` (components are constructed before the imgui context exists). The style is a complete value, not a sparse overlay: for partial customization, start from `DefaultNodeCanvasStyle()` and mutate — in `OnSetup` or later via `SetStyle`.
 
 ## Rendering internals (for maintainers)
