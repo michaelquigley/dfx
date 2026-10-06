@@ -65,6 +65,21 @@ func main() {
 		Expanded:      true,
 	})
 
+	// a right-anchored panel, like an inspector: its resize handle is on its left edge, dragging it left widens the
+	// panel, and its toggle sits at the header's right.
+	notesContent := dfx.NewFunc(func(state *dfx.State) {
+		imgui.Dummy(imgui.Vec2{X: 8, Y: 8})
+		imgui.TextWrapped("A right-anchored panel. Drag the handle on its left edge: left widens it, right narrows it.")
+	})
+	notesCollapse := dfx.NewHCollapse(notesContent, dfx.HCollapseConfig{
+		Title:         "Notes",
+		ExpandedWidth: 220,
+		TransitionMs:  150,
+		Resizable:     true,
+		Expanded:      true,
+		Anchor:        dfx.AnchorRight,
+	})
+
 	// simulation state
 	startTime := time.Now()
 	paused := false
@@ -85,6 +100,10 @@ func main() {
 		imgui.SameLine()
 		if imgui.Button("Toggle Synths") {
 			synthsCollapse.Toggle()
+		}
+		imgui.SameLine()
+		if imgui.Button("Toggle Notes") {
+			notesCollapse.Toggle()
 		}
 
 		imgui.Spacing()
@@ -121,8 +140,8 @@ func main() {
 
 		imgui.SameLine()
 
-		// main content area (fills remaining space)
-		remaining := state.Size.X - drumsCollapse.CurrentWidth - synthsCollapse.CurrentWidth - 20
+		// main content area (fills the space the panels leave)
+		remaining := state.Size.X - drumsCollapse.CurrentWidth - synthsCollapse.CurrentWidth - notesCollapse.CurrentWidth - 30
 		if remaining > 50 {
 			imgui.BeginChildStrV("main", imgui.Vec2{X: remaining, Y: panelHeight}, imgui.ChildFlagsBorders, 0)
 			imgui.Text("Main Content Area")
@@ -142,6 +161,11 @@ func main() {
 			imgui.BulletText("Use keyboard shortcuts [ and ] to toggle")
 			imgui.EndChild()
 		}
+
+		// the right-anchored panel, after the content; it is passed the full available size, which bounds its
+		// resize.
+		imgui.SameLine()
+		notesCollapse.Draw(panelState)
 	})
 
 	app := dfx.New(root, dfx.Config{

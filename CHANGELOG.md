@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.1.12
+
+FIX: `HCollapse` resizing applies its `MinWidth` clamp last, so no container width or sequence of drags can take a panel below `MinWidth`. Before, a caller that passed the panel's own width as the container could drag the panel out of existence. `docs/current/hcollapse.md` states the sizing contract: `Draw` takes the container's full available size.
+
+FEATURE: `HCollapseConfig.Anchor` (`AnchorLeft`, the default, or `AnchorRight`) lets a panel sit against the right edge of its row. Its resize handle moves to its left edge, dragging it left widens the panel, and its toggle moves to the header's right. The hcollapse example adds a right-anchored panel.
+
 ## v0.1.11
 
 FEATURE: `NodeCanvas` declarations can carry their own colors. `NodeFlags.Accent` colors a node's title band and pins, and `LinkFlags.Color` sets a link's normal color; the zero value keeps the style. A selected colored node or link shows its selection as a thicker line in a brighter highlight of its own color rather than the style's selection color, so selection never clashes with the color. Hover keeps the style's color. The node-canvas example accents its filter node and one link.

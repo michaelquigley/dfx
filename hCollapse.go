@@ -5,6 +5,19 @@ import (
 	"github.com/michaelquigley/dfx/fonts"
 )
 
+// HCollapseAnchor names the side of its container a panel sits against: the side its resize handle faces away from.
+type HCollapseAnchor int
+
+const (
+	// AnchorLeft is a panel against its container's left edge: the resize handle sits on the panel's right edge,
+	// and dragging it right widens the panel.
+	AnchorLeft HCollapseAnchor = iota
+	// AnchorRight is a panel against its container's right edge: the resize handle sits on the panel's left edge,
+	// dragging it left (away from the panel's interior) widens the panel and dragging it right shrinks it, and the
+	// toggle sits at the header's right.
+	AnchorRight
+)
+
 // HCollapse is a horizontal collapsible component that contains content to its right.
 // when collapsed, only the toggle button is visible. when expanded, shows a header
 // bar with title and the content below.
@@ -19,6 +32,7 @@ type HCollapse struct {
 	Height        float32             // vertical height (0 = use available height from state.Size.Y)
 	TransitionMs  int                 // animation duration
 	Resizable     bool                // allow drag-to-resize when expanded
+	Anchor        HCollapseAnchor     // which container edge the panel sits against; AnchorLeft by default
 	Content       Component           // the component to show/hide
 	OnToggle      func(expanded bool) // optional callback on state change
 }
@@ -32,7 +46,8 @@ type HCollapseConfig struct {
 	Height        float32 // 0 = fill available height from parent
 	TransitionMs  int     // defaults to HCollapseDefaultTransition
 	Resizable     bool
-	Expanded      bool // initial state
+	Expanded      bool            // initial state
+	Anchor        HCollapseAnchor // AnchorLeft (default) or AnchorRight
 }
 
 // HCollapse constants
@@ -76,6 +91,7 @@ func NewHCollapse(content Component, cfg HCollapseConfig) *HCollapse {
 		Height:        cfg.Height,
 		TransitionMs:  transitionMs,
 		Resizable:     cfg.Resizable,
+		Anchor:        cfg.Anchor,
 		Content:       content,
 	}
 }
@@ -163,7 +179,7 @@ func (h *HCollapse) drawCollapsedToggle(state *State) {
 	imgui.PushStyleColorVec4(imgui.ColButtonHovered, imgui.CurrentStyle().Colors()[imgui.ColHeaderHovered])
 	imgui.PushStyleColorVec4(imgui.ColButtonActive, imgui.CurrentStyle().Colors()[imgui.ColHeaderActive])
 
-	if imgui.Button(fonts.ICON_CHEVRON_RIGHT + h.imguiID() + "_toggle") {
+	if imgui.Button(h.toggleIcon() + h.imguiID() + "_toggle") {
 		h.Toggle()
 	}
 	if imgui.IsItemHovered() && h.Title != "" {
@@ -176,22 +192,37 @@ func (h *HCollapse) drawCollapsedToggle(state *State) {
 	imgui.PopStyleVar()
 }
 
-// drawHeader draws the header bar with toggle button and title.
+// toggleIcon points the way the toggle will move the panel's free edge: toward the anchored side to collapse, away
+// from it to expand.
+func (h *HCollapse) toggleIcon() string {
+	collapse, expand := fonts.ICON_CHEVRON_LEFT, fonts.ICON_CHEVRON_RIGHT
+	if h.Anchor == AnchorRight {
+		collapse, expand = expand, collapse
+	}
+	if h.Expanded {
+		return collapse
+	}
+	return expand
+}
+
+// drawHeader draws the header bar with toggle button and title. a left-anchored panel puts the toggle at the left
+// and the resize handle at the right; a right-anchored one mirrors that, so the handle never sits on the toggle.
 func (h *HCollapse) drawHeader() {
 	windowPadding := imgui.CurrentStyle().WindowPadding()
-	imgui.SetCursorPos(windowPadding)
-
-	// toggle button
-	icon := fonts.ICON_CHEVRON_RIGHT
-	if h.Expanded {
-		icon = fonts.ICON_CHEVRON_LEFT
-	}
+	icon := h.toggleIcon()
+	label := icon + h.imguiID() + "_toggle"
 
 	imgui.PushStyleColorVec4(imgui.ColButton, imgui.Vec4{})
 	imgui.PushStyleColorVec4(imgui.ColButtonHovered, imgui.CurrentStyle().Colors()[imgui.ColHeaderHovered])
 	imgui.PushStyleColorVec4(imgui.ColButtonActive, imgui.CurrentStyle().Colors()[imgui.ColHeaderActive])
 
-	if imgui.Button(icon + h.imguiID() + "_toggle") {
+	if h.Anchor == AnchorRight {
+		buttonWidth := imgui.CalcTextSize(icon).X + imgui.CurrentStyle().FramePadding().X*2
+		imgui.SetCursorPos(imgui.Vec2{X: h.CurrentWidth - windowPadding.X - buttonWidth, Y: windowPadding.Y})
+	} else {
+		imgui.SetCursorPos(windowPadding)
+	}
+	if imgui.Button(label) {
 		h.Toggle()
 	}
 
@@ -199,7 +230,12 @@ func (h *HCollapse) drawHeader() {
 
 	// title (only if there's room)
 	if h.CurrentWidth > h.MinWidth+50 && h.Title != "" {
-		imgui.SameLine()
+		if h.Anchor == AnchorRight {
+			imgui.SetCursorPos(imgui.Vec2{X: windowPadding.X + HCollapseResizeHandleSize, Y: windowPadding.Y})
+			imgui.AlignTextToFramePadding()
+		} else {
+			imgui.SameLine()
+		}
 		imgui.TextUnformatted(h.Title)
 	}
 }
@@ -237,11 +273,16 @@ func (h *HCollapse) drawContent(state *State) {
 	imgui.PopStyleVar() // window padding
 }
 
-// drawResizeHandle draws the resize handle on the right edge as an overlay.
+// drawResizeHandle draws the resize handle as an overlay on the panel's free edge: the right edge for a left-anchored
+// panel, the left edge for a right-anchored one. state.Size.X must be the container's full available width, which
+// bounds the panel; see applyResize.
 func (h *HCollapse) drawResizeHandle(state *State) {
 	handlePos := imgui.Vec2{
 		X: h.CurrentWidth - HCollapseResizeHandleSize,
 		Y: DefaultItemSpacing + 5,
+	}
+	if h.Anchor == AnchorRight {
+		handlePos.X = 0
 	}
 	imgui.SetCursorPos(handlePos)
 
@@ -257,24 +298,35 @@ func (h *HCollapse) drawResizeHandle(state *State) {
 	}
 
 	if imgui.IsItemActive() {
-		delta := imgui.CurrentIO().MouseDelta().X
-		h.CurrentWidth += delta
-		h.ExpandedWidth += delta
-
-		// clamp to bounds
-		if h.CurrentWidth < h.MinWidth {
-			h.CurrentWidth = h.MinWidth
-			h.ExpandedWidth = h.MinWidth
-		}
-		if h.MaxWidth > 0 && h.CurrentWidth > h.MaxWidth {
-			h.CurrentWidth = h.MaxWidth
-			h.ExpandedWidth = h.MaxWidth
-		}
-		if h.CurrentWidth > state.Size.X-50 {
-			h.CurrentWidth = state.Size.X - 50
-			h.ExpandedWidth = state.Size.X - 50
-		}
+		h.applyResize(imgui.CurrentIO().MouseDelta().X, state.Size.X)
 	}
+}
+
+// applyResize applies one frame of handle drag: a positive delta is a drag to the right, which widens a
+// left-anchored panel and shrinks a right-anchored one. container is the full width available to the panel.
+func (h *HCollapse) applyResize(delta, container float32) {
+	width := h.CurrentWidth + delta
+	if h.Anchor == AnchorRight {
+		width = h.CurrentWidth - delta
+	}
+	width = h.clampWidth(width, container)
+	h.CurrentWidth = width
+	h.ExpandedWidth = width
+}
+
+// clampWidth bounds a panel width: no wider than the container leaves room for (50px of it stay for the rest of
+// the layout), no wider than MaxWidth, and, applied last so nothing can undercut it, no narrower than MinWidth.
+func (h *HCollapse) clampWidth(width, container float32) float32 {
+	if container > 0 && width > container-50 {
+		width = container - 50
+	}
+	if h.MaxWidth > 0 && width > h.MaxWidth {
+		width = h.MaxWidth
+	}
+	if width < h.MinWidth {
+		width = h.MinWidth
+	}
+	return width
 }
 
 // animate updates CurrentWidth toward the target width.
