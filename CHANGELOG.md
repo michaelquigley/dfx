@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.11
+
 FEATURE: `NodeCanvas` declarations can carry their own colors. `NodeFlags.Accent` colors a node's title band and pins, and `LinkFlags.Color` sets a link's normal color; the zero value keeps the style. A selected colored node or link shows its selection as a thicker line in a brighter highlight of its own color rather than the style's selection color, so selection never clashes with the color. Hover keeps the style's color. The node-canvas example accents its filter node and one link.
 
 ## v0.1.10
