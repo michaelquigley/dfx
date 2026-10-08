@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.13
+
 CHANGE: **Node content callbacks can run again during `End` while fitting.** This hidden measurement pass disables widget input and reports `NodeContext.Measuring()`. Callbacks must keep per-node data valid through `End`, derive layout from `NodeContext.Detent()`, and suppress non-widget side effects during measurement.
 
 FIX: `NodeCanvas.ZoomToFit` keeps the current view visible while measuring candidate zoom levels, then moves directly to the fitted view. The intermediate zoom-in and step-down are no longer displayed.
