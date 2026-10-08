@@ -104,15 +104,15 @@ type NodeCanvas[ID comparable] struct {
 	// detent step (per frame at most) and the remainder keeps carrying.
 	wheelAccum float32
 
-	// pending zoom-to-fit: node bounds are detent-dependent (apps simplify
-	// content below 1.0), so a fit resolves over frames, walking down from
-	// the top detent until the bounds declared at the current detent fit —
-	// the first detent that fits its own declared content is by construction
-	// the largest such detent. most recent navigation wins: any other
-	// explicit navigation cancels the pending fit.
+	// fit candidates are measured in a separate, input-disabled canvas. the
+	// visible view stays put until the largest fitting detent is known.
 	fitPending  bool
-	fitStarting bool // next Begin jumps to the top detent
+	fitStarting bool // initialize the search at the next Begin
 	fitIDs      []ID // empty: all nodes
+	fitView     View
+	fitCanvas   *NodeCanvas[ID]
+	fitNodes    []fitNode[ID]
+	measuring   bool
 }
 
 // fitMargin is the screen-pixel margin zoom-to-fit leaves on every side of
@@ -303,6 +303,9 @@ func (nc *NodeCanvas[ID]) Destroy() {
 	if nc.splitter != nil {
 		nc.splitter.Destroy()
 	}
+	if nc.fitCanvas != nil {
+		nc.fitCanvas.Destroy()
+	}
 	*nc = NodeCanvas[ID]{destroyed: true}
 }
 
@@ -322,12 +325,11 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 		nc.pendingView = nil
 	}
 	if nc.fitStarting {
-		// a fresh zoom-to-fit descends from the top: the calling frame sets
-		// the largest configured detent; End measures what actually got
-		// declared there.
-		nc.view.Zoom = nc.detents[len(nc.detents)-1]
+		nc.fitView = nc.view
+		nc.fitView.Zoom = nc.detents[len(nc.detents)-1]
 		nc.fitStarting = false
 	}
+	nc.fitNodes = nil
 	if !nc.styleSet {
 		nc.style = DefaultNodeCanvasStyle()
 		nc.styleSet = true
@@ -388,7 +390,13 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 // content closure runs with the canvas's scaled font pushed; at detent
 // 1.0 and above imgui/dfx widgets behave normally, below 1.0 content must
 // not emit anything interactive — use NodeContext.Label and the pin rows.
+// during zoom-to-fit, content is also called from End for hidden measurement;
+// derive content from NodeContext.Detent and keep non-widget side effects
+// out of that pass (see NodeContext.Measuring).
 func (nc *NodeCanvas[ID]) Node(id ID, pos imgui.Vec2, flags NodeFlags, content func(n *NodeContext[ID])) {
+	if nc.fitPending && !nc.fitStarting {
+		nc.fitNodes = append(nc.fitNodes, fitNode[ID]{id: id, pos: pos, flags: flags, content: content})
+	}
 	drawList := imgui.WindowDrawList()
 	idx := nc.nodeIndex
 	nc.nodeIndex++
@@ -524,36 +532,18 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 	if res.viewChanged || panStarted {
 		nc.fitPending = false
 		nc.fitStarting = false
-	} else if nc.fitPending && !nc.fitStarting {
-		nc.resolveFit(g)
 	}
 
 	nc.retained = g
 	nc.lastNodeCount = nc.nodeIndex
 
 	imgui.EndChild()
+	if nc.fitPending && !nc.fitStarting {
+		nc.measureFit()
+	}
+	nc.fitNodes = nil // callbacks belong to this declaration cycle only
 	nc.inFrame = false
 	return res.intents
-}
-
-// resolveFit advances a pending zoom-to-fit by one frame: if the bounds
-// declared at the current detent fit the viewport (or the smallest detent is
-// reached), center and finish; otherwise step down one detent and stay
-// pending. bounded by len(detents) frames.
-func (nc *NodeCanvas[ID]) resolveFit(g *canvasGeometry[ID]) {
-	bounds, ok := nodeBounds(g.nodes, nc.fitIDs)
-	if !ok {
-		nc.fitPending = false
-		return
-	}
-	zoom := nc.view.Zoom
-	if fitsAtZoom(bounds, nc.viewport, zoom, fitMargin) || zoom == nc.detents[0] {
-		nc.view.Pan = centeredPan(bounds, nc.viewport, zoom)
-		nc.fitPending = false
-		return
-	}
-	next := stepDetent(nc.detents, zoom, -1)
-	nc.view = View{Pan: centeredPan(bounds, nc.viewport, next), Zoom: next}
 }
 
 // nodeBounds unions the rects of the nodes matching ids (all nodes when ids
@@ -858,7 +848,10 @@ func (nc *NodeCanvas[ID]) SetView(v View) {
 // first drawn frame. the fit resolves over the next frames (bounded by the
 // detent count), descending from the top detent until the content declared
 // at a detent fits — so app-side per-detent simplification is measured, not
-// guessed. a new call replaces any pending fit; any other explicit
+// guessed. measurement is hidden and input-disabled; the visible view
+// changes only when the search finishes. node content runs a second time
+// per frame during the search (see NodeContext.Measuring). a new call
+// replaces any pending fit; any other explicit
 // navigation cancels it.
 func (nc *NodeCanvas[ID]) ZoomToFit(ids ...ID) {
 	if nc.retained == nil {

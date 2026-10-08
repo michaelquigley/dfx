@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+CHANGE: **Node content callbacks can run again during `End` while fitting.** This hidden measurement pass disables widget input and reports `NodeContext.Measuring()`. Callbacks must keep per-node data valid through `End`, derive layout from `NodeContext.Detent()`, and suppress non-widget side effects during measurement.
+
+FIX: `NodeCanvas.ZoomToFit` keeps the current view visible while measuring candidate zoom levels, then moves directly to the fitted view. The intermediate zoom-in and step-down are no longer displayed.
+
 ## v0.1.12
 
 FIX: `HCollapse` resizing applies its `MinWidth` clamp last, so no container width or sequence of drags can take a panel below `MinWidth`. Before, a caller that passed the panel's own width as the container could drag the panel out of existence. `docs/current/hcollapse.md` states the sizing contract: `Draw` takes the container's full available size.

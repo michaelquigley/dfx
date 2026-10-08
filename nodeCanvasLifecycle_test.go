@@ -122,6 +122,10 @@ func TestNodeCanvas_DestroyAfterContextShutdown(t *testing.T) {
 				})
 			})
 		}
+		nc.ZoomToFit()
+		h.frame(func() {
+			nc.Node("node", imgui.Vec2{}, NodeFlags{}, func(n *NodeContext[string]) { n.Label("teardown") })
+		})
 	}()
 	nc.Destroy()
 	nc.Destroy()

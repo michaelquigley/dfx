@@ -119,7 +119,7 @@ func TestNodeCanvas_PanStartCancelsZoomToFit(t *testing.T) {
 			h.nc.ZoomToFit()
 			if phase == "descending" {
 				h.frame(draw)
-				if !h.nc.fitPending || h.nc.View().Zoom >= drawn.Zoom {
+				if !h.nc.fitPending || h.nc.View() != drawn || h.nc.fitView.Zoom >= h.nc.detents[len(h.nc.detents)-1] {
 					t.Fatal("test graph did not start a multi-frame fit")
 				}
 			}

@@ -16,7 +16,7 @@
 
 Keep a canvas for the lifetime of its editor. Its native draw-list splitter reuses channel buffers across frames, retaining capacity for the largest graph drawn. Garbage collection does not free these C++ allocations: call `nc.Destroy()` on the GUI thread, outside a `Begin`/`End` pair, when closing or replacing the editor. Do not copy a canvas after its first `Begin`.
 
-`Destroy` releases the native splitter and retained Go state. It is safe before the first draw and on repeated calls; a destroyed canvas cannot be drawn again. It also works after ImGui context shutdown, so an app-owned canvas can use `Config.OnShutdown`, as the example does:
+`Destroy` releases the native splitter, the lazily created measurement canvas and its splitter, and retained Go state. It is safe before the first draw and on repeated calls; a destroyed canvas cannot be drawn again. It also works after ImGui context shutdown, so an app-owned canvas can use `Config.OnShutdown`, as the example does:
 
 ```go
 OnShutdown: func(_ *dfx.App) {
@@ -54,7 +54,7 @@ nc.Link("l1", "source.out", "filter.in", dfx.LinkFlags{Selected: sel})
 intents := nc.End()
 ```
 
-- `Node`'s `pos` is the outer node rect's top-left in **canvas space** — the app-owned anchor. Padding and title metrics offset content inward from it; content growth extends the rect right/down while the anchor stays fixed. Node size derives from content. Its content callback executes synchronously, once, inside `Node`.
+- `Node`'s `pos` is the outer node rect's top-left in **canvas space** — the app-owned anchor. Padding and title metrics offset content inward from it; content growth extends the rect right/down while the anchor stays fixed. Node size derives from content. Its visible content callback executes synchronously inside `Node`. While a fit is pending, targeted nodes also receive one hidden measurement call during `End`; capture per-node data that remain valid through `End`.
 - Declare nodes **back to front**: the last node declared is frontmost. The application owns this order. `NodeRaised` requests a change; the canvas never silently reorders declarations.
 - `TitleBar`, when used, must be the first call in the content closure; its measured extent is the title band height (violations are debug-logged).
 - `Input`/`Output` declare pin rows: a label in flow plus a circular marker on the node's left (inputs) or right (outputs) edge, anchored to the row.
@@ -68,6 +68,8 @@ Node, pin, and link IDs share one `comparable` type and one ID space; the app gu
 ### Content and detents
 
 The content closure runs with the canvas's font pushed at `base * detent`. At detent 1.0 and above — the editing range — imgui/dfx widgets behave normally (wrap them in `PushItemWidth`/`PopItemWidth`; the canvas window's default item width is meaningless inside a node). **Below 1.0, content must not emit anything interactive** — nothing ID-bearing, hoverable, or activatable — or hover capture would carve holes in the canvas's hit-testing. Declare simplified content instead: labels, values, pins. `NodeContext.Detent()` lets closures branch; `Label` is the primitive that honors the contract. Pins must be declared at every detent so links keep their anchors.
+
+**Fit measurements.** `NodeContext.Measuring()` is true in the additional hidden pass. Widgets are disabled and use a separate imgui ID scope, so they cannot activate or share active widget state with the visible node. Declare the same layout at `NodeContext.Detent()` in both passes; use `Measuring()` only to suppress non-widget side effects such as application actions or publishing screen coordinates. The outer canvas's `View()`, `Detent()`, and transform helpers continue to describe the visible view throughout the search. Content with local widget state (for example an open tree) must derive layout from application-owned state when that state affects measurement.
 
 Content that opens child windows of its own (`BeginChild`-style scroll regions) is not supported.
 
@@ -117,7 +119,7 @@ type View struct { Pan imgui.Vec2; Zoom float32 } // plain, persistable data
 - `View()` / `SetView(v)` — get/set view state, callable any time (no draw-frame lifecycle constraint). `SetView` snaps `Zoom` to the nearest configured detent and applies at the next `Begin`; reads are pending-first, so a write-then-read round-trips.
 - `Detent()` — the current zoom factor. `GridSpacing()` — effective grid spacing for app-side snap logic.
 - `CanvasFromScreen` / `ScreenFromCanvas` — the transform pair (`screen = (canvas + pan) * zoom + origin`), computed against the last begun canvas rect; keyboard action handlers (which run before component drawing) see the previous frame's rect, one frame stale and visually indistinguishable.
-- `ZoomToFit(ids...)` — fits nodes (all when empty; non-node IDs ignored). Because node bounds are detent-dependent, the fit resolves over the next few frames, descending from the top detent until the content actually declared at a detent fits — bounded by the detent count. The most recent navigation wins: any other explicit navigation (ctrl+wheel, `SetView`, `CenterOn`, pan) cancels a pending fit. Starting a pan cancels immediately on the accepted middle-button press, before any pointer movement.
+- `ZoomToFit(ids...)` — fits nodes (all when empty; non-node IDs ignored). Because node bounds are detent-dependent, the fit resolves over the next few frames, descending from the top detent until the content actually declared at a detent fits — bounded by the detent count. Candidate measurements happen in a hidden, input-disabled canvas; the current view continues drawing normally and changes once when the search finishes. The most recent navigation wins: any other explicit navigation (ctrl+wheel, `SetView`, `CenterOn`, pan) cancels a pending fit. Starting a pan cancels immediately on the accepted middle-button press, before any pointer movement.
 - `CenterOn(ids...)` — pan only, detent unchanged.
 - `SetStyle(s)` — replace the style, e.g. after a theme change.
 
@@ -148,4 +150,4 @@ Everything draws through `ImDrawList` with the view transform applied canvas-sid
 
 Canvas gestures commit only at `End`: the gesture state machine (pure functions over an input snapshot, headless-tested in `nodeCanvasInput_test.go`) resolves against the same frame's geometry. `Begin` computes frame-local draw values for already-active gestures from absolute anchors — never accumulated deltas — so drawn and committed values agree by construction.
 
-Widget input is synchronous inside `Node`, before the canvas gesture commit. `nodeCanvasWidgets.go` masks the canvas window's ImGui hover and wheel values while covered content runs, then restores them; it never disables the widget or clears its active ID. Popup-window hover is left alone. `nodeCanvasWidgets_test.go` exercises this boundary with real ImGui contexts, frames, and queued mouse events, without a display or renderer.
+Visible widget input is synchronous inside `Node`, before the canvas gesture commit. `nodeCanvasWidgets.go` masks the canvas window's ImGui hover and wheel values while covered content runs, then restores them; it never disables the widget or clears its active ID. Popup-window hover is left alone. `nodeCanvasWidgets_test.go` exercises this boundary with real ImGui contexts, frames, and queued mouse events, without a display or renderer.
