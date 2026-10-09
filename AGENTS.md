@@ -40,6 +40,7 @@ The whole model is small enough to hold in your head:
 
 - [`docs/current/layout-guide.md`](docs/current/layout-guide.md) — Dear ImGui layout and sizing (cursor model, child windows, tables, practical patterns) as used in dfx.
 - [`docs/current/child-actions.md`](docs/current/child-actions.md) — the action subsystem: registries, precedence/cascade, key-string format, menu actions.
+- [`docs/current/faders.md`](docs/current/faders.md) — fader value APIs, theme colors, handle sizing, tapers, and scales.
 - [`docs/current/hcollapse.md`](docs/current/hcollapse.md) — `HCollapse`'s sizing contract, clamp order, and anchors.
 - [`docs/current/icon-fonts.md`](docs/current/icon-fonts.md) — additive Material Symbols, legacy icon preservation, and font regeneration.
 

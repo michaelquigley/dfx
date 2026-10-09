@@ -190,8 +190,14 @@ type FaderParams struct {
 	ResetValue float32 // default 0.0
 
 	// Dimensions
-	Width  float32 // default 30.0
-	Height float32 // default 300.0
+	Width  float32 // total hit area, default 30.0
+	Height float32 // total hit area, default 300.0
+
+	// appearance. handle dimensions fit within the hit area.
+	HandleWidth  float32     // default Width - 4
+	HandleHeight float32     // default 18.0
+	TrackWidth   float32     // default 4.0
+	AccentColor  *imgui.Vec4 // nil = theme ButtonHovered
 
 	// Display options
 	Format      func(normalized float32) string // optional: custom tooltip format
@@ -200,7 +206,7 @@ type FaderParams struct {
 	// Mouse wheel sensitivity
 	WheelSteps float32 // default 100.0 (finer = more steps)
 
-	// Custom track/background color (nil = use theme default)
+	// custom unfilled slot color (nil = theme FrameBg)
 	TrackColor *imgui.Vec4
 }
 
@@ -225,14 +231,18 @@ func DefaultFaderParams() FaderParams {
 // FaderN draws a vertical fader working in normalized 0.0-1.0 space.
 // This is the foundation for FaderF and FaderI.
 func FaderN(label string, value float32, params FaderParams) (float32, bool) {
+	return faderN(label, value, params, nil)
+}
+
+func resolveFaderParams(params FaderParams) FaderParams {
 	// Apply defaults
 	if params.Taper == nil {
 		params.Taper = LinearTaper()
 	}
-	if params.Width == 0 {
+	if params.Width <= 0 {
 		params.Width = 30.0
 	}
-	if params.Height == 0 {
+	if params.Height <= 0 {
 		params.Height = 300.0
 	}
 	if params.WheelSteps == 0 {
@@ -242,22 +252,44 @@ func FaderN(label string, value float32, params FaderParams) (float32, bool) {
 		params.MaxStop = 1.0
 	}
 
+	params.Width = max(params.Width, 6)
+	params.Height = max(params.Height, 6)
+	if params.HandleWidth <= 0 {
+		params.HandleWidth = params.Width - 4
+	}
+	if params.HandleHeight <= 0 {
+		params.HandleHeight = 18
+	}
+	if params.TrackWidth <= 0 {
+		params.TrackWidth = 4
+	}
+	params.HandleWidth = min(params.HandleWidth, params.Width-4)
+	params.HandleHeight = min(params.HandleHeight, params.Height-4)
+	params.TrackWidth = min(params.TrackWidth, params.HandleWidth)
+	return params
+}
+
+func faderN(label string, value float32, params FaderParams, scale *ScaleConfig) (float32, bool) {
+	params = resolveFaderParams(params)
+
 	// Clamp value to range stops
 	value = clamp(value, params.MinStop, params.MaxStop)
 
 	// Apply taper to get UI position
 	uiPosition := params.Taper.Apply(value)
 
-	// Push custom track color if specified
-	if params.TrackColor != nil {
-		imgui.PushStyleColorVec4(imgui.ColFrameBg, *params.TrackColor)
-		defer imgui.PopStyleColor()
+	// keep ImGui's slider behavior, focus, and navigation, but replace its paint.
+	for _, col := range []imgui.Col{imgui.ColFrameBg, imgui.ColFrameBgHovered, imgui.ColFrameBgActive, imgui.ColSliderGrab, imgui.ColSliderGrabActive} {
+		imgui.PushStyleColorVec4(col, imgui.Vec4{})
 	}
-
-	// Draw vertical slider
-	newUIPosition := uiPosition
+	imgui.PushStyleVarFloat(imgui.StyleVarFrameBorderSize, 0)
+	imgui.PushStyleVarFloat(imgui.StyleVarGrabMinSize, params.HandleHeight)
+	newUIPosition := clamp(uiPosition, 0, 1)
 	size := imgui.Vec2{X: params.Width, Y: params.Height}
 	changed := imgui.VSliderFloatV(label, size, &newUIPosition, 0.0, 1.0, "", imgui.SliderFlagsNone)
+	imgui.PopStyleVarV(2)
+	imgui.PopStyleColorV(5)
+	geometry := newFaderGeometry(imgui.ItemRectMin(), imgui.ItemRectMax(), params)
 
 	// Invert taper to get normalized value
 	newValue := params.Taper.Invert(newUIPosition)
@@ -301,6 +333,15 @@ func FaderN(label string, value float32, params FaderParams) (float32, bool) {
 		}
 	}
 
+	// paint the final value so wheel/reset changes are visible in this frame.
+	newValue = clamp(newValue, params.MinStop, params.MaxStop)
+	if imgui.IsItemVisible() {
+		if scale != nil {
+			drawFaderScale(params.Taper, *scale, geometry)
+		}
+		drawFader(params, geometry, clamp(params.Taper.Apply(newValue), 0, 1), imgui.IsItemHovered(), imgui.IsItemActive())
+	}
+
 	// Show tooltip
 	if params.ShowTooltip && imgui.IsItemHovered() {
 		var tooltipText string
@@ -312,9 +353,6 @@ func FaderN(label string, value float32, params FaderParams) (float32, bool) {
 		imgui.SetTooltip(tooltipText)
 	}
 
-	// Clamp final value to range stops
-	newValue = clamp(newValue, params.MinStop, params.MaxStop)
-
 	return newValue, changed
 }
 
@@ -322,12 +360,16 @@ func FaderN(label string, value float32, params FaderParams) (float32, bool) {
 // Internally converts to/from normalized 0-1 space.
 // Example: -60.0 to +12.0 dB, 20.0 to 20000.0 Hz
 func FaderF(label string, value, min, max float32, params FaderParams) (float32, bool) {
+	return faderF(label, value, min, max, params, nil)
+}
+
+func faderF(label string, value, min, max float32, params FaderParams, scale *ScaleConfig) (float32, bool) {
 	// Normalize value to 0-1
 	normalized := (value - min) / (max - min)
 	normalized = clamp(normalized, 0.0, 1.0)
 
 	// Call FaderN
-	newNormalized, changed := FaderN(label, normalized, params)
+	newNormalized, changed := faderN(label, normalized, params, scale)
 
 	// Denormalize to original range
 	newValue := newNormalized*(max-min) + min
@@ -339,13 +381,17 @@ func FaderF(label string, value, min, max float32, params FaderParams) (float32,
 // Internally converts to/from normalized 0-1 space.
 // Example: 0 to 32767 for hardware, 0 to 127 for MIDI
 func FaderI(label string, value int, min, max int, params FaderParams) (int, bool) {
+	return faderI(label, value, min, max, params, nil)
+}
+
+func faderI(label string, value int, min, max int, params FaderParams, scale *ScaleConfig) (int, bool) {
 	// Normalize value to 0-1
 	rangeF := float32(max - min)
 	normalized := float32(value-min) / rangeF
 	normalized = clamp(normalized, 0.0, 1.0)
 
 	// Call FaderN
-	newNormalized, changed := FaderN(label, normalized, params)
+	newNormalized, changed := faderN(label, normalized, params, scale)
 
 	// Denormalize to original range and round
 	newValue := int(newNormalized*rangeF+0.5) + min
@@ -379,6 +425,7 @@ type ScaleConfig struct {
 	TickLength  float32 // Length of tick marks in pixels (default: 5.0)
 	LabelOffset float32 // Distance from ticks to labels in pixels (default: 3.0)
 	Position    string  // "left" or "right" (default: "left")
+	GuideLines  bool    // extend tick marks across the fader, behind the handle
 }
 
 // DefaultScaleConfig returns sensible defaults for a fader scale.
@@ -389,26 +436,23 @@ func DefaultScaleConfig() ScaleConfig {
 		TickLength:  5.0,
 		LabelOffset: 3.0,
 		Position:    "left",
+		GuideLines:  true,
 	}
 }
 
 // drawFaderScale draws tick marks and labels next to a fader.
-// Must be called immediately after drawing the fader to get correct position.
 // Respects the taper curve for visual accuracy.
-func drawFaderScale(taper Taper, scale ScaleConfig) {
+func drawFaderScale(taper Taper, scale ScaleConfig, geometry faderGeometry) {
 	if len(scale.Marks) == 0 {
 		return
 	}
 
-	// Get the fader's position (must be called right after drawing it)
-	min := imgui.ItemRectMin()
-	max := imgui.ItemRectMax()
-	faderHeight := max.Y - min.Y
+	min, max := geometry.min, geometry.max
 
 	// Get drawing context
 	dl := imgui.WindowDrawList()
-	textColor := imgui.CurrentStyle().Colors()[imgui.ColText]
-	color := imgui.ColorConvertFloat4ToU32(textColor)
+	color := imgui.ColorU32Col(imgui.ColTextDisabled)
+	guideColor := imgui.ColorU32ColV(imgui.ColTextDisabled, 0.4)
 
 	// Apply defaults
 	tickLength := scale.TickLength
@@ -429,7 +473,10 @@ func drawFaderScale(taper Taper, scale ScaleConfig) {
 		visualMark := taper.Apply(mark)
 
 		// Calculate Y position (inverted - fader is bottom-to-top)
-		yPos := max.Y - (visualMark * faderHeight)
+		yPos := geometry.y(clamp(visualMark, 0, 1))
+		if scale.GuideLines {
+			dl.AddLine(imgui.Vec2{X: min.X, Y: yPos}, imgui.Vec2{X: max.X, Y: yPos}, guideColor)
+		}
 
 		// Draw tick mark
 		var tickStart, tickEnd imgui.Vec2
@@ -464,23 +511,17 @@ func drawFaderScale(taper Taper, scale ScaleConfig) {
 
 // FaderWithScaleN draws a normalized fader (0.0-1.0) with tick marks and labels.
 func FaderWithScaleN(label string, value float32, params FaderParams, scale ScaleConfig) (float32, bool) {
-	newValue, changed := FaderN(label, value, params)
-	drawFaderScale(params.Taper, scale)
-	return newValue, changed
+	return faderN(label, value, params, &scale)
 }
 
 // FaderWithScaleF draws a float-range fader with tick marks and labels.
 func FaderWithScaleF(label string, value, min, max float32, params FaderParams, scale ScaleConfig) (float32, bool) {
-	newValue, changed := FaderF(label, value, min, max, params)
-	drawFaderScale(params.Taper, scale)
-	return newValue, changed
+	return faderF(label, value, min, max, params, &scale)
 }
 
 // FaderWithScaleI draws an integer-range fader with tick marks and labels.
 func FaderWithScaleI(label string, value int, min, max int, params FaderParams, scale ScaleConfig) (int, bool) {
-	newValue, changed := FaderI(label, value, min, max, params)
-	drawFaderScale(params.Taper, scale)
-	return newValue, changed
+	return faderI(label, value, min, max, params, &scale)
 }
 
 // ============================================================================

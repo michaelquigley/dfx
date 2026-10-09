@@ -24,7 +24,7 @@ func (fc *FaderChannel) updateFromNormalized(norm float32) {
 }
 
 func main() {
-	// Hue counter for cycling track color demo (0-360)
+	// hue counter for cycling accent color demo (0-360)
 	hue := float32(0.0)
 
 	// Create multiple fader channels with different initial values
@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Create the root component with horizontally scrollable fader bank
-	root := dfx.NewFunc(func(state *dfx.State) {
+	drawTaperExamples := func(state *dfx.State) {
 		imgui.Text("Advanced Fader Demo - Horizontal Scrollable Mixer")
 		imgui.Separator()
 
@@ -91,7 +91,7 @@ func main() {
 
 					// Select appropriate fader based on channel type
 					switch i {
-					case 0: // Rainbow track color demo (cycles hue every frame)
+					case 0: // Rainbow accent color demo (cycles hue every frame)
 						// Increment hue each frame
 						hue += 0.5
 						if hue >= 360.0 {
@@ -105,7 +105,7 @@ func main() {
 
 						params := dfx.DefaultFaderParams()
 						params.Taper = dfx.LinearTaper()
-						params.TrackColor = &trackColor
+						params.AccentColor = &trackColor
 						params.Format = func(norm float32) string {
 							return fmt.Sprintf("%.3f", norm)
 						}
@@ -260,7 +260,7 @@ func main() {
 
 		imgui.Separator()
 		imgui.Text("Fader Types:")
-		imgui.BulletText("Rainbow: Cycling track color (hue changes every frame)")
+		imgui.BulletText("Rainbow: Cycling accent color (hue changes every frame)")
 		imgui.BulletText("Log: Logarithmic taper (moderate)")
 		imgui.BulletText("Audio: Audio fader curve with taper-aware scale marks")
 		imgui.BulletText("Limited: Range stops at 20%%-80%%")
@@ -270,13 +270,92 @@ func main() {
 		imgui.BulletText("Reset: Right-click resets to 75%%")
 		imgui.Separator()
 		imgui.TextWrapped("Note: Faders with scales (Rainbow, Audio, dB) demonstrate the FaderWithScale API with tick marks and labels.")
+	}
+
+	levels := []float32{4.6, 0, -3.8, 4.3, 0}
+	root := dfx.NewFunc(func(state *dfx.State) {
+		if imgui.BeginTabBar("fader_examples") {
+			if imgui.BeginTabItem("Remix Style") {
+				drawReferenceFaders(levels)
+				imgui.EndTabItem()
+			}
+			if imgui.BeginTabItem("Tapers and Ranges") {
+				drawTaperExamples(state)
+				imgui.EndTabItem()
+			}
+			imgui.EndTabBar()
+		}
 	})
 
 	app := dfx.New(root, dfx.Config{
-		Title:  "Advanced Fader Demo",
+		Title:  "dfx Fader Preview",
 		Width:  1100,
 		Height: 850,
 	})
 
 	app.Run()
+}
+
+// drawReferenceFaders keeps the screenshot's proportions while using the same
+// public fader API as the taper examples. Values here are already in dB, so a
+// linear taper gives equal travel per dB.
+func drawReferenceFaders(values []float32) {
+	imgui.Text("Rounded handles, narrow slots, and a continuous gain fill")
+	imgui.TextDisabled("Drag to adjust. Wheel to fine-tune. Right-click for 0 dB.")
+	imgui.Dummy(imgui.Vec2{Y: 32})
+	if !imgui.BeginTableV("reference_bank", 5, imgui.TableFlagsSizingStretchSame, imgui.Vec2{}, 0) {
+		return
+	}
+	defer imgui.EndTable()
+	imgui.TableNextRow()
+	for i, name := range []string{"Vocals", "Piano", "Bass", "Drums", "Other"} {
+		imgui.TableNextColumn()
+		imgui.PushIDInt(int32(i))
+		start := imgui.CursorPos()
+		width := imgui.ContentRegionAvail().X
+		centeredText := func(text string, muted bool) {
+			imgui.SetCursorPosX(start.X + (width-imgui.CalcTextSize(text).X)/2)
+			if muted {
+				imgui.TextDisabled(text)
+			} else {
+				imgui.Text(text)
+			}
+		}
+		centeredText(name, false)
+		centeredText("Gain (dB)", true)
+		imgui.PopID()
+	}
+	imgui.TableNextRow()
+	for i := range values {
+		imgui.TableNextColumn()
+		imgui.PushIDInt(int32(i))
+		start := imgui.CursorPos()
+		width := imgui.ContentRegionAvail().X
+		imgui.Dummy(imgui.Vec2{Y: 20})
+		imgui.SetCursorPosX(start.X + (width-60)/2)
+		params := dfx.DefaultFaderParams()
+		params.Width, params.Height = 60, 340
+		params.HandleWidth, params.HandleHeight, params.TrackWidth = 56, 28, 7
+		params.ResetValue = 40.0 / 50.0
+		params.Format = func(norm float32) string { return fmt.Sprintf("%.1f dB", norm*50-40) }
+		scale := dfx.DefaultScaleConfig()
+		scale.Marks = []float32{0, 0.2, 0.4, 0.6, 0.8, 1}
+		scale.Labels = map[float32]string{0: "-40", 0.2: "-30", 0.4: "-20", 0.6: "-10", 0.8: "0", 1: "10"}
+		values[i], _ = dfx.FaderWithScaleF("##gain", values[i], -40, 10, params, scale)
+		imgui.PopID()
+	}
+	imgui.TableNextRow()
+	for i := range values {
+		imgui.TableNextColumn()
+		imgui.PushIDInt(int32(i))
+		start := imgui.CursorPos()
+		width := imgui.ContentRegionAvail().X
+		imgui.Dummy(imgui.Vec2{Y: 18})
+		imgui.SetCursorPosX(start.X + (width-84)/2)
+		imgui.SetNextItemWidth(84)
+		if imgui.InputFloatV("##value", &values[i], 0, 0, "%.1f", imgui.InputTextFlagsNone) {
+			values[i] = min(max(values[i], -40), 10)
+		}
+		imgui.PopID()
+	}
 }

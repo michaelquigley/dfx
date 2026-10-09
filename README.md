@@ -99,6 +99,7 @@ func main() {
 
     app := dfx.New(root, dfx.Config{
         Title:  "My App",
+        AppID:  "myapp", // optional: pairs the window with myapp.desktop on linux
         Width:  800,
         Height: 600,
     })

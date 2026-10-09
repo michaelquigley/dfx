@@ -35,6 +35,7 @@ const menuBarFallbackHeight = 25.0
 
 type Config struct {
 	Title          string
+	AppID          string         // optional desktop app id (wayland app id, x11 class); pairs the window with its launcher entry
 	Width          int
 	Height         int
 	X              int            // window X position (0 = don't set)
@@ -87,6 +88,10 @@ func (app *App) Run() error {
 	if err != nil {
 		app.runErr = err
 		return app.runErr
+	}
+	// the app id is a window hint, so it is set between glfw's initialization and the window's creation
+	if app.config.AppID != "" {
+		setAppID(app.config.AppID)
 	}
 	app.backend.CreateWindow(app.config.Title, app.config.Width, app.config.Height)
 
