@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.14
+
 CHANGE: Faders use a narrow slot, accent fill, and a rounded handle with a position marker, all using the active theme colors by default. `FaderParams` adds accent color, track width, and handle dimensions while retaining the existing slider interactions and value APIs. Scale marks now align with the handle's inset travel; `DefaultScaleConfig` enables horizontal guide lines. The mixer example opens on a larger five-channel reference bank.
 
 FEATURE: `Config.AppID` sets the window's Wayland app id and X11 class and instance names, so the desktop pairs a running window with the launcher entry of the same name and shows its icon. Unset, the window reports no app id on Wayland and its title as the X11 class, as before.
