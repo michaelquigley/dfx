@@ -559,11 +559,17 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 		nc.drawZoomOverlay(drawList)
 	}
 
-	res := stepGesture(nc.gesture, in, g, gestureParams{
-		hit:     nc.style.hitParams(),
-		detents: nc.detents,
-		locked:  nc.locked,
-	})
+	// an explicit navigation requested during node declarations keeps this
+	// frame's drawing stable, but the older map gesture must not commit at End
+	// or cancel the newer request. Begin consumes the queued cancellation.
+	res := gestureResult[ID]{state: nc.gesture, view: nc.view}
+	if !nc.cancelMiniPending || !nc.gesture.isMiniMap() {
+		res = stepGesture(nc.gesture, in, g, gestureParams{
+			hit:     nc.style.hitParams(),
+			detents: nc.detents,
+			locked:  nc.locked,
+		})
+	}
 	panStarted := nc.gesture.kind != gesturePan && res.state.kind == gesturePan
 	mapStarted := nc.gesture.kind == gestureIdle && res.state.isMiniMap()
 	nc.gesture = res.state
@@ -1013,6 +1019,9 @@ func samplePanInput() inputSnapshot {
 	return inputSnapshot{
 		mouse:            imgui.MousePos(),
 		mouseUnavailable: !imgui.IsMousePosValid() || imgui.CurrentIO().AppFocusLost(),
+		leftPressed:      imgui.IsMouseClickedBool(imgui.MouseButtonLeft),
+		leftDown:         imgui.IsMouseDown(imgui.MouseButtonLeft),
+		leftReleased:     imgui.IsMouseReleased(imgui.MouseButtonLeft),
 		middlePressed:    imgui.IsMouseClickedBool(imgui.MouseButtonMiddle),
 		middleDown:       imgui.IsMouseDown(imgui.MouseButtonMiddle),
 		middleReleased:   imgui.IsMouseReleased(imgui.MouseButtonMiddle),
@@ -1030,9 +1039,7 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	// the canvas window itself, notably on the click that raises their node.
 	hovered := imgui.IsWindowHoveredV(imgui.HoveredFlagsChildWindows | imgui.HoveredFlagsAllowWhenBlockedByActiveItem)
 
-	leftPressed := imgui.IsMouseClickedBool(imgui.MouseButtonLeft)
-	leftDown := imgui.IsMouseDown(imgui.MouseButtonLeft)
-	leftReleased := imgui.IsMouseReleased(imgui.MouseButtonLeft)
+	leftPressed, leftDown, leftReleased := panInput.leftPressed, panInput.leftDown, panInput.leftReleased
 	anyPopup := imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel)
 	overlayHovered := hovered && !panInput.mouseUnavailable && !anyPopup && nc.miniMapBlocksNodeInput()
 	var mapPress miniMapPressKind
@@ -1044,14 +1051,12 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 		nc.miniRetained.drawn && nc.miniRetained.layout == nc.miniFrame &&
 		nc.miniRetained.origin == nc.origin && nc.miniRetained.viewport == nc.viewport {
 		r := nc.miniRetained
-		if r.layout.panelShown && r.layout.panel.contains(mouse) {
+		if r.layout.panelShown && r.layout.panel.contains(mouse) && r.transform.valid {
 			mapPress = miniMapPressPanel
-			if r.transform.valid {
-				mapTransform = r.transform
-				mapPoint = r.transform.unproject(r.transform.clamp(mouse))
-				if rectNonempty(r.grab) && r.grab.contains(mouse) {
-					mapPress = miniMapPressViewport
-				}
+			mapTransform = r.transform
+			mapPoint = r.transform.unproject(r.transform.clamp(mouse))
+			if rectNonempty(r.grab) && r.grab.contains(mouse) {
+				mapPress = miniMapPressViewport
 			}
 		}
 		mapLayout, mapOrigin, mapViewport = r.layout, r.origin, r.viewport

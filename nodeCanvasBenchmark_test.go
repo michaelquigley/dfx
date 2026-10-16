@@ -11,6 +11,7 @@ import (
 
 var benchmarkBounds canvasRect
 var benchmarkHit hitResult[int]
+var benchmarkMiniSum float32
 
 func benchmarkGeometry(scene nodecanvasstress.Scene) *canvasGeometry[int] {
 	g := &canvasGeometry[int]{view: View{Zoom: 1}, viewport: imgui.Vec2{X: 1200, Y: 800},
@@ -71,61 +72,108 @@ func BenchmarkNodeCanvasGeometry(b *testing.B) {
 	}
 }
 
-// this measures CPU submission with a real ImGui context, never GPU drawing.
-func BenchmarkNodeCanvasCPUFrame(b *testing.B) {
+func BenchmarkNodeCanvasMiniMapPreparation(b *testing.B) {
 	for _, count := range []int{100, 1000, 5000, 10000, 20000} {
 		b.Run(fmt.Sprintf("nodes_%d", count), func(b *testing.B) {
-			runtime.LockOSThread()
-			defer runtime.UnlockOSThread()
-			ctx := imgui.CreateContext()
-			defer imgui.DestroyContextV(ctx)
-			io := imgui.CurrentIO()
-			io.SetIniFilename("")
-			io.SetDisplaySize(imgui.Vec2{X: 1200, Y: 800})
-			io.SetDeltaTime(1.0 / 60)
-			// the real GLFW/OpenGL renderer advertises vertex offsets, which
-			// are required once the scene exceeds 64K vertices per draw list.
-			io.SetBackendFlags(imgui.BackendFlagsRendererHasTextures | imgui.BackendFlagsRendererHasVtxOffset)
 			scene := nodecanvasstress.Generate(nodecanvasstress.Settings{Count: count, Fanout: 1, Seed: 42})
-			values := make([]float32, count)
-			for i := range values {
-				values[i] = .5
-			}
+			g := benchmarkGeometry(scene)
 			nc := NewNodeCanvas[int](NodeCanvasConfig{})
-			defer nc.Destroy()
-			frame := func() {
-				imgui.NewFrame()
-				imgui.SetNextWindowPos(imgui.Vec2{})
-				imgui.SetNextWindowSize(imgui.Vec2{X: 1200, Y: 800})
-				imgui.BeginV("stress", nil, imgui.WindowFlagsNoDecoration|imgui.WindowFlagsNoMove)
-				nc.Begin(&State{Size: imgui.Vec2{X: 1100, Y: 700}})
-				for i := range scene.Nodes {
-					node := &scene.Nodes[i]
-					nc.Node(node.ID, imgui.Vec2{X: node.Pos.X, Y: node.Pos.Y}, NodeFlags{Accent: imgui.Vec4{X: node.Accent.R, Y: node.Accent.G, Z: node.Accent.B, W: 1}}, func(n *NodeContext[int]) {
-					n.TitleBar(func() { n.Label(fmt.Sprintf("node %d", node.ID)) })
-						n.Label("processor")
-						imgui.PushItemWidth(120)
-					values[node.ID-1], _ = WheelSlider("value", values[node.ID-1], 0, 1, 100, "%.2f", imgui.SliderFlagsNone)
-						imgui.PopItemWidth()
-						n.Input(node.Inputs[0], "in A")
-						n.Input(node.Inputs[1], "in B")
-						n.Output(node.Output, "out")
-					})
-				}
-				for _, l := range scene.Links {
-					nc.Link(l.ID, l.From, l.To, LinkFlags{})
-				}
-				nc.End()
-				imgui.End()
-				imgui.Render()
-			}
-			frame()
-			frame() // warm font/layout and splitter capacity
+			inner := canvasRect{Min: imgui.Vec2{X: 6, Y: 6}, Max: imgui.Vec2{X: 234, Y: 154}}
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				frame()
+				bounds, _ := nc.miniMapBounds(g)
+				m := newMiniMapTransform(inner, bounds)
+				var sum float32
+				for j := range g.nodes {
+					r := projectMiniMapRect(m, nc.miniMapNodeRect(g.nodes[j]))
+					sum += r.Min.X + r.Min.Y + r.Max.X + r.Max.Y
+				}
+				benchmarkMiniSum = sum
 			}
 		})
+	}
+}
+
+// this measures CPU submission with a real ImGui context, never GPU drawing.
+func BenchmarkNodeCanvasCPUFrame(b *testing.B) {
+	for _, count := range []int{0, 100, 1000, 5000, 10000, 20000} {
+		b.Run(fmt.Sprintf("nodes_%d", count), func(b *testing.B) {
+			b.Run("hidden", func(b *testing.B) { benchmarkNodeCanvasCPUFrame(b, count, false, false) })
+			b.Run("shown", func(b *testing.B) { benchmarkNodeCanvasCPUFrame(b, count, true, false) })
+			if count == 5000 {
+				b.Run("pan_hidden", func(b *testing.B) { benchmarkNodeCanvasCPUFrame(b, count, false, true) })
+				b.Run("pan_shown", func(b *testing.B) { benchmarkNodeCanvasCPUFrame(b, count, true, true) })
+			}
+		})
+	}
+}
+
+func benchmarkNodeCanvasCPUFrame(b *testing.B, count int, visible, pan bool) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	ctx := imgui.CreateContext()
+	defer imgui.DestroyContextV(ctx)
+	io := imgui.CurrentIO()
+	io.SetIniFilename("")
+	io.SetDisplaySize(imgui.Vec2{X: 1200, Y: 800})
+	io.SetDeltaTime(1.0 / 60)
+	// the real GLFW/OpenGL renderer advertises vertex offsets, which
+	// are required once the scene exceeds 64K vertices per draw list.
+	io.SetBackendFlags(imgui.BackendFlagsRendererHasTextures | imgui.BackendFlagsRendererHasVtxOffset)
+	scene := nodecanvasstress.Generate(nodecanvasstress.Settings{Count: count, Fanout: 1, Seed: 42})
+	values := make([]float32, count)
+	for i := range values {
+		values[i] = .5
+	}
+	nc := NewNodeCanvas[int](NodeCanvasConfig{MiniMap: NodeCanvasMiniMapConfig{Visible: visible}})
+	defer nc.Destroy()
+	frame := func() {
+		imgui.NewFrame()
+		imgui.SetNextWindowPos(imgui.Vec2{})
+		imgui.SetNextWindowSize(imgui.Vec2{X: 1200, Y: 800})
+		imgui.BeginV("stress", nil, imgui.WindowFlagsNoDecoration|imgui.WindowFlagsNoMove)
+		nc.Begin(&State{Size: imgui.Vec2{X: 1100, Y: 700}})
+		for i := range scene.Nodes {
+			node := &scene.Nodes[i]
+			nc.Node(node.ID, imgui.Vec2{X: node.Pos.X, Y: node.Pos.Y}, NodeFlags{Accent: imgui.Vec4{X: node.Accent.R, Y: node.Accent.G, Z: node.Accent.B, W: 1}}, func(n *NodeContext[int]) {
+				n.TitleBar(func() { n.Label(fmt.Sprintf("node %d", node.ID)) })
+				n.Label("processor")
+				imgui.PushItemWidth(120)
+				values[node.ID-1], _ = WheelSlider("value", values[node.ID-1], 0, 1, 100, "%.2f", imgui.SliderFlagsNone)
+				imgui.PopItemWidth()
+				n.Input(node.Inputs[0], "in A")
+				n.Input(node.Inputs[1], "in B")
+				n.Output(node.Output, "out")
+			})
+		}
+		for _, l := range scene.Links {
+			nc.Link(l.ID, l.From, l.To, LinkFlags{})
+		}
+		nc.End()
+		imgui.End()
+		imgui.Render()
+	}
+	frame()
+	frame() // warm font/layout and splitter capacity
+	if pan {
+		// keep the pointer and main view away from graph geometry and the
+		// lower-left map, then pan normally through the timed frames.
+		nc.SetView(View{Pan: imgui.Vec2{X: -50000, Y: -50000}, Zoom: 1})
+		io.AddMousePosEvent(500, 450)
+		frame()
+		io.AddMouseButtonEvent(2, true)
+		frame()
+		if nc.gesture.kind != gesturePan {
+			b.Fatalf("middle pan did not start: %v", nc.gesture.kind)
+		}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if pan {
+			io.AddMousePosEvent(500+float32(i%20), 450+float32(i%20))
+		}
+		frame()
 	}
 }

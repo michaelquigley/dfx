@@ -11,6 +11,98 @@ func miniNodePosition(nc *NodeCanvas[string], screen imgui.Vec2) imgui.Vec2 {
 	return canvasFromScreen(imgui.Vec2{X: screen.X - nc.style.NodePadding, Y: screen.Y - nc.style.NodePadding}, nc.frameView, nc.origin)
 }
 
+func startMiniMapDrag(t *testing.T) (*canvasWidgetTest, func(), imgui.Vec2) {
+	t.Helper()
+	h := newCanvasWidgetTest(t)
+	h.nc.SetMiniMapVisible(true)
+	draw := func() {
+		h.nc.Node("a", imgui.Vec2{}, NodeFlags{}, func(n *NodeContext[string]) { n.Label("a") })
+		h.nc.Node("b", imgui.Vec2{X: 5000, Y: 4000}, NodeFlags{}, func(n *NodeContext[string]) { n.Label("b") })
+	}
+	h.frame(draw)
+	h.frame(draw)
+	p := h.nc.miniRetained.grab.center()
+	h.point(p)
+	h.frame(draw)
+	h.io.AddMouseButtonEvent(0, true)
+	h.frame(draw)
+	if h.nc.gesture.kind != gestureMiniViewportArmed {
+		t.Fatalf("mini-map viewport did not arm: %v", h.nc.gesture.kind)
+	}
+	h.point(imgui.Vec2{X: p.X + 20, Y: p.Y + 20})
+	h.frame(draw)
+	if h.nc.gesture.kind != gestureMiniViewportDrag {
+		t.Fatalf("mini-map viewport did not drag: %v", h.nc.gesture.kind)
+	}
+	return h, draw, p
+}
+
+func TestMiniMapDragPreviewMatchesCommit(t *testing.T) {
+	h, draw, p := startMiniMapDrag(t)
+	h.point(imgui.Vec2{X: p.X + 40, Y: p.Y + 40})
+	h.frame(draw)
+	if h.nc.frameView.Pan != h.nc.View().Pan {
+		t.Fatalf("drag drew stale pan %v but committed %v", h.nc.frameView.Pan, h.nc.View().Pan)
+	}
+	// a release beyond the child window still draws and commits its final pan.
+	h.point(imgui.Vec2{X: 950, Y: 750})
+	h.io.AddMouseButtonEvent(0, false)
+	h.frame(draw)
+	if h.nc.frameView.Pan != h.nc.View().Pan || h.nc.gesture.kind != gestureIdle {
+		t.Fatalf("outside release drew %v, committed %v, gesture %v", h.nc.frameView.Pan, h.nc.View().Pan, h.nc.gesture.kind)
+	}
+}
+
+func TestMiniMapDragInputLossKeepsLastPan(t *testing.T) {
+	h, draw, p := startMiniMapDrag(t)
+	h.point(imgui.Vec2{X: p.X + 40, Y: p.Y + 40})
+	h.frame(draw)
+	last := h.nc.View().Pan
+	h.io.AddFocusEvent(false)
+	h.point(imgui.Vec2{X: p.X + 80, Y: p.Y + 80})
+	h.frame(draw)
+	if h.nc.frameView.Pan != last || h.nc.View().Pan != last || h.nc.gesture.kind != gestureIdle {
+		t.Fatalf("input loss changed last pan: drawn=%v committed=%v gesture=%v", h.nc.frameView.Pan, h.nc.View().Pan, h.nc.gesture.kind)
+	}
+}
+
+func TestMiniMapMidFrameFitSupersedesDrag(t *testing.T) {
+	h, draw, p := startMiniMapDrag(t)
+	lastCommitted := h.nc.View().Pan
+	nextMouse := imgui.Vec2{X: p.X + 40, Y: p.Y + 40}
+	h.point(nextMouse)
+	h.frame(func() { draw(); h.nc.ZoomToFit() })
+	expectedDrawn := h.nc.gesture.mapPan(imgui.MousePos(), h.nc.View().Zoom)
+	if !h.nc.fitPending || !h.nc.fitStarting ||
+		!approx32(h.nc.frameView.Pan.X, expectedDrawn.X) || !approx32(h.nc.frameView.Pan.Y, expectedDrawn.Y) ||
+		h.nc.View().Pan != lastCommitted {
+		t.Fatalf("mid-frame fit lost precedence or changed drawing: pending=%v starting=%v drawn=%v expected=%v committed=%v prior=%v",
+			h.nc.fitPending, h.nc.fitStarting, h.nc.frameView.Pan, expectedDrawn, h.nc.View().Pan, lastCommitted)
+	}
+	h.frame(draw)
+	if h.nc.gesture.isMiniMap() || h.nc.cancelMiniPending {
+		t.Fatalf("fit did not cancel old map gesture: gesture=%v queued=%v", h.nc.gesture.kind, h.nc.cancelMiniPending)
+	}
+}
+
+func TestMiniMapEmptyHandoverConsumesPress(t *testing.T) {
+	h := newCanvasWidgetTest(t)
+	h.nc.SetMiniMapVisible(true)
+	h.nc.SetView(View{Zoom: 1, Pan: imgui.Vec2{X: -4000, Y: -4000}})
+	h.frame(func() {})
+	p := h.nc.miniFrame.inner.center()
+	h.point(p)
+	h.frame(func() {})
+	before := h.nc.View()
+	h.io.AddMouseButtonEvent(0, true)
+	intents := h.frame(func() {
+		h.nc.Node("a", imgui.Vec2{X: 5000, Y: 4000}, NodeFlags{}, func(n *NodeContext[string]) { n.Label("a") })
+	})
+	if h.nc.View() != before || h.nc.gesture.kind != gestureIdle || intents.NodeRaised != nil || intents.SelectionChanged != nil {
+		t.Fatalf("press without displayed transform leaked: %v -> %v, gesture=%v intents=%+v", before, h.nc.View(), h.nc.gesture.kind, intents)
+	}
+}
+
 func TestMiniMapNavigationAtZoomDetents(t *testing.T) {
 	for _, zoom := range []float32{.25, 1.5} {
 		h := newCanvasWidgetTest(t)
@@ -153,10 +245,19 @@ func TestMiniMapPopupOverPanelKeepsPopupInput(t *testing.T) {
 	h := newCanvasWidgetTest(t)
 	h.nc.SetMiniMapVisible(true)
 	back, popupValue := float32(.5), float32(.5)
-	var popupRect canvasRect
+	var popupRect, popupButtonRect, underButtonRect canvasRect
+	popupClicks, underClicks := 0, 0
 	open := true
 	draw := func() {
 		h.slider("back", miniNodePosition(h.nc, h.nc.miniFrame.panel.Min), &back)
+		if rectNonempty(popupButtonRect) {
+			h.nc.Node("under popup", miniNodePosition(h.nc, popupButtonRect.Min), NodeFlags{}, func(n *NodeContext[string]) {
+				if imgui.Button("under popup") {
+					underClicks++
+				}
+				underButtonRect = canvasRect{Min: imgui.ItemRectMin(), Max: imgui.ItemRectMax()}
+			})
+		}
 		h.nc.Node("popup owner", imgui.Vec2{X: 100, Y: 100}, NodeFlags{}, func(n *NodeContext[string]) {
 			n.Label("popup owner")
 			if open {
@@ -170,18 +271,37 @@ func TestMiniMapPopupOverPanelKeepsPopupInput(t *testing.T) {
 				popupValue, _ = WheelSlider("popup value", popupValue, 0, 1, 100, "%.2f", imgui.SliderFlagsNone)
 				popupRect = canvasRect{Min: imgui.ItemRectMin(), Max: imgui.ItemRectMax()}
 				imgui.PopItemWidth()
+				if imgui.Button("popup click") {
+					popupClicks++
+				}
+				popupButtonRect = canvasRect{Min: imgui.ItemRectMin(), Max: imgui.ItemRectMax()}
 				imgui.EndPopup()
 			}
 		})
 	}
 	h.frame(draw)
 	h.frame(draw)
+	h.frame(draw)
+	if !h.nc.miniFrame.panel.contains(popupButtonRect.center()) || !underButtonRect.contains(popupButtonRect.center()) {
+		t.Fatalf("popup click target does not overlap map and node: popup=%+v panel=%+v under=%+v", popupButtonRect, h.nc.miniFrame.panel, underButtonRect)
+	}
 	h.point(popupRect.center())
 	h.frame(draw)
 	h.io.AddMouseWheelEvent(0, 1)
 	intents := h.frame(draw)
 	if back != .5 || !approx32(popupValue, .51) || intents.NodeRaised != nil || h.nc.View().Pan != (imgui.Vec2{}) {
 		t.Fatalf("popup input leaked or blocked: back=%v popup=%v intents=%+v view=%+v", back, popupValue, intents, h.nc.View())
+	}
+	h.point(popupButtonRect.center())
+	h.frame(draw)
+	h.io.AddMouseButtonEvent(0, true)
+	intents = h.frame(draw)
+	h.io.AddMouseButtonEvent(0, false)
+	releaseIntents := h.frame(draw)
+	if popupClicks != 1 || underClicks != 0 || back != .5 || h.nc.View().Pan != (imgui.Vec2{}) || h.nc.gesture.isMiniMap() ||
+		intents.NodeRaised != nil || intents.SelectionChanged != nil || releaseIntents.NodeRaised != nil || releaseIntents.SelectionChanged != nil {
+		t.Fatalf("popup click leaked or blocked: popup=%d under=%d back=%v view=%+v gesture=%v press=%+v release=%+v",
+			popupClicks, underClicks, back, h.nc.View(), h.nc.gesture.kind, intents, releaseIntents)
 	}
 }
 

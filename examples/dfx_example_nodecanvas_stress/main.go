@@ -108,6 +108,19 @@ func (m *model) controls(size imgui.Vec2) {
 		m.canvas.SetMiniMapConfig(cfg)
 		m.resetTimings()
 	}
+	mapSize := m.canvas.MiniMapConfig().Size
+	if imgui.SliderFloatV("map width", &mapSize.X, 120, 400, "%.0f px", imgui.SliderFlagsNone) {
+		cfg := m.canvas.MiniMapConfig()
+		cfg.Size.X = mapSize.X
+		m.canvas.SetMiniMapConfig(cfg)
+		m.resetTimings()
+	}
+	if imgui.SliderFloatV("map height", &mapSize.Y, 80, 280, "%.0f px", imgui.SliderFlagsNone) {
+		cfg := m.canvas.MiniMapConfig()
+		cfg.Size.Y = mapSize.Y
+		m.canvas.SetMiniMapConfig(cfg)
+		m.resetTimings()
+	}
 	imgui.Separator()
 	if imgui.Button("100") {
 		m.settings.Count = 100

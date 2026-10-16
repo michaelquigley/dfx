@@ -4,7 +4,9 @@ NodeCanvas v1 is built and documented in [`docs/current/node-canvas.md`](../curr
 
 ## Deferred features (from the spec)
 
-The mini-map is now implemented in the working tree; its [current behavior](../current/node-canvas.md) is documented there. The [remaining work order](nodegraph-mini-map-work-order.md) covers performance comparison, example integration, and hands-on acceptance at approximately 5,000 nodes.
+The mini-map is built and accepted at approximately 5,000 nodes; see its [current behavior](../current/node-canvas.md) and [stress guide](../current/node-canvas-stress.md).
+
+**Mini-map extensions.** Labels, pins, and links remain omitted to keep the overview readable and inexpensive. Aggregation or density rendering waits for a demonstrated readability or performance problem with direct node silhouettes. Interactive resizing, free placement, map zoom, and graph editing wait for a workflow that needs more than application-configurable size, four corners, and pan navigation. Main-canvas visibility optimization remains [separate work](roadmap/optimize-offscreen-node-canvas-declarations.md), not an outstanding prerequisite for the accepted 5,000-node feature.
 
 **Link detach-by-drag.** Selection + delete covers removal (deletion is app-side; no delete intent exists by design). Add later if patching workflow wants it.
 

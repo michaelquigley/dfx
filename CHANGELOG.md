@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.15
+
+FEATURE: `NodeCanvas` offers an optional mini-map with configurable visibility, size, and corner, defaulting to the lower-left. It draws node silhouettes and a viewport outline for large-graph navigation; clicking recenters and dragging the viewport pans without changing zoom or emitting graph edits. Applications own the visibility control through `SetMiniMapVisible`; the node-canvas example binds M, and the stress example exposes visibility, corner, and size controls.
+
 FEATURE: The NodeCanvas stress example adds deterministic grid and cluster scenes with 100 to 20,000-node presets, adjustable counts, link densities, and separate CPU submission and displayed-frame cadence timings. Headless geometry and ImGui CPU-frame benchmarks cover the same presets.
 
 FIX: `NodeCanvas` text labels and pin rows read ImGui's text color directly instead of copying the full style-color array for every item. This reduces CPU submission cost on large graphs and honors the current style alpha.

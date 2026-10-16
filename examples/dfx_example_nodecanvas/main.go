@@ -27,6 +27,7 @@ import (
 // contract.
 //
 // keys: F zoom-to-fit all, C center on selection, L toggle locked mode,
+// M toggle the mini-map,
 // V save the view, Shift+V restore it (simulated persistence round-trip),
 // Delete removes the selection (app-owned — the canvas has no delete
 // intent), Ctrl+Z / Ctrl+Shift+Z undo/redo.
@@ -214,7 +215,12 @@ func main() {
 	var savedView *dfx.View
 
 	undo := dfx.NewUndoSystem()
-	nc := dfx.NewNodeCanvas[string](dfx.NodeCanvasConfig{WheelStepsPerZoomLevel: 2}) // two notches per detent: a gentler wheel
+	nc := dfx.NewNodeCanvas[string](dfx.NodeCanvasConfig{
+		WheelStepsPerZoomLevel: 2, // two notches per detent: a gentler wheel
+		MiniMap: dfx.NodeCanvasMiniMapConfig{
+			Visible: true, Corner: dfx.NodeCanvasUpperLeft, Size: imgui.Vec2{X: 200, Y: 130},
+		},
+	})
 
 	selectedNodes := func() []string {
 		var ids []string
@@ -326,6 +332,9 @@ func main() {
 		locked = !locked
 		nc.SetLocked(locked)
 		dl.Infof("locked: %v", locked)
+	})
+	root.Actions().MustRegister("toggle mini-map", "M", func() {
+		nc.SetMiniMapVisible(!nc.MiniMapVisible())
 	})
 	root.Actions().MustRegister("save view", "V", func() {
 		v := nc.View()

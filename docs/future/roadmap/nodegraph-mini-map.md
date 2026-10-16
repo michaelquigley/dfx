@@ -12,6 +12,6 @@ but a mini-map that can show an extremely large graph and help navigate it would
 
 the mini-map should be easily toggled on and off.
 
-## Design
+## Implementation
 
-The [design](../nodegraph-mini-map.md) and [work order](../nodegraph-mini-map-work-order.md) target approximately 5,000 nodes. Stages 1 and 2 are built in the working tree; stage 3 covers performance comparison, example integration, and hands-on acceptance.
+Built and accepted on 2026-10-16 at approximately 5,000 nodes. See [current behavior](../../current/node-canvas.md), the [stress harness and acceptance record](../../current/node-canvas-stress.md), and [deferred extensions](../node-canvas-deferred.md). The realized spec and work order have been retired; roadmap disposition remains with Michael.

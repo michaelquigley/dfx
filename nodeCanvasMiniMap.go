@@ -213,6 +213,35 @@ func (nc *NodeCanvas[ID]) miniMapBlocksNodeInput() bool {
 	return nc.miniFrame.panelShown && nc.miniFrame.panel.contains(p)
 }
 
+func (nc *NodeCanvas[ID]) miniMapNodeRect(n nodeGeometry[ID]) canvasRect {
+	r := n.rect
+	if nc.gesture.kind == gestureDragNodes && idInSlice(nc.gesture.dragSet, n.id) {
+		r.Min.X += nc.frameDragOffset.X
+		r.Min.Y += nc.frameDragOffset.Y
+		r.Max.X += nc.frameDragOffset.X
+		r.Max.Y += nc.frameDragOffset.Y
+	}
+	return r
+}
+
+func (nc *NodeCanvas[ID]) miniMapBounds(g *canvasGeometry[ID]) (canvasRect, bool) {
+	if len(g.nodes) == 0 {
+		return canvasRect{}, false
+	}
+	bounds := nc.miniMapNodeRect(g.nodes[0])
+	for i := 1; i < len(g.nodes); i++ {
+		bounds = rectUnion(bounds, nc.miniMapNodeRect(g.nodes[i]))
+	}
+	return bounds, true
+}
+
+func projectMiniMapRect(m miniMapTransform, r canvasRect) canvasRect {
+	min, max := m.project(r.Min), m.project(r.Max)
+	max.X = max32(max.X, min.X+1)
+	max.Y = max32(max.Y, min.Y+1)
+	return canvasRect{Min: min, Max: max}
+}
+
 func (nc *NodeCanvas[ID]) drawMiniMap(dl *imgui.DrawList, g *canvasGeometry[ID]) {
 	l := nc.miniFrame
 	nc.miniRetained = miniMapRendered{layout: l, origin: nc.origin, viewport: nc.viewport, drawn: true}
@@ -222,23 +251,9 @@ func (nc *NodeCanvas[ID]) drawMiniMap(dl *imgui.DrawList, g *canvasGeometry[ID])
 	color := func(v imgui.Vec4) uint32 { return imgui.ColorConvertFloat4ToU32(v) }
 	dl.AddRectFilledV(l.panel.Min, l.panel.Max, color(nc.style.MiniMapBgColor), 3, imgui.DrawFlagsNone)
 	dl.AddRectV(l.panel.Min, l.panel.Max, color(nc.style.MiniMapBorderColor), 3, 1, imgui.DrawFlagsNone)
-	if len(g.nodes) == 0 {
+	bounds, hasNodes := nc.miniMapBounds(g)
+	if !hasNodes {
 		return
-	}
-	var bounds canvasRect
-	for i := range g.nodes {
-		r := g.nodes[i].rect
-		if nc.gesture.kind == gestureDragNodes && idInSlice(nc.gesture.dragSet, g.nodes[i].id) {
-			r.Min.X += nc.frameDragOffset.X
-			r.Min.Y += nc.frameDragOffset.Y
-			r.Max.X += nc.frameDragOffset.X
-			r.Max.Y += nc.frameDragOffset.Y
-		}
-		if i == 0 {
-			bounds = r
-		} else {
-			bounds = rectUnion(bounds, r)
-		}
 	}
 	m := newMiniMapTransform(l.inner, bounds)
 	if nc.gesture.isMiniMap() && nc.gesture.mapTransform.valid {
@@ -251,21 +266,12 @@ func (nc *NodeCanvas[ID]) drawMiniMap(dl *imgui.DrawList, g *canvasGeometry[ID])
 	dl.PushClipRectV(l.inner.Min, l.inner.Max, true)
 	for i := range g.nodes {
 		n := &g.nodes[i]
-		r := n.rect
-		if nc.gesture.kind == gestureDragNodes && idInSlice(nc.gesture.dragSet, n.id) {
-			r.Min.X += nc.frameDragOffset.X
-			r.Min.Y += nc.frameDragOffset.Y
-			r.Max.X += nc.frameDragOffset.X
-			r.Max.Y += nc.frameDragOffset.Y
-		}
-		min, max := m.project(r.Min), m.project(r.Max)
-		max.X = max32(max.X, min.X+1)
-		max.Y = max32(max.Y, min.Y+1)
+		r := projectMiniMapRect(m, nc.miniMapNodeRect(*n))
 		accent := n.accent
 		if accent == (imgui.Vec4{}) {
 			accent = nc.style.MiniMapNodeColor
 		}
-		dl.AddRectFilledV(min, max, color(accent), 0, imgui.DrawFlagsNone)
+		dl.AddRectFilledV(r.Min, r.Max, color(accent), 0, imgui.DrawFlagsNone)
 	}
 	actual := mapViewport(m, nc.frameView, nc.origin, nc.viewport)
 	nc.miniRetained.actual = actual
