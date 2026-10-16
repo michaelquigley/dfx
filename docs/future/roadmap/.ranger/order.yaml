@@ -1,4 +1,5 @@
 researching:
+  - optimize-offscreen-nodecanvas-declarations.md
   - detect-run-off-the-pinned-main-thread.md
 evaluating:
   - nodegraph-mini-map.md
