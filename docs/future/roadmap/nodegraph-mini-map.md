@@ -1,6 +1,6 @@
 ---
 title: NodeGraph mini-map
-state: researching
+state: evaluating
 created: 2026-10-15
 tags: [feature]
 milestone: v0.1.x
