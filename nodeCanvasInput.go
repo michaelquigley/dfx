@@ -51,6 +51,13 @@ type inputSnapshot struct {
 	// any popup is open, whoever owns it; in-flight gestures run to
 	// completion.
 	anyPopupOpen bool
+
+	mapPress               miniMapPressKind
+	mapPoint               imgui.Vec2
+	mapTransform           miniMapTransform
+	mapLayout              miniMapLayout
+	mapOrigin, mapViewport imgui.Vec2
+	mapGraphEmpty          bool
 }
 
 type gestureKind int
@@ -68,6 +75,17 @@ const (
 	gestureBoxSelect
 	gestureLinkDrag
 	gesturePan
+	gestureMiniViewportArmed
+	gestureMiniViewportDrag
+	gestureMiniHold
+)
+
+type miniMapPressKind uint8
+
+const (
+	miniMapPressNone miniMapPressKind = iota
+	miniMapPressViewport
+	miniMapPressPanel
 )
 
 // advanceWheel folds this frame's raw wheel delta into the accumulated
@@ -123,6 +141,27 @@ type gestureState[ID comparable] struct {
 
 	// gesturePan
 	panStart imgui.Vec2 // view.Pan at middle press
+
+	// mini-map navigation freezes the last displayed world-to-map transform.
+	mapTransform           miniMapTransform
+	mapLayout              miniMapLayout
+	mapOrigin, mapViewport imgui.Vec2
+	mapPressPoint          imgui.Vec2
+	mapWasEmpty            bool
+}
+
+func (st gestureState[ID]) isMiniMap() bool {
+	return st.kind == gestureMiniViewportArmed || st.kind == gestureMiniViewportDrag ||
+		st.kind == gestureMiniHold
+}
+
+func (st gestureState[ID]) mapPan(mouse imgui.Vec2, zoom float32) imgui.Vec2 {
+	return imgui.Vec2{X: st.panStart.X - (mouse.X-st.pressScreen.X)/st.mapTransform.scale,
+		Y: st.panStart.Y - (mouse.Y-st.pressScreen.Y)/st.mapTransform.scale}
+}
+
+func (in inputSnapshot) mapAvailable() bool {
+	return !in.mouseUnavailable && (in.leftDown || in.leftReleased)
 }
 
 // dragOffset is the in-flight canvas-space offset of a node drag, derived
@@ -156,10 +195,11 @@ type gestureParams struct {
 // reports changes relative to the supplied geometry's view; pan initiation
 // is tracked separately by the canvas to cancel a pending zoom-to-fit.
 type gestureResult[ID comparable] struct {
-	state       gestureState[ID]
-	view        View
-	viewChanged bool
-	intents     Intents[ID]
+	state        gestureState[ID]
+	view         View
+	viewChanged  bool
+	mapNavigated bool
+	intents      Intents[ID]
 }
 
 // stepGesture advances the gesture state machine by one frame. it is the
@@ -170,16 +210,69 @@ func stepGesture[ID comparable](st gestureState[ID], in inputSnapshot, g *canvas
 
 	switch st.kind {
 	case gestureIdle:
-		stepIdle(&res, in, g, params)
+		if in.mapPress != miniMapPressNone {
+			stepMiniMapPress(&res, in, g)
+		} else {
+			stepIdle(&res, in, g, params)
+		}
 	case gesturePressedNode, gesturePressedEmpty, gesturePressedPin:
 		stepPending(&res, in, g, params)
 	case gestureDragNodes, gestureBoxSelect, gestureLinkDrag:
 		stepActive(&res, in, g, params)
 	case gesturePan:
 		stepPan(&res, in)
+	case gestureMiniViewportArmed, gestureMiniViewportDrag, gestureMiniHold:
+		stepMiniMap(&res, in)
 	}
 
 	return res
+}
+
+func recenterMiniMap(v View, q, viewport imgui.Vec2) View {
+	v.Pan = imgui.Vec2{X: viewport.X/(2*v.Zoom) - q.X, Y: viewport.Y/(2*v.Zoom) - q.Y}
+	return v
+}
+
+func stepMiniMapPress[ID comparable](res *gestureResult[ID], in inputSnapshot, g *canvasGeometry[ID]) {
+	st := gestureState[ID]{kind: gestureMiniHold, pressScreen: in.mouse,
+		mapTransform: in.mapTransform, mapLayout: in.mapLayout,
+		mapOrigin: in.mapOrigin, mapViewport: in.mapViewport,
+		mapPressPoint: in.mapPoint, panStart: g.view.Pan, mapWasEmpty: in.mapGraphEmpty}
+	switch in.mapPress {
+	case miniMapPressViewport:
+		st.kind = gestureMiniViewportArmed
+	case miniMapPressPanel:
+		if !in.mapGraphEmpty {
+			res.view = recenterMiniMap(g.view, in.mapPoint, g.viewport)
+			res.viewChanged = res.view != g.view
+			res.mapNavigated = true
+		}
+	}
+	res.state = st
+}
+
+func stepMiniMap[ID comparable](res *gestureResult[ID], in inputSnapshot) {
+	st := &res.state
+	if !in.mapAvailable() || (in.mapGraphEmpty && !st.mapWasEmpty) {
+		*st = gestureState[ID]{kind: gestureIdle}
+		return
+	}
+	switch st.kind {
+	case gestureMiniViewportArmed, gestureMiniViewportDrag:
+		if in.leftDragging {
+			st.kind = gestureMiniViewportDrag
+			res.view.Pan = st.mapPan(in.mouse, res.view.Zoom)
+			res.viewChanged = res.view.Pan != st.panStart
+			res.mapNavigated = true
+		} else if in.leftReleased {
+			res.view = recenterMiniMap(res.view, st.mapPressPoint, st.mapViewport)
+			res.viewChanged = res.view.Pan != st.panStart
+			res.mapNavigated = true
+		}
+	}
+	if in.leftReleased {
+		*st = gestureState[ID]{kind: gestureIdle}
+	}
 }
 
 // stepIdle handles gesture initiation and detent stepping. initiation is

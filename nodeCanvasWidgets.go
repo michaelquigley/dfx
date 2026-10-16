@@ -10,6 +10,9 @@ import "github.com/AllenDang/cimgui-go/imgui"
 func (nc *NodeCanvas[ID]) prepareNodeInput() {
 	nc.inputNode = nil
 	nc.inputNodeSeen = false
+	if nc.miniMapBlocksNodeInput() {
+		return
+	}
 	g := nc.retained
 	if g == nil {
 		return
@@ -33,7 +36,7 @@ func (nc *NodeCanvas[ID]) prepareNodeInput() {
 func (nc *NodeCanvas[ID]) drawNodeContent(id ID, pos imgui.Vec2, index int, n *NodeContext[ID], content func(*NodeContext[ID])) {
 	owner := nc.inputNode
 	g := nc.retained
-	allowMouse := owner != nil && owner.id == id && owner.rect.Min == pos && owner.declIndex == index &&
+	allowMouse := !nc.miniMapBlocksNodeInput() && owner != nil && owner.id == id && owner.rect.Min == pos && owner.declIndex == index &&
 		g.view == nc.frameView && g.origin == nc.origin && g.viewport == nc.viewport && nc.gesture.kind == gestureIdle
 	if allowMouse {
 		nc.inputNodeSeen = true

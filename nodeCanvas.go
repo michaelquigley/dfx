@@ -113,6 +113,12 @@ type NodeCanvas[ID comparable] struct {
 	fitCanvas   *NodeCanvas[ID]
 	fitNodes    []fitNode[ID]
 	measuring   bool
+
+	miniMap           NodeCanvasMiniMapConfig
+	pendingMiniMap    *NodeCanvasMiniMapConfig
+	miniFrame         miniMapLayout
+	miniRetained      miniMapRendered
+	cancelMiniPending bool
 }
 
 // fitMargin is the screen-pixel margin zoom-to-fit leaves on every side of
@@ -192,6 +198,10 @@ type NodeCanvasConfig struct {
 	// DefaultNodeCanvasStyle() lazily at the first Begin, when an imgui
 	// context and theme are guaranteed live.
 	Style NodeCanvasStyle
+
+	// MiniMap controls the optional on-canvas overview. applications provide
+	// their own visibility affordance through SetMiniMapVisible.
+	MiniMap NodeCanvasMiniMapConfig
 }
 
 // View is the NodeCanvas view state: plain, persistable data. the view
@@ -283,6 +293,7 @@ func NewNodeCanvas[ID comparable](cfg NodeCanvasConfig) *NodeCanvas[ID] {
 		hideZoomOverlay:        cfg.HideZoomOverlay,
 		style:                  cfg.Style,
 		styleSet:               cfg.Style != (NodeCanvasStyle{}),
+		miniMap:                normalizeMiniMapConfig(cfg.MiniMap),
 		wheelStepsPerZoomLevel: wheelSteps,
 		// the canvas opens at the editing detent, not the largest
 		// configured one: with detents above 1.0, starting at the top
@@ -324,6 +335,21 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 		nc.view = *nc.pendingView
 		nc.pendingView = nil
 	}
+	if nc.pendingMiniMap != nil {
+		if *nc.pendingMiniMap != nc.miniMap {
+			if nc.gesture.isMiniMap() {
+				nc.gesture = gestureState[ID]{kind: gestureIdle}
+			}
+		}
+		nc.miniMap = *nc.pendingMiniMap
+		nc.pendingMiniMap = nil
+	}
+	if nc.cancelMiniPending {
+		if nc.gesture.isMiniMap() {
+			nc.gesture = gestureState[ID]{kind: gestureIdle}
+		}
+		nc.cancelMiniPending = false
+	}
 	if nc.fitStarting {
 		nc.fitView = nc.view
 		nc.fitView.Zoom = nc.detents[len(nc.detents)-1]
@@ -347,6 +373,14 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 	// construction.
 	nc.frameView = nc.view
 	nc.frameDragOffset = imgui.Vec2{}
+	if !nc.measuring {
+		nc.miniFrame = layoutMiniMap(nc.origin, nc.viewport, nc.miniMap, nc.style, nc.zoomOverlayRect())
+	} else {
+		nc.miniFrame = miniMapLayout{}
+	}
+	if nc.gesture.isMiniMap() && !nc.miniCaptureValid() {
+		nc.gesture = gestureState[ID]{kind: gestureIdle}
+	}
 	switch nc.gesture.kind {
 	case gesturePan:
 		if in := samplePanInput(); in.panAvailable() {
@@ -355,6 +389,10 @@ func (nc *NodeCanvas[ID]) Begin(state *State) {
 	case gestureDragNodes:
 		mouseCanvas := canvasFromScreen(imgui.MousePos(), nc.frameView, nc.origin)
 		nc.frameDragOffset = nc.gesture.dragOffset(mouseCanvas)
+	case gestureMiniViewportDrag:
+		if in := samplePanInput(); in.mapAvailable() && nc.miniCaptureValid() {
+			nc.frameView.Pan = nc.gesture.mapPan(in.mouse, nc.view.Zoom)
+		}
 	}
 	nc.prepareNodeInput()
 
@@ -462,6 +500,7 @@ func (nc *NodeCanvas[ID]) Node(id ID, pos imgui.Vec2, flags NodeFlags, content f
 		id:        id,
 		rect:      rect,
 		selected:  flags.Selected,
+		accent:    flags.Accent,
 		declIndex: idx,
 		pins:      pins,
 	})
@@ -510,10 +549,13 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 	nc.splitter.Merge(drawList)
 	nc.drawGesturePreviews(drawList, in, g)
 	imgui.PopFont()
+	if !nc.measuring {
+		nc.drawMiniMap(drawList, g)
+	}
 	// the zoom overlay is viewport chrome, not canvas content: it draws
 	// after the scaled font pops so it reads at UI size at every detent,
 	// and above everything else as the last thing the frame emits.
-	if !nc.hideZoomOverlay {
+	if !nc.hideZoomOverlay && (nc.measuring || nc.miniFrame.drawPill) {
 		nc.drawZoomOverlay(drawList)
 	}
 
@@ -523,6 +565,7 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 		locked:  nc.locked,
 	})
 	panStarted := nc.gesture.kind != gesturePan && res.state.kind == gesturePan
+	mapStarted := nc.gesture.kind == gestureIdle && res.state.isMiniMap()
 	nc.gesture = res.state
 	nc.view = res.view
 
@@ -530,6 +573,10 @@ func (nc *NodeCanvas[ID]) End() Intents[ID] {
 	// immediately, even before movement. don't infer that from viewChanged:
 	// Begin already applied any in-flight pan to the frame's drawing view.
 	if res.viewChanged || panStarted {
+		nc.fitPending = false
+		nc.fitStarting = false
+	}
+	if mapStarted && res.state.kind == gestureMiniViewportArmed || res.mapNavigated {
 		nc.fitPending = false
 		nc.fitStarting = false
 	}
@@ -800,13 +847,9 @@ func (nc *NodeCanvas[ID]) drawGesturePreviews(drawList *imgui.DrawList, in input
 // viewport, not in the graph, so it does not scale with zoom.
 func (nc *NodeCanvas[ID]) drawZoomOverlay(drawList *imgui.DrawList) {
 	text := zoomLabel(nc.frameView.Zoom)
-	textSize := imgui.CalcTextSize(text)
-	pad, margin := nc.style.ZoomOverlayPadding, nc.style.ZoomOverlayMargin
-	max := imgui.Vec2{
-		X: nc.origin.X + nc.viewport.X - margin,
-		Y: nc.origin.Y + nc.viewport.Y - margin,
-	}
-	min := imgui.Vec2{X: max.X - textSize.X - 2*pad, Y: max.Y - textSize.Y - 2*pad}
+	r := nc.zoomOverlayRect()
+	min, max := r.Min, r.Max
+	pad := nc.style.ZoomOverlayPadding
 	drawList.AddRectFilledV(min, max, imgui.ColorConvertFloat4ToU32(nc.style.ZoomOverlayBgColor), nc.style.ZoomOverlayRounding, imgui.DrawFlagsNone)
 	drawList.AddTextVec2(imgui.Vec2{X: min.X + pad, Y: min.Y + pad}, imgui.ColorConvertFloat4ToU32(nc.style.ZoomOverlayTextColor), text)
 }
@@ -819,7 +862,9 @@ func zoomLabel(zoom float32) string {
 
 // textColor is the current imgui text color, used by drawlist text.
 func (nc *NodeCanvas[ID]) textColor() uint32 {
-	return imgui.ColorConvertFloat4ToU32(imgui.CurrentStyle().Colors()[imgui.ColText])
+	// the direct accessor reads one color without copying every ImGui style
+	// color through cgo on each label and pin row. it also honors style alpha.
+	return imgui.ColorU32Col(imgui.ColText)
 }
 
 // View returns the view state, pending-first: a SetView not yet applied by
@@ -841,6 +886,7 @@ func (nc *NodeCanvas[ID]) SetView(v View) {
 	nc.pendingView = &v
 	nc.fitPending = false
 	nc.fitStarting = false
+	nc.cancelMiniMapGesture()
 }
 
 // ZoomToFit fits nodes into the viewport: all nodes when ids is empty,
@@ -866,6 +912,7 @@ func (nc *NodeCanvas[ID]) ZoomToFit(ids ...ID) {
 	nc.fitPending = true
 	nc.fitStarting = true
 	nc.pendingView = nil // the fit owns the view until it lands or is canceled
+	nc.cancelMiniMapGesture()
 }
 
 // CenterOn pans the bounds of the given nodes (all nodes when empty) to the
@@ -884,6 +931,7 @@ func (nc *NodeCanvas[ID]) CenterOn(ids ...ID) {
 	nc.pendingView = &v
 	nc.fitPending = false
 	nc.fitStarting = false
+	nc.cancelMiniMapGesture()
 }
 
 // Detent returns the current zoom factor.
@@ -985,6 +1033,29 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	leftPressed := imgui.IsMouseClickedBool(imgui.MouseButtonLeft)
 	leftDown := imgui.IsMouseDown(imgui.MouseButtonLeft)
 	leftReleased := imgui.IsMouseReleased(imgui.MouseButtonLeft)
+	anyPopup := imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel)
+	overlayHovered := hovered && !panInput.mouseUnavailable && !anyPopup && nc.miniMapBlocksNodeInput()
+	var mapPress miniMapPressKind
+	var mapPoint imgui.Vec2
+	var mapTransform miniMapTransform
+	var mapLayout miniMapLayout
+	var mapOrigin, mapViewport imgui.Vec2
+	if overlayHovered && leftPressed && nc.gesture.kind == gestureIdle && !nc.itemActiveInCanvas() &&
+		nc.miniRetained.drawn && nc.miniRetained.layout == nc.miniFrame &&
+		nc.miniRetained.origin == nc.origin && nc.miniRetained.viewport == nc.viewport {
+		r := nc.miniRetained
+		if r.layout.panelShown && r.layout.panel.contains(mouse) {
+			mapPress = miniMapPressPanel
+			if r.transform.valid {
+				mapTransform = r.transform
+				mapPoint = r.transform.unproject(r.transform.clamp(mouse))
+				if rectNonempty(r.grab) && r.grab.contains(mouse) {
+					mapPress = miniMapPressViewport
+				}
+			}
+		}
+		mapLayout, mapOrigin, mapViewport = r.layout, r.origin, r.viewport
+	}
 	// an unmeasured/reordered node must not turn a suppressed widget click
 	// into a canvas gesture. middle pan and already-active gestures stay live.
 	nodeInputReady := nc.nodeInputReady(g, mouse)
@@ -1002,9 +1073,8 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	// frame's End result), the same accepted staleness as origin and
 	// viewport.
 	itemHovered := hovered && imgui.IsAnyItemHovered()
-	anyPopup := imgui.IsPopupOpenStrV("", imgui.PopupFlagsAnyPopupId|imgui.PopupFlagsAnyPopupLevel)
 	var wheel float32
-	if io.KeyCtrl() && hovered && !anyPopup && !itemHovered && nodeInputReady && nc.gesture.kind == gestureIdle {
+	if io.KeyCtrl() && hovered && !overlayHovered && !anyPopup && !itemHovered && nodeInputReady && nc.gesture.kind == gestureIdle {
 		var dir int
 		nc.wheelAccum, dir = advanceWheel(nc.wheelAccum, io.MouseWheel(), nc.wheelStepsPerZoomLevel)
 		wheel = float32(dir)
@@ -1028,23 +1098,30 @@ func (nc *NodeCanvas[ID]) sampleInput(g *canvasGeometry[ID]) inputSnapshot {
 	return inputSnapshot{
 		mouse:            mouse,
 		mouseUnavailable: panInput.mouseUnavailable,
-		leftPressed:      leftPressed && nodeInputReady,
+		leftPressed:      leftPressed && nodeInputReady && !overlayHovered,
 		leftDown:         leftDown,
 		leftReleased:     leftReleased,
 		leftDragging:     nc.leftDragSticky,
-		middlePressed:    panInput.middlePressed,
+		middlePressed:    panInput.middlePressed && !overlayHovered,
 		middleDown:       panInput.middleDown,
 		middleReleased:   panInput.middleReleased,
 		wheel:            wheel,
 		ctrl:             io.KeyCtrl(),
 		shift:            io.KeyShift(),
-		canvasHovered:    hovered,
+		canvasHovered:    hovered && !overlayHovered,
 		// the canvas-scoped arbitration flags: item-hovered gates on the
 		// canvas child (or a descendant) being hovered, so items elsewhere
 		// in the app never suppress canvas input.
 		itemHoveredInCanvas: itemHovered,
 		itemActiveInCanvas:  nc.itemActiveInCanvas(),
 		anyPopupOpen:        anyPopup,
+		mapPress:            mapPress,
+		mapPoint:            mapPoint,
+		mapTransform:        mapTransform,
+		mapLayout:           mapLayout,
+		mapOrigin:           mapOrigin,
+		mapViewport:         mapViewport,
+		mapGraphEmpty:       len(g.nodes) == 0,
 	}
 }
 

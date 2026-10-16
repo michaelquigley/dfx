@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+FEATURE: The NodeCanvas stress example adds deterministic grid and cluster scenes with 100 to 20,000-node presets, adjustable counts, link densities, and separate CPU submission and displayed-frame cadence timings. Headless geometry and ImGui CPU-frame benchmarks cover the same presets.
+
+FIX: `NodeCanvas` text labels and pin rows read ImGui's text color directly instead of copying the full style-color array for every item. This reduces CPU submission cost on large graphs and honors the current style alpha.
+
 ## v0.1.14
 
 CHANGE: Faders use a narrow slot, accent fill, and a rounded handle with a position marker, all using the active theme colors by default. `FaderParams` adds accent color, track width, and handle dimensions while retaining the existing slider interactions and value APIs. Scale marks now align with the handle's inset travel; `DefaultScaleConfig` enables horizontal guide lines. The mixer example opens on a larger five-channel reference bank.

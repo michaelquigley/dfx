@@ -4,7 +4,7 @@ NodeCanvas v1 is built and documented in [`docs/current/node-canvas.md`](../curr
 
 ## Deferred features (from the spec)
 
-**Minimap.** The design bet is that detents + view bookmarks + zoom-to-fit + center-on-selection cover navigation better than a space-eating minimap. Revisit only if large graphs prove disorienting in practice.
+The mini-map is now implemented in the working tree; its [current behavior](../current/node-canvas.md) is documented there. The [remaining work order](nodegraph-mini-map-work-order.md) covers performance comparison, example integration, and hands-on acceptance at approximately 5,000 nodes.
 
 **Link detach-by-drag.** Selection + delete covers removal (deletion is app-side; no delete intent exists by design). Add later if patching workflow wants it.
 

@@ -268,6 +268,7 @@ type nodeGeometry[ID comparable] struct {
 	id        ID
 	rect      canvasRect // outer node rect, anchored at the declared pos
 	selected  bool       // as declared this frame
+	accent    imgui.Vec4 // declared mini-map silhouette color; zero uses style
 	declIndex int
 	pins      []pinGeometry[ID]
 }

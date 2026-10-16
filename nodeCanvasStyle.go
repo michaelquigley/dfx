@@ -32,6 +32,11 @@ type NodeCanvasStyle struct {
 	BoxSelectBorderColor    imgui.Vec4
 	ZoomOverlayBgColor      imgui.Vec4
 	ZoomOverlayTextColor    imgui.Vec4
+	MiniMapBgColor          imgui.Vec4
+	MiniMapBorderColor      imgui.Vec4
+	MiniMapNodeColor        imgui.Vec4
+	MiniMapViewportFill     imgui.Vec4
+	MiniMapViewportOutline  imgui.Vec4
 
 	// render metrics, canvas-space
 	NodeRounding            float32
@@ -52,6 +57,12 @@ type NodeCanvasStyle struct {
 	ZoomOverlayPadding  float32
 	ZoomOverlayMargin   float32
 	ZoomOverlayRounding float32
+
+	// mini-map placement and hit metrics, screen px.
+	MiniMapPadding  float32
+	MiniMapMargin   float32
+	MiniMapGap      float32
+	MiniMapGrabSize float32
 }
 
 // hitParams extracts the screen-pixel tolerances the hit-testing and gesture
@@ -97,6 +108,11 @@ func DefaultNodeCanvasStyle() NodeCanvasStyle {
 		BoxSelectBorderColor:    withAlpha(emphasis, 0.8),
 		ZoomOverlayBgColor:      withAlpha(body, 0.75),
 		ZoomOverlayTextColor:    withAlpha(text, 0.85),
+		MiniMapBgColor:          withAlpha(body, 0.9),
+		MiniMapBorderColor:      border,
+		MiniMapNodeColor:        withAlpha(text, 0.7),
+		MiniMapViewportFill:     withAlpha(emphasis, 0.16),
+		MiniMapViewportOutline:  withAlpha(emphasis, 0.95),
 
 		NodeRounding:            4,
 		NodePadding:             8,
@@ -113,6 +129,10 @@ func DefaultNodeCanvasStyle() NodeCanvasStyle {
 		ZoomOverlayPadding:  4,
 		ZoomOverlayMargin:   8,
 		ZoomOverlayRounding: 3,
+		MiniMapPadding:      6,
+		MiniMapMargin:       8,
+		MiniMapGap:          6,
+		MiniMapGrabSize:     8,
 	}
 }
 
