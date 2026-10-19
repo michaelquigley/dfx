@@ -26,48 +26,64 @@ func (g faderGeometry) y(position float32) float32 {
 	return g.bottom - position*(g.bottom-g.top)
 }
 
+// faderPalette is the fader's resolved colors for one draw. style alpha is applied
+// when they are converted for drawing, once.
+type faderPalette struct {
+	track, fill, border, body imgui.Vec4
+}
+
+// resolveFaderPalette picks the fader's colors from the current style through the
+// selected role bindings. explicit AccentColor and TrackColor win.
+func resolveFaderPalette(params FaderParams, hovered, active bool) faderPalette {
+	roles := currentStyleRoles()
+	p := faderPalette{
+		track:  styleColor(imgui.ColFrameBg),
+		fill:   styleColor(roles.FaderFill),
+		border: styleColor(imgui.ColBorder),
+		body:   styleColor(imgui.ColFrameBg),
+	}
+	if params.TrackColor != nil {
+		p.track = *params.TrackColor
+	}
+	if params.AccentColor != nil {
+		p.fill = *params.AccentColor
+	}
+	if hovered {
+		p.border = p.fill
+		p.body = styleColor(imgui.ColFrameBgHovered)
+	}
+	if active {
+		p.border = styleColor(roles.FaderActive)
+		if params.AccentColor != nil {
+			p.border = p.fill
+		}
+		p.body = styleColor(imgui.ColFrameBgActive)
+	}
+	return p
+}
+
 func drawFader(params FaderParams, g faderGeometry, position float32, hovered, active bool) {
 	dl := imgui.WindowDrawList()
 	y := g.y(position)
-	colors := imgui.CurrentStyle().Colors()
-	track := colors[imgui.ColFrameBg]
-	if params.TrackColor != nil {
-		track = *params.TrackColor
-	}
-	accent := colors[imgui.ColButtonHovered]
-	if params.AccentColor != nil {
-		accent = *params.AccentColor
-	}
+	palette := resolveFaderPalette(params, hovered, active)
 	left, right := g.centerX-g.trackWidth/2, g.centerX+g.trackWidth/2
-	dl.AddRectFilled(imgui.Vec2{X: left, Y: g.top}, imgui.Vec2{X: right, Y: g.bottom}, imgui.ColorU32Vec4(track))
+	dl.AddRectFilled(imgui.Vec2{X: left, Y: g.top}, imgui.Vec2{X: right, Y: g.bottom}, imgui.ColorU32Vec4(palette.track))
 	if y < g.bottom {
-		dl.AddRectFilled(imgui.Vec2{X: left, Y: y}, imgui.Vec2{X: right, Y: g.bottom}, imgui.ColorU32Vec4(accent))
+		dl.AddRectFilled(imgui.Vec2{X: left, Y: y}, imgui.Vec2{X: right, Y: g.bottom}, imgui.ColorU32Vec4(palette.fill))
 	}
 
 	handleMin := imgui.Vec2{X: g.centerX - g.handleWidth/2, Y: y - g.handleHeight/2}
 	handleMax := imgui.Vec2{X: g.centerX + g.handleWidth/2, Y: y + g.handleHeight/2}
 	rounding := min(g.handleWidth, g.handleHeight) / 2
 	// two soft shadow layers, inset enough to stay within the item's bounds.
+	shadow := imgui.ColorU32Vec4(styleColor(imgui.ColBorderShadow))
 	for _, offset := range []float32{2, 1} {
-		dl.AddRectFilledV(imgui.Vec2{X: handleMin.X, Y: handleMin.Y + offset}, imgui.Vec2{X: handleMax.X, Y: handleMax.Y + offset}, imgui.ColorU32Vec4(colors[imgui.ColBorderShadow]), rounding, imgui.DrawFlagsNone)
+		dl.AddRectFilledV(imgui.Vec2{X: handleMin.X, Y: handleMin.Y + offset}, imgui.Vec2{X: handleMax.X, Y: handleMax.Y + offset}, shadow, rounding, imgui.DrawFlagsNone)
 	}
-	border := colors[imgui.ColBorder]
-	body := colors[imgui.ColFrameBg]
-	if hovered {
-		border = accent
-		body = colors[imgui.ColFrameBgHovered]
-	}
-	if active {
-		border = colors[imgui.ColButtonActive]
-		if params.AccentColor != nil {
-			border = accent
-		}
-		body = colors[imgui.ColFrameBgActive]
-	}
-	dl.AddRectFilledV(handleMin, handleMax, imgui.ColorU32Vec4(border), rounding, imgui.DrawFlagsNone)
+	dl.AddRectFilledV(handleMin, handleMax, imgui.ColorU32Vec4(palette.border), rounding, imgui.DrawFlagsNone)
 	bevel := min(3, min(g.handleWidth, g.handleHeight)/4)
-	dl.AddRectFilledV(imgui.Vec2{X: handleMin.X + bevel, Y: handleMin.Y + bevel}, imgui.Vec2{X: handleMax.X - bevel, Y: handleMax.Y - bevel}, imgui.ColorU32Vec4(body), max(0, rounding-bevel), imgui.DrawFlagsNone)
+	dl.AddRectFilledV(imgui.Vec2{X: handleMin.X + bevel, Y: handleMin.Y + bevel}, imgui.Vec2{X: handleMax.X - bevel, Y: handleMax.Y - bevel}, imgui.ColorU32Vec4(palette.body), max(0, rounding-bevel), imgui.DrawFlagsNone)
 	markerHalfWidth := g.handleWidth * 0.22
 	markerHalfHeight := min(1.5, g.handleHeight/8)
-	dl.AddRectFilled(imgui.Vec2{X: g.centerX - markerHalfWidth, Y: y - markerHalfHeight}, imgui.Vec2{X: g.centerX + markerHalfWidth, Y: y + markerHalfHeight}, imgui.ColorU32Vec4(colors[imgui.ColText]))
+	dl.AddRectFilled(imgui.Vec2{X: g.centerX - markerHalfWidth, Y: y - markerHalfHeight}, imgui.Vec2{X: g.centerX + markerHalfWidth, Y: y + markerHalfHeight}, imgui.ColorU32Vec4(styleColor(imgui.ColText)))
 }

@@ -110,7 +110,10 @@ func (m *ModernTheme) Name() string {
 	return "Modern Dark"
 }
 
+// Apply starts from imgui's dark colors, which a fresh context already holds, so
+// the slots below leave unset keep the same values after any previous theme.
 func (m *ModernTheme) Apply() {
+	imgui.StyleColorsDark()
 	colors := imgui.CurrentStyle().Colors()
 	colors[imgui.ColText] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 1.0}
 	colors[imgui.ColTextDisabled] = imgui.Vec4{X: 1.0, Y: 1.0, Z: 1.0, W: 0.399}

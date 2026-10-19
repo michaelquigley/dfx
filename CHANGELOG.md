@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+FEATURE: `Config.Style` selects a complete style — typography, ImGui metrics, default color theme, spacing values, and the color roles dfx's chrome reads — at startup. `ClassicStyle()` returns the existing fonts, metrics, and Modern Dark colors as a customizable configuration copy with shared immutable font assets and remains the default, so applications that set no style are unchanged. `Config.Theme` still overrides the colors, `DisableTheming` still applies metrics, and `CurrentStyle()` reports the running selection. `PushHeadingFont` pushes a style's optional heading face, falling back to the main font. Fader fill and border colors resolve through the style's roles, which Classic binds to the previous slots. `Run` returns an error for a style missing required font data. See `docs/current/styles.md`.
+
+CHANGE: `ModernDark` starts from ImGui's dark colors before applying its own, so applying it after another theme no longer leaves that theme's colors in the slots Modern Dark does not set. The result on a fresh context is unchanged.
+
 ## v0.1.15
 
 FEATURE: `NodeCanvas` offers an optional mini-map with configurable visibility, size, and corner, defaulting to the lower-left. It draws node silhouettes and a viewport outline for large-graph navigation; clicking recenters and dragging the viewport pans without changing zoom or emitting graph edits. Applications own the visibility control through `SetMiniMapVisible`; the node-canvas example binds M, and the stress example exposes visibility, corner, and size controls.

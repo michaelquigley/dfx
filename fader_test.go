@@ -222,3 +222,115 @@ func faderVertexColors(dl *imgui.DrawList, start int) []uint32 {
 	}
 	return colors
 }
+
+// distinctColors gives every style slot its own color, so a binding to the wrong
+// slot cannot pass by coincidence.
+func distinctColors() {
+	colors := imgui.CurrentStyle().Colors()
+	for i := range colors {
+		colors[i] = imgui.Vec4{X: float32(i) / 100, Y: 0.5, Z: 0.25, W: 1}
+	}
+	imgui.CurrentStyle().SetColors(&colors)
+}
+
+func TestFader_ClassicRoleBindingsMatchLegacyColors(t *testing.T) {
+	_, frame := faderTestFrame(t)
+	accent := imgui.Vec4{X: 0.85, Y: 0.1, Z: 0.65, W: 0.7}
+	track := imgui.Vec4{X: 0.2, Y: 0.4, Z: 0.6, W: 0.8}
+	frame(func() {
+		distinctColors()
+		c := imgui.CurrentStyle().Colors()
+		for _, explicitAccent := range []bool{false, true} {
+			for _, explicitTrack := range []bool{false, true} {
+				params := DefaultFaderParams()
+				if explicitAccent {
+					params.AccentColor = &accent
+				}
+				if explicitTrack {
+					params.TrackColor = &track
+				}
+				// the colors faders drew before role bindings existed
+				fill := c[imgui.ColButtonHovered]
+				if explicitAccent {
+					fill = accent
+				}
+				slot := c[imgui.ColFrameBg]
+				if explicitTrack {
+					slot = track
+				}
+				activeBorder := c[imgui.ColButtonActive]
+				if explicitAccent {
+					activeBorder = accent
+				}
+				cases := []struct {
+					name            string
+					hovered, active bool
+					border, body    imgui.Vec4
+				}{
+					{"idle", false, false, c[imgui.ColBorder], c[imgui.ColFrameBg]},
+					{"hovered", true, false, fill, c[imgui.ColFrameBgHovered]},
+					{"active", false, true, activeBorder, c[imgui.ColFrameBgActive]},
+					{"hovered active", true, true, activeBorder, c[imgui.ColFrameBgActive]},
+				}
+				for _, tc := range cases {
+					got := resolveFaderPalette(params, tc.hovered, tc.active)
+					want := faderPalette{track: slot, fill: fill, border: tc.border, body: tc.body}
+					if got != want {
+						t.Fatalf("%s (accent %v, track %v): expected '%v', got '%v'", tc.name, explicitAccent, explicitTrack, want, got)
+					}
+				}
+			}
+		}
+	})
+}
+
+func TestFader_RoleBindingsFollowSelectedStyle(t *testing.T) {
+	_, frame := faderTestFrame(t)
+	previous := activeStyle
+	defer func() { activeStyle = previous }()
+	style := ClassicStyle()
+	style.Roles.FaderFill, style.Roles.FaderActive = imgui.ColCheckMark, imgui.ColSliderGrabActive
+	activeStyle = &activeStyleState{style: style}
+	frame(func() {
+		distinctColors()
+		c := imgui.CurrentStyle().Colors()
+		params := DefaultFaderParams()
+		if p := resolveFaderPalette(params, true, false); p.fill != c[imgui.ColCheckMark] || p.border != c[imgui.ColCheckMark] {
+			t.Fatalf("fill and hovered border must follow the fill role: '%v'", p)
+		}
+		if p := resolveFaderPalette(params, false, true); p.border != c[imgui.ColSliderGrabActive] {
+			t.Fatalf("active border must follow the active role: '%v'", p)
+		}
+		accent := imgui.Vec4{X: 0.9, Y: 0.9, W: 1}
+		params.AccentColor = &accent
+		if p := resolveFaderPalette(params, false, true); p.fill != accent || p.border != accent {
+			t.Fatalf("explicit accent must win over role bindings: '%v'", p)
+		}
+		// role colors also follow local pushes, read at draw time
+		pushed := imgui.Vec4{X: 0.11, Y: 0.22, Z: 0.33, W: 1}
+		imgui.PushStyleColorVec4(imgui.ColCheckMark, pushed)
+		if p := resolveFaderPalette(DefaultFaderParams(), false, false); p.fill != pushed {
+			t.Fatalf("role color must follow a local push: '%v'", p.fill)
+		}
+		imgui.PopStyleColor()
+	})
+}
+
+func TestFader_DisabledThemeFillAppliesStyleAlphaOnce(t *testing.T) {
+	_, frame := faderTestFrame(t)
+	frame(func() {
+		SetTheme(ModernDark)
+		imgui.BeginDisabled()
+		expected := imgui.ColorU32Col(imgui.ColButtonHovered) // includes the disabled alpha once
+		dl := imgui.WindowDrawList()
+		start := dl.VtxBuffer().Size
+		FaderN("##disabled", 0.5, DefaultFaderParams())
+		imgui.EndDisabled()
+		for _, color := range faderVertexColors(dl, start) {
+			if color == expected {
+				return
+			}
+		}
+		t.Fatalf("disabled fader did not draw its fill at %#x", expected)
+	})
+}

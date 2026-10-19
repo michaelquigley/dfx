@@ -197,7 +197,7 @@ type FaderParams struct {
 	HandleWidth  float32     // default Width - 4
 	HandleHeight float32     // default 18.0
 	TrackWidth   float32     // default 4.0
-	AccentColor  *imgui.Vec4 // nil = theme ButtonHovered
+	AccentColor  *imgui.Vec4 // nil = the style's fader fill role (Classic: theme ButtonHovered)
 
 	// Display options
 	Format      func(normalized float32) string // optional: custom tooltip format

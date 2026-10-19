@@ -42,6 +42,7 @@ The whole model is small enough to hold in your head:
 - [`docs/current/child-actions.md`](docs/current/child-actions.md) — the action subsystem: registries, precedence/cascade, key-string format, menu actions.
 - [`docs/current/faders.md`](docs/current/faders.md) — fader value APIs, theme colors, handle sizing, tapers, and scales.
 - [`docs/current/hcollapse.md`](docs/current/hcollapse.md) — `HCollapse`'s sizing contract, clamp order, and anchors.
+- [`docs/current/styles.md`](docs/current/styles.md) — complete styles (`Config.Style`, Classic), setup order, color-only themes, role bindings, and legacy helpers.
 - [`docs/current/icon-fonts.md`](docs/current/icon-fonts.md) — additive Material Symbols, legacy icon preservation, and font regeneration.
 - [`docs/current/node-canvas-stress.md`](docs/current/node-canvas-stress.md) — reproducible large-graph fixture, interactive timing, and headless NodeCanvas benchmarks.
 

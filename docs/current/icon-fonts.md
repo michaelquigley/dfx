@@ -1,6 +1,6 @@
 # icon fonts
 
-`SetupFonts` merges the existing Material Icons font and an additive Material Symbols font into both the main and small UI fonts. the font slots and existing `fonts.ICON_*` constants are unchanged. new symbols use `fonts.ICON_SYMBOL_*`, including `ICON_SYMBOL_VIEW_REAL_SIZE` for the 1:1 zoom reset icon.
+Font setup merges the existing Material Icons font and an additive Material Symbols font into every style face whose `FontFace.Icons` is set — in Classic, and so in `SetupFonts`, the main and small UI fonts (see [styles.md](styles.md)). the font slots and existing `fonts.ICON_*` constants are unchanged. new symbols use `fonts.ICON_SYMBOL_*`, including `ICON_SYMBOL_VIEW_REAL_SIZE` for the 1:1 zoom reset icon.
 
 the supplement contains only private-use BMP codepoints absent from the bundled Material Icons font. codepoint collisions keep their existing Material Icons artwork; the supplement does not replace them. symbols outside the BMP are omitted because the pinned cimgui-go build uses 16-bit `ImWchar`. applications can use the exported supplemental constants directly as widget labels, with the same font scaling and baseline alignment as existing icons.
 

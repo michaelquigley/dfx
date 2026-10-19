@@ -47,9 +47,10 @@ type Config struct {
 	OnSizeChange   func(int, int)    // called when window is resized
 	OnAction       func(ActionEvent) // called whenever an action is invoked (usage telemetry)
 	MenuBar        Component         // optional menu bar component
-	Theme          Theme          // optional theme (defaults to DefaultTheme)
+	Style          *Style         // optional complete style, copied at startup (defaults to ClassicStyle)
+	Theme          Theme          // optional color theme, overriding the style's default theme
 	DisableFonts   bool           // if true, skip font setup (use default ImGui fonts)
-	DisableTheming bool           // if true, skip theme setup (use default ImGui theme)
+	DisableTheming bool           // if true, skip color theme setup (style metrics still apply)
 	Icons          []image.Image  // optional window icons
 }
 
@@ -79,9 +80,18 @@ func New(root Component, config Config) *App {
 
 func (app *App) Run() error {
 	defer close(app.done)
+	// style metadata and font globals belong to this run; restore them on every exit
+	defer saveStyleGlobals()()
 
 	// record start time for log timestamps
 	app.startTime = time.Now()
+
+	if app.config.Style != nil {
+		if err := app.config.Style.validate(); err != nil {
+			app.runErr = err
+			return app.runErr
+		}
+	}
 
 	var err error
 	app.backend, err = createBackend()
@@ -316,23 +326,32 @@ func (app *App) applyPendingGeometry() {
 	}
 }
 
-// setupFontsAndTheme initializes fonts and applies theme
+// setupFontsAndTheme selects the complete style, then loads its fonts, applies its
+// metrics, and applies the effective color theme, in that order. OnSetup runs
+// after, so application setup has the final word.
 func (app *App) setupFontsAndTheme() {
+	style := ClassicStyle()
+	if app.config.Style != nil {
+		style = *app.config.Style
+	}
+	if app.config.Theme != nil {
+		style.Theme = app.config.Theme
+	}
+	if style.Theme == nil {
+		style.Theme = &ModernTheme{}
+	}
+	activeStyle = &activeStyleState{style: style}
+
 	// setup fonts unless disabled
 	if !app.config.DisableFonts {
-		SetupFonts()
+		setupFonts(style.Typography)
 	}
 
-	// apply default style
-	DefaultStyle()
+	applyStyleMetrics(style.Metrics)
 
-	// apply theme unless disabled
+	// apply color theme unless disabled
 	if !app.config.DisableTheming {
-		theme := app.config.Theme
-		if theme == nil {
-			theme = &ModernTheme{}
-		}
-		SetTheme(theme)
+		SetTheme(style.Theme)
 	}
 }
 

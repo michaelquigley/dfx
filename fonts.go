@@ -15,83 +15,70 @@ const (
 	SmallFont     = 2 // small font (Gidole Regular, 16px) with icons and supplemental symbols merged
 )
 
+// headingFont is the slot a style's optional heading face is appended to; reach it
+// through PushHeadingFont.
+const headingFont = SmallFont + 1
+
 var Fonts []*imgui.Font
 
-// SetupFonts initializes and loads all fonts
-// this should be called during app initialization
+// SetupFonts loads Classic's fonts into the current atlas, replacing any existing
+// fonts. App startup loads the selected style's typography itself.
 func SetupFonts() {
+	setupFonts(ClassicStyle().Typography)
+}
+
+// setupFonts loads a typography into the font slots, merging icons into each face
+// that asks for them, and records the slot sizes PushFont uses.
+func setupFonts(t Typography) {
 	// clear any existing fonts
 	imgui.CurrentIO().Fonts().Clear()
 	Fonts = Fonts[:0] // clear slice but keep capacity
 
-	// add Gidole Regular as the main font
-	gidoleConfig := imgui.NewFontConfig()
-	gidoleConfig.SetFontData(uintptr(unsafe.Pointer(&fonts.GidoleRegular[0])))
-	gidoleConfig.SetFontDataSize(int32(len(fonts.GidoleRegular)))
-	gidoleConfig.SetFontDataOwnedByAtlas(false)
-	gidoleConfig.SetSizePixels(20.0)
-	Fonts = append(Fonts, imgui.CurrentIO().Fonts().AddFont(gidoleConfig))
-
-	// build glyph ranges for material icons (used for both main and small fonts)
+	// build glyph ranges for material icons (shared by every face that merges them)
 	builder := imgui.NewFontGlyphRangesBuilder()
-	ranges := []imgui.Wchar{'\ue000', '\uff01', 0}
+	ranges := []imgui.Wchar{'', '！', 0}
 	builder.AddRanges(&ranges[0])
 	glyphRanges := imgui.NewGlyphRange()
 	builder.BuildRanges(glyphRanges)
 
-	// add Material Icons merged with main font (don't append - it merges into MainFont)
-	materialConfig := imgui.NewFontConfig()
-	materialConfig.SetFontData(uintptr(unsafe.Pointer(&fonts.MaterialIconsRegular[0])))
-	materialConfig.SetFontDataSize(int32(len(fonts.MaterialIconsRegular)))
-	materialConfig.SetFontDataOwnedByAtlas(false)
-	materialConfig.SetSizePixels(20.0)
-	materialConfig.SetGlyphOffset(imgui.Vec2{X: 0, Y: 5})
-	materialConfig.SetGlyphRanges(glyphRanges.Data())
-	materialConfig.SetMergeMode(true) // merge with previous font
-	imgui.CurrentIO().Fonts().AddFont(materialConfig)
-	mergeMaterialSymbols(20.0, 5, glyphRanges.Data())
-
-	// add JetBrains Mono as monospace font
-	monoConfig := imgui.NewFontConfig()
-	monoConfig.SetFontData(uintptr(unsafe.Pointer(&fonts.JetBrainsMonoMedium[0])))
-	monoConfig.SetFontDataSize(int32(len(fonts.JetBrainsMonoMedium)))
-	monoConfig.SetFontDataOwnedByAtlas(false)
-	monoConfig.SetSizePixels(16.0)
-	Fonts = append(Fonts, imgui.CurrentIO().Fonts().AddFont(monoConfig))
-
-	// add small font (Gidole for small labels/indicators)
-	smallConfig := imgui.NewFontConfig()
-	smallConfig.SetFontData(uintptr(unsafe.Pointer(&fonts.GidoleRegular[0])))
-	smallConfig.SetFontDataSize(int32(len(fonts.GidoleRegular)))
-	smallConfig.SetFontDataOwnedByAtlas(false)
-	smallConfig.SetSizePixels(16.0)
-	Fonts = append(Fonts, imgui.CurrentIO().Fonts().AddFont(smallConfig))
-
-	// add small Material Icons merged with small font
-	smallMaterialConfig := imgui.NewFontConfig()
-	smallMaterialConfig.SetFontData(uintptr(unsafe.Pointer(&fonts.MaterialIconsRegular[0])))
-	smallMaterialConfig.SetFontDataSize(int32(len(fonts.MaterialIconsRegular)))
-	smallMaterialConfig.SetFontDataOwnedByAtlas(false)
-	smallMaterialConfig.SetSizePixels(16.0)
-	smallMaterialConfig.SetGlyphOffset(imgui.Vec2{X: 0, Y: 3}) // scaled offset (4px at 20px -> 3px at 16px)
-	smallMaterialConfig.SetGlyphRanges(glyphRanges.Data())
-	smallMaterialConfig.SetMergeMode(true) // merge with previous font (small font)
-	imgui.CurrentIO().Fonts().AddFont(smallMaterialConfig)
-	mergeMaterialSymbols(16.0, 3, glyphRanges.Data())
+	sizes := make([]float32, 0, headingFont+1)
+	faces := []FontFace{t.Main, t.Monospace, t.Small}
+	if len(t.Heading.Data) > 0 {
+		faces = append(faces, t.Heading)
+	}
+	for _, face := range faces {
+		Fonts = append(Fonts, imgui.CurrentIO().Fonts().AddFont(fontConfig(face.Data, face.Size, 0, nil)))
+		if face.Icons {
+			mergeMaterialIcons(face.Size, face.IconOffset, glyphRanges.Data())
+		}
+		sizes = append(sizes, face.Size)
+	}
+	fontSizes = sizes
+	if activeStyle != nil {
+		activeStyle.fontsLoaded = true
+	}
 }
 
-// mergeMaterialSymbols adds the fixed-style supplemental symbols to the preceding font. its cmap
-// excludes all codepoints in Material Icons, so existing icons retain their original artwork.
-func mergeMaterialSymbols(size, offset float32, ranges *imgui.Wchar) {
+func fontConfig(data []byte, size, offset float32, ranges *imgui.Wchar) *imgui.FontConfig {
 	config := imgui.NewFontConfig()
-	config.SetFontData(uintptr(unsafe.Pointer(&fonts.MaterialSymbolsSupplement[0])))
-	config.SetFontDataSize(int32(len(fonts.MaterialSymbolsSupplement)))
+	config.SetFontData(uintptr(unsafe.Pointer(&data[0])))
+	config.SetFontDataSize(int32(len(data)))
 	config.SetFontDataOwnedByAtlas(false)
 	config.SetSizePixels(size)
-	config.SetGlyphOffset(imgui.Vec2{Y: offset})
-	config.SetGlyphRanges(ranges)
-	config.SetMergeMode(true)
-	imgui.CurrentIO().Fonts().AddFont(config)
+	if ranges != nil {
+		config.SetGlyphOffset(imgui.Vec2{Y: offset})
+		config.SetGlyphRanges(ranges)
+		config.SetMergeMode(true) // merge with the preceding font
+	}
+	return config
+}
+
+// mergeMaterialIcons merges Material Icons into the preceding font, then the
+// fixed-style supplemental symbols. the supplement's cmap excludes all codepoints in
+// Material Icons, so existing icons retain their original artwork.
+func mergeMaterialIcons(size, offset float32, ranges *imgui.Wchar) {
+	imgui.CurrentIO().Fonts().AddFont(fontConfig(fonts.MaterialIconsRegular, size, offset, ranges))
+	imgui.CurrentIO().Fonts().AddFont(fontConfig(fonts.MaterialSymbolsSupplement, size, offset, ranges))
 }
 
 // font sizes corresponding to each font index
@@ -106,6 +93,24 @@ func PushFont(fontIndex int) {
 			size = fontSizes[fontIndex]
 		}
 		imgui.PushFont(Fonts[fontIndex], size)
+	}
+}
+
+// PushHeadingFont switches to the style's heading face, or the main font when the
+// style has none. when dfx fonts were not loaded it pushes the current font, so it
+// always pairs with PopFont.
+func PushHeadingFont() {
+	loaded := len(Fonts) > MainFont
+	if activeStyle != nil {
+		loaded = activeStyle.fontsLoaded
+	}
+	switch {
+	case !loaded:
+		imgui.PushFont(imgui.CurrentFont(), 0)
+	case len(Fonts) > headingFont:
+		PushFont(headingFont)
+	default:
+		PushFont(MainFont)
 	}
 }
 
