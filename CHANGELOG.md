@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.18
+
+FIX: Faceplate collapsing headers now rest in neutral gray and pick up the accent on hover, instead of the other way around.
+
 ## v0.1.17
 
 FIX: A MultiGrid nested in another grid's cell is no longer padded twice. The outer cell leaves a nested grid unpadded, since the nested grid's own cells pad their content, so nested panels line up with their siblings under Faceplate.

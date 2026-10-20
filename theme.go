@@ -182,7 +182,8 @@ var (
 
 // FaceplateTheme is the faceplate family's color theme: neutral charcoal chrome
 // with one identity Accent, which marks active values, selection, and focus.
-// hover is neutral. like Modern Dark, it starts from imgui's dark colors, so its
+// headers highlight on hover; other hover treatments are neutral. like Modern
+// Dark, it starts from imgui's dark colors, so its
 // result does not depend on a previously applied theme.
 type FaceplateTheme struct {
 	Accent imgui.Vec4
@@ -224,8 +225,8 @@ func (f *FaceplateTheme) Apply() {
 	colors[imgui.ColButton] = faceplateRaised
 	colors[imgui.ColButtonHovered] = faceplateTrack
 	colors[imgui.ColButtonActive] = faceplatePress
-	colors[imgui.ColHeader] = withAlpha(accent, 0.22)
-	colors[imgui.ColHeaderHovered] = faceplateTrack
+	colors[imgui.ColHeader] = faceplateTrack
+	colors[imgui.ColHeaderHovered] = withAlpha(accent, 0.22)
 	colors[imgui.ColHeaderActive] = withAlpha(accent, 0.35)
 	colors[imgui.ColSeparator] = faceplateTrack
 	colors[imgui.ColSeparatorHovered] = faceplatePress
