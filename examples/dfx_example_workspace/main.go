@@ -74,9 +74,8 @@ func main() {
 			// advance cursor
 			imgui.Dummy(imgui.Vec2{X: 0, Y: baseSize + spacing})
 			imgui.Text(fmt.Sprintf("viewing at %.1fx zoom", viewerScale))
-
-			imgui.EndChild()
 		}
+		imgui.EndChild() // EndChild pairs with every BeginChild, even when it returns false
 	})
 
 	// create settings workspace

@@ -254,9 +254,8 @@ func main() {
 
 				imgui.EndTable()
 			}
-
-			imgui.EndChild()
 		}
+		imgui.EndChild() // EndChild pairs with every BeginChild, even when it returns false
 
 		imgui.Separator()
 		imgui.Text("Fader Types:")

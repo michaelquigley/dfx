@@ -27,9 +27,8 @@ func main() {
 					selectedItem = i
 				}
 			}
-
-			imgui.EndChild()
 		}
+		imgui.EndChild() // EndChild pairs with every BeginChild, even when it returns false
 	})
 
 	// main content component
@@ -78,9 +77,8 @@ func main() {
 			col := imgui.ColorConvertFloat4ToU32(imgui.Vec4{X: colorR, Y: colorG, Z: colorB, W: 1.0})
 			drawList.AddRectFilled(pos, pos.Add(imgui.Vec2{X: 100, Y: 50}), col)
 			imgui.Dummy(imgui.Vec2{X: 100, Y: 50})
-
-			imgui.EndChild()
 		}
+		imgui.EndChild()
 	})
 
 	// create menu bar component
