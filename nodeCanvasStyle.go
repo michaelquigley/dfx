@@ -76,7 +76,8 @@ func (s *NodeCanvasStyle) hitParams() hitParams {
 }
 
 // DefaultNodeCanvasStyle derives a complete style from the active dfx theme,
-// reading imgui style colors the way the theme system writes them. it
+// reading imgui style colors the way the theme system writes them, with selection
+// emphasis from the selected style's Accent role. it
 // requires a live imgui context: components are constructed before app.Run
 // creates the context and applies the theme, so a zero-valued
 // NodeCanvasConfig.Style is resolved lazily at the first Begin rather than
@@ -88,7 +89,7 @@ func DefaultNodeCanvasStyle() NodeCanvasStyle {
 	text := colors[imgui.ColText]
 	body := colors[imgui.ColPopupBg]
 	title := colors[imgui.ColTitleBgActive]
-	emphasis := colors[imgui.ColHeaderActive]
+	emphasis := colors[currentStyleRoles().Accent] // selection; Classic's is ColHeaderActive
 	hover := colors[imgui.ColHeaderHovered]
 
 	return NodeCanvasStyle{

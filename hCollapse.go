@@ -137,7 +137,7 @@ func (h *HCollapse) Draw(state *State) {
 
 	// draw the full expanded panel with child window
 	imgui.SetNextWindowBgAlpha(DashBackgroundAlpha)
-	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, DashWindowRounding)
+	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, currentStyleChrome().PanelRounding)
 
 	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoResize | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
@@ -163,7 +163,7 @@ func (h *HCollapse) Draw(state *State) {
 func (h *HCollapse) drawCollapsedToggle(state *State) {
 	// draw a simple background for the collapsed state
 	imgui.SetNextWindowBgAlpha(DashBackgroundAlpha)
-	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, DashWindowRounding)
+	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, currentStyleChrome().PanelRounding)
 
 	// use a minimal child just for the background, with no scrollbars
 	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoTitleBar | imgui.WindowFlagsNoResize | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
@@ -171,21 +171,29 @@ func (h *HCollapse) drawCollapsedToggle(state *State) {
 	childSize := imgui.Vec2{X: h.CurrentWidth, Y: h.effectiveHeight(state.Size.Y)}
 	imgui.BeginChildStrV(h.imguiID(), childSize, imgui.ChildFlagsNone, windowFlags)
 
-	windowPadding := imgui.CurrentStyle().WindowPadding()
-	imgui.SetCursorPos(windowPadding)
+	// the toggle is centered in the strip, its frame padding narrowed to fit, so
+	// larger padding never pushes it outside a collapsed panel. Classic's 28 px
+	// toggle in a 36 px strip sits at the panel padding, as it always has.
+	icon := h.toggleIcon()
+	framePadding := imgui.CurrentStyle().FramePadding()
+	framePadding.X = max(0, min(framePadding.X, (h.CurrentWidth-imgui.CalcTextSize(icon).X)/2))
+	buttonWidth := imgui.CalcTextSize(icon).X + framePadding.X*2
+	imgui.SetCursorPos(imgui.Vec2{X: max(0, (h.CurrentWidth-buttonWidth)/2), Y: imgui.CurrentStyle().WindowPadding().Y})
 
 	// toggle button only
 	imgui.PushStyleColorVec4(imgui.ColButton, imgui.Vec4{})
-	imgui.PushStyleColorVec4(imgui.ColButtonHovered, imgui.CurrentStyle().Colors()[imgui.ColHeaderHovered])
-	imgui.PushStyleColorVec4(imgui.ColButtonActive, imgui.CurrentStyle().Colors()[imgui.ColHeaderActive])
+	imgui.PushStyleColorVec4(imgui.ColButtonHovered, styleColor(imgui.ColHeaderHovered))
+	imgui.PushStyleColorVec4(imgui.ColButtonActive, styleColor(imgui.ColHeaderActive))
+	imgui.PushStyleVarVec2(imgui.StyleVarFramePadding, framePadding)
 
-	if imgui.Button(h.toggleIcon() + h.imguiID() + "_toggle") {
+	if imgui.Button(icon + h.imguiID() + "_toggle") {
 		h.Toggle()
 	}
 	if imgui.IsItemHovered() && h.Title != "" {
 		imgui.SetTooltip(h.Title)
 	}
 
+	imgui.PopStyleVar()
 	imgui.PopStyleColorV(3)
 
 	imgui.EndChild()
@@ -213,8 +221,8 @@ func (h *HCollapse) drawHeader() {
 	label := icon + h.imguiID() + "_toggle"
 
 	imgui.PushStyleColorVec4(imgui.ColButton, imgui.Vec4{})
-	imgui.PushStyleColorVec4(imgui.ColButtonHovered, imgui.CurrentStyle().Colors()[imgui.ColHeaderHovered])
-	imgui.PushStyleColorVec4(imgui.ColButtonActive, imgui.CurrentStyle().Colors()[imgui.ColHeaderActive])
+	imgui.PushStyleColorVec4(imgui.ColButtonHovered, styleColor(imgui.ColHeaderHovered))
+	imgui.PushStyleColorVec4(imgui.ColButtonActive, styleColor(imgui.ColHeaderActive))
 
 	if h.Anchor == AnchorRight {
 		buttonWidth := imgui.CalcTextSize(icon).X + imgui.CurrentStyle().FramePadding().X*2
@@ -240,11 +248,21 @@ func (h *HCollapse) drawHeader() {
 	}
 }
 
-// drawContent draws the content area.
+// headerHeight is the measured height of the expanded header: the toggle's frame
+// below the panel padding, then the panel padding again unless the content's own
+// padding already separates them, so the gap has one owner. 36 px in Classic,
+// matching HCollapseHeaderHeight.
+func (h *HCollapse) headerHeight() float32 {
+	padding := imgui.CurrentStyle().WindowPadding().Y
+	return padding + imgui.FrameHeight() + max(0, padding-currentStyleChrome().ContentPadding.Y)
+}
+
+// drawContent draws the content area below the header, inset by the style's
+// content padding, and passes the content its usable size.
 // only called when fully expanded to avoid scrollbar overlap with toggle button.
 func (h *HCollapse) drawContent(state *State) {
 	// position cursor below header, at left edge (ignore window padding)
-	imgui.SetCursorPos(imgui.Vec2{X: 0, Y: HCollapseHeaderHeight})
+	imgui.SetCursorPos(imgui.Vec2{X: 0, Y: h.headerHeight()})
 
 	// get available region inside the outer child window
 	avail := imgui.ContentRegionAvail()
@@ -254,13 +272,18 @@ func (h *HCollapse) drawContent(state *State) {
 		return
 	}
 
-	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{})
+	padding := currentStyleChrome().ContentPadding
+	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, padding)
 	contentFlags := imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
-	imgui.BeginChildStrV(h.imguiID()+"_content", imgui.Vec2{X: contentWidth, Y: contentHeight}, 0, contentFlags)
+	childFlags := imgui.ChildFlagsNone
+	if padding != (imgui.Vec2{}) {
+		childFlags = imgui.ChildFlagsAlwaysUseWindowPadding // borderless children drop padding otherwise
+	}
+	imgui.BeginChildStrV(h.imguiID()+"_content", imgui.Vec2{X: contentWidth, Y: contentHeight}, childFlags, contentFlags)
 
-	if h.Content != nil {
+	if usable, ok := usableSize(); ok && h.Content != nil {
 		childState := &State{
-			Size:     imgui.Vec2{X: contentWidth, Y: contentHeight},
+			Size:     usable,
 			Position: imgui.Vec2{},
 			IO:       state.IO,
 			App:      state.App,
@@ -279,14 +302,14 @@ func (h *HCollapse) drawContent(state *State) {
 func (h *HCollapse) drawResizeHandle(state *State) {
 	handlePos := imgui.Vec2{
 		X: h.CurrentWidth - HCollapseResizeHandleSize,
-		Y: DefaultItemSpacing + 5,
+		Y: imgui.CurrentStyle().ItemSpacing().Y + 5,
 	}
 	if h.Anchor == AnchorRight {
 		handlePos.X = 0
 	}
 	imgui.SetCursorPos(handlePos)
 
-	imgui.PushStyleColorVec4(imgui.ColText, imgui.CurrentStyle().Colors()[imgui.ColHeaderActive])
+	imgui.PushStyleColorVec4(imgui.ColText, styleColor(currentStyleRoles().Handle))
 	imgui.TextUnformatted(fonts.ICON_DRAG_INDICATOR)
 	imgui.PopStyleColor()
 

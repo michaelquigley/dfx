@@ -114,12 +114,9 @@ const (
 	DragColumn
 )
 
-const (
-	multiGridMargin      = 2
-	multiGridSpacing     = 4
-	multiGridSplitWidth  = 10
-	multiGridSplitHeight = 11
-)
+// multiGridSplitWidth is the thickness of a FlexLayout splitter's hit strip, which
+// also separates the cells either side of it.
+const multiGridSplitWidth = 10
 
 // NewFlexLayout creates a flexible layout with the given arrangement
 func NewFlexLayout(arrangement [][]string) *FlexLayout {
@@ -201,17 +198,18 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 		return
 	}
 
-	fl.sizeRows(state.Size)
+	chrome := currentStyleChrome()
+	fl.sizeRows(state.Size, chrome.FlexMargin)
 
 	cursor := imgui.CursorPos()
 	for i, row := range fl.arrangement {
 		imgui.SetCursorPos(cursor)
 		rowHeight := fl.rowHeights[i]
-		rowSize := imgui.Vec2{X: state.Size.X - multiGridSpacing, Y: float32(rowHeight)}
+		rowSize := imgui.Vec2{X: state.Size.X, Y: float32(rowHeight)}
 
 		// draw row splitter (except for first row)
 		if i > 0 {
-			rowSize.Y -= multiGridSplitHeight
+			rowSize.Y -= multiGridSplitWidth
 			imgui.PushStyleVarVec2(imgui.StyleVarItemSpacing, imgui.Vec2{X: 0, Y: 0})
 			imgui.InvisibleButton(fmt.Sprintf("row_%d_split", i), imgui.Vec2{X: state.Size.X, Y: multiGridSplitWidth})
 			imgui.PopStyleVar()
@@ -251,17 +249,17 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 		}
 
 		// arrange columns in this row
-		fl.sizeColumns(state.Size, i)
+		fl.sizeColumns(state.Size, i, chrome.FlexMargin)
 		colCursor := imgui.CursorPos()
 
 		for j, componentID := range row {
 			imgui.SetCursorPos(colCursor)
 			colWidth := fl.colWidths[i][j]
-			colSize := imgui.Vec2{X: float32(colWidth - multiGridSpacing), Y: rowSize.Y}
+			colSize := imgui.Vec2{X: float32(colWidth) - chrome.FlexGap, Y: rowSize.Y}
 
 			// draw column splitter (except for first column)
 			if j > 0 {
-				colSize.X -= multiGridSplitHeight
+				colSize.X -= multiGridSplitWidth
 				imgui.PushStyleVarVec2(imgui.StyleVarItemSpacing, imgui.Vec2{X: 0, Y: 0})
 				imgui.InvisibleButton(fmt.Sprintf("row_%d_col_%d_split", i, j), imgui.Vec2{X: multiGridSplitWidth, Y: rowSize.Y})
 				imgui.PopStyleVar()
@@ -301,9 +299,9 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 				imgui.SetCursorPos(colCursor.Add(imgui.Vec2{X: multiGridSplitWidth, Y: 0}))
 			}
 
-			// draw the component
-			if component, exists := components[componentID]; exists {
-				fl.drawComponent(component, colSize, componentID, state)
+			// draw the component, unless its cell is exhausted
+			if component, exists := components[componentID]; exists && colSize.X > 0 && colSize.Y > 0 {
+				drawLayoutCell(component, colSize, fmt.Sprintf("mg_%s", componentID), imgui.Vec2{}, state)
 			}
 
 			colCursor.X += float32(colWidth)
@@ -313,12 +311,23 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 	}
 }
 
-// drawComponent renders a component in a child window
-func (fl *FlexLayout) drawComponent(component Component, size imgui.Vec2, id string, state *State) {
-	if imgui.BeginChildStrV(fmt.Sprintf("mg_%s", id), size, 0, imgui.WindowFlagsNoScrollbar) {
+// drawLayoutCell renders a component in a cell's child window, padded by the
+// style's content padding, and passes it the usable size inside that padding;
+// when the padding leaves none, the cell stays empty. size must be positive:
+// imgui reads a zero child size as fill-remaining.
+func drawLayoutCell(component Component, size imgui.Vec2, id string, position imgui.Vec2, state *State) {
+	padding := currentStyleChrome().ContentPadding
+	childFlags := imgui.ChildFlagsNone
+	if padding != (imgui.Vec2{}) {
+		childFlags = imgui.ChildFlagsAlwaysUseWindowPadding // borderless children drop padding otherwise
+	}
+	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, padding)
+	visible := imgui.BeginChildStrV(id, size, childFlags, imgui.WindowFlagsNoScrollbar)
+	imgui.PopStyleVar()
+	if usable, ok := usableSize(); visible && ok {
 		childState := &State{
-			Size:     size,
-			Position: imgui.Vec2{},
+			Size:     usable,
+			Position: position,
 			IO:       imgui.CurrentIO(),
 			App:      state.App,
 			Parent:   state.Parent,
@@ -329,12 +338,12 @@ func (fl *FlexLayout) drawComponent(component Component, size imgui.Vec2, id str
 }
 
 // sizeRows calculates row heights
-func (fl *FlexLayout) sizeRows(size imgui.Vec2) {
+func (fl *FlexLayout) sizeRows(size imgui.Vec2, margin float32) {
 	if len(fl.rowHeights) == 0 {
 		return
 	}
 
-	maxY := int(size.Y - multiGridMargin)
+	maxY := int(size.Y - margin)
 
 	var needsHeight []int
 	allocated := 0
@@ -366,12 +375,12 @@ func (fl *FlexLayout) sizeRows(size imgui.Vec2) {
 }
 
 // sizeColumns calculates column widths for a specific row
-func (fl *FlexLayout) sizeColumns(size imgui.Vec2, rowIndex int) {
+func (fl *FlexLayout) sizeColumns(size imgui.Vec2, rowIndex int, margin float32) {
 	if rowIndex >= len(fl.colWidths) || len(fl.colWidths[rowIndex]) == 0 {
 		return
 	}
 
-	maxX := int(size.X - multiGridMargin)
+	maxX := int(size.X - margin)
 	colWidths := fl.colWidths[rowIndex]
 
 	var needsWidth []int
@@ -448,6 +457,12 @@ func (gl *GridLayout) Arrange(components map[string]Component, state *State) {
 		return
 	}
 
+	// cells are placed from the layout's content origin and clipped to its
+	// allocation. the gap is taken inside each cell's allocation, half on each
+	// interior edge, so outer cells stay flush with the allocation.
+	origin := imgui.CursorPos()
+	gap := currentStyleChrome().GridGap
+
 	// calculate cell dimensions
 	cellWidth := state.Size.X / float32(gl.gridWidth)
 	cellHeight := state.Size.Y / float32(gl.gridHeight)
@@ -481,20 +496,27 @@ func (gl *GridLayout) Arrange(components map[string]Component, state *State) {
 			sizeY = state.Size.Y - posY
 		}
 
-		// draw component at calculated position
-		imgui.SetCursorPos(imgui.Vec2{X: posX, Y: posY})
-		componentSize := imgui.Vec2{X: sizeX, Y: sizeY}
-
-		if imgui.BeginChildStrV(fmt.Sprintf("grid_%s", componentID), componentSize, 0, imgui.WindowFlagsNoScrollbar) {
-			childState := &State{
-				Size:     componentSize,
-				Position: imgui.Vec2{X: posX, Y: posY},
-				IO:       imgui.CurrentIO(),
-				App:      state.App,
-				Parent:   state.Parent,
-			}
-			component.Draw(childState)
+		// inset interior edges by half the gap
+		if cell.Col > 0 {
+			posX += gap / 2
+			sizeX -= gap / 2
 		}
-		imgui.EndChild()
+		if cell.Col+cell.ColSpan < gl.gridWidth {
+			sizeX -= gap / 2
+		}
+		if cell.Row > 0 {
+			posY += gap / 2
+			sizeY -= gap / 2
+		}
+		if cell.Row+cell.RowSpan < gl.gridHeight {
+			sizeY -= gap / 2
+		}
+		if sizeX <= 0 || sizeY <= 0 {
+			continue // clipped away, or exhausted by the gap
+		}
+
+		// draw component at calculated position
+		imgui.SetCursorPos(origin.Add(imgui.Vec2{X: posX, Y: posY}))
+		drawLayoutCell(component, imgui.Vec2{X: sizeX, Y: sizeY}, fmt.Sprintf("grid_%s", componentID), imgui.Vec2{X: posX, Y: posY}, state)
 	}
 }

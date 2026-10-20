@@ -186,15 +186,19 @@ func (app *App) Run() error {
 		imgui.SetNextWindowSize(windowSize)
 
 		// the root fills the native window; rounded corners expose the backend
-		// background. restore the style before drawing application content.
+		// background. its padding is the style's outer margin, an inset of the
+		// content rather than a second window rectangle. restore the style before
+		// drawing application content, so panels get panel padding.
+		margin := currentStyleSpacing().OuterMargin
 		imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, 0)
+		imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{X: margin, Y: margin})
 		rootVisible := imgui.BeginV("##dfx_root", nil, rootFlags)
-		imgui.PopStyleVar()
+		imgui.PopStyleVarV(2)
 		if rootVisible {
 			// create state for root component
 			io := imgui.CurrentIO()
 			state := &State{
-				Size:     windowSize,
+				Size:     availableSize(),
 				Position: imgui.Vec2{}, // position is relative to window
 				IO:       io,
 				App:      app,
@@ -340,6 +344,7 @@ func (app *App) setupFontsAndTheme() {
 	if style.Theme == nil {
 		style.Theme = &ModernTheme{}
 	}
+	style.Theme = ownTheme(style.Theme)
 	activeStyle = &activeStyleState{style: style}
 
 	// setup fonts unless disabled

@@ -53,7 +53,7 @@ Initial State:        After Text():         After Button():
 ### Why Understanding State Flow Matters
 
 Because ImGui reconstructs the UI each frame, there's no automatic layout memory. You must:
-1. Query available space with `GetContentRegionAvail()`
+1. Query available space with `ContentRegionAvail()`
 2. Set sizes explicitly or let ImGui calculate them
 3. Understand how spacing accumulates
 
@@ -67,17 +67,17 @@ Internally, ImGui tracks the cursor in **absolute screen coordinates** for effic
 
 | Function | Coordinates | Use Case |
 |----------|-------------|----------|
-| `GetCursorPos()` | Window-local | Calculating widget positions within a window |
-| `GetCursorScreenPos()` | Absolute | Custom drawing, overlays |
+| `CursorPos()` | Window-local | Calculating widget positions within a window |
+| `CursorScreenPos()` | Absolute | Custom drawing, overlays |
 | `SetCursorPos(pos)` | Window-local | Jump cursor to specific position |
 | `SetCursorScreenPos(pos)` | Absolute | Advanced positioning |
 
 ```go
 // Get position within the current window
-pos := imgui.GetCursorPos()  // e.g., {8, 8} after WindowPadding
+pos := imgui.CursorPos()  // e.g., {8, 8} after WindowPadding
 
 // Get absolute screen position
-screenPos := imgui.GetCursorScreenPos()  // e.g., {108, 208} if window is at {100, 200}
+screenPos := imgui.CursorScreenPos()  // e.g., {108, 208} if window is at {100, 200}
 
 // Jump to a specific position in the window
 imgui.SetCursorPos(imgui.NewVec2(100, 50))
@@ -136,10 +136,10 @@ Window Outer Edge
 style := imgui.CurrentStyle()
 
 // Widget height formula
-frameHeight := imgui.GetFrameHeight()  // = FontSize + FramePadding.y * 2
+frameHeight := imgui.FrameHeight()  // = FontSize + FramePadding.y * 2
 
 // Line height with spacing
-lineHeight := imgui.GetFrameHeightWithSpacing()  // = frameHeight + ItemSpacing.y
+lineHeight := imgui.FrameHeightWithSpacing()  // = frameHeight + ItemSpacing.y
 
 // Content region is inset by WindowPadding
 contentStart := style.WindowPadding()  // Where first widget appears
@@ -299,7 +299,7 @@ Result:
 └────────────────────────────────┘
 ```
 
-### GetItemRectSize After EndGroup
+### ItemRectSize After EndGroup
 
 After `EndGroup()`, you can query the group's dimensions:
 
@@ -308,9 +308,9 @@ imgui.BeginGroup()
 // ... widgets ...
 imgui.EndGroup()
 
-groupSize := imgui.GetItemRectSize()  // Vec2 with group dimensions
-groupMin := imgui.GetItemRectMin()    // Top-left corner
-groupMax := imgui.GetItemRectMax()    // Bottom-right corner
+groupSize := imgui.ItemRectSize()  // Vec2 with group dimensions
+groupMin := imgui.ItemRectMin()    // Top-left corner
+groupMax := imgui.ItemRectMax()    // Bottom-right corner
 ```
 
 ### Groups for Complex Inline Layouts
@@ -325,10 +325,10 @@ imgui.Button("Action")
 imgui.EndGroup()
 
 // Draw a border around the group
-min := imgui.GetItemRectMin()
-max := imgui.GetItemRectMax()
-drawList := imgui.GetWindowDrawList()
-drawList.AddRect(min, max, imgui.GetColorU32(imgui.ColBorder))
+min := imgui.ItemRectMin()
+max := imgui.ItemRectMax()
+drawList := imgui.WindowDrawList()
+drawList.AddRect(min, max, imgui.ColorU32Col(imgui.ColBorder))
 ```
 
 ---
@@ -339,7 +339,7 @@ Child windows are the primary tool for creating bounded, optionally scrollable r
 
 ### Size Parameter Semantics
 
-The `BeginChild()` size parameter follows the universal pattern:
+The `BeginChildStrV()` size parameter follows the universal pattern:
 
 | Size | X Behavior | Y Behavior |
 |------|------------|------------|
@@ -351,17 +351,17 @@ The `BeginChild()` size parameter follows the universal pattern:
 
 ```go
 // Fill all remaining space
-imgui.BeginChild("full", imgui.NewVec2(0, 0))
+imgui.BeginChildStrV("full", imgui.NewVec2(0, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
 
 // Fixed size scrollable region
-imgui.BeginChild("scrollable", imgui.NewVec2(300, 200))
+imgui.BeginChildStrV("scrollable", imgui.NewVec2(300, 200), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
 
 // Leave 100px on the right for a sidebar
-imgui.BeginChild("main", imgui.NewVec2(-100, 0))
+imgui.BeginChildStrV("main", imgui.NewVec2(-100, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
 // ... content ...
 imgui.EndChild()
 imgui.SameLine()
-imgui.BeginChild("sidebar", imgui.NewVec2(0, 0))  // Takes remaining 100px
+imgui.BeginChildStrV("sidebar", imgui.NewVec2(0, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)  // Takes remaining 100px
 // ... sidebar content ...
 imgui.EndChild()
 ```
@@ -387,7 +387,7 @@ const (
 
 ```go
 // Auto-resize to fit content (no scrolling)
-imgui.BeginChildV("auto", imgui.NewVec2(0, 0),
+imgui.BeginChildStrV("auto", imgui.NewVec2(0, 0),
     imgui.ChildFlagsAutoResizeY, imgui.WindowFlagsNone)
 for i := 0; i < 5; i++ {
     imgui.Text(fmt.Sprintf("Item %d", i))
@@ -396,7 +396,7 @@ imgui.EndChild()
 // Child height = content height (no scrollbar)
 
 // Fixed height with scrolling
-imgui.BeginChildV("scroll", imgui.NewVec2(0, 100),
+imgui.BeginChildStrV("scroll", imgui.NewVec2(0, 100),
     imgui.ChildFlagsBorders, imgui.WindowFlagsNone)
 for i := 0; i < 50; i++ {
     imgui.Text(fmt.Sprintf("Item %d", i))
@@ -414,10 +414,10 @@ Child windows can be nested, and each maintains its own:
 - Content extent
 
 ```go
-imgui.BeginChild("outer", imgui.NewVec2(400, 300))
+imgui.BeginChildStrV("outer", imgui.NewVec2(400, 300), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
     imgui.Text("Outer content")
 
-    imgui.BeginChild("inner", imgui.NewVec2(200, 150))
+    imgui.BeginChildStrV("inner", imgui.NewVec2(200, 150), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
         imgui.Text("Inner content")
     imgui.EndChild()
 
@@ -437,7 +437,7 @@ The Columns API was ImGui's original solution for multi-column layouts. It has b
 
 ```go
 // Create 3 columns
-imgui.Columns(3, "mycolumns", true)
+imgui.ColumnsV(3, "mycolumns", true)
 
 imgui.Text("Column 1")
 imgui.NextColumn()
@@ -454,13 +454,13 @@ imgui.NextColumn()
 imgui.Text("Row 2, Col 3")
 imgui.NextColumn()
 
-imgui.Columns(1)  // End columns
+imgui.Columns()  // End columns
 ```
 
 ### Width Control
 
 ```go
-imgui.Columns(2, "cols", true)
+imgui.ColumnsV(2, "cols", true)
 imgui.SetColumnWidth(0, 150)  // First column = 150px
 // Second column gets remaining space
 ```
@@ -478,15 +478,15 @@ Limitations of the Columns API:
 
 ```go
 // Old Columns code:
-imgui.Columns(2, "old", true)
+imgui.ColumnsV(2, "old", true)
 imgui.Text("Name")
 imgui.NextColumn()
 imgui.Text("Value")
 imgui.NextColumn()
-imgui.Columns(1)
+imgui.Columns()
 
 // New Tables code:
-if imgui.BeginTable("new", 2, imgui.TableFlagsBorders) {
+if imgui.BeginTableV("new", 2, imgui.TableFlagsBorders, imgui.Vec2{}, 0) {
     imgui.TableNextColumn()
     imgui.Text("Name")
     imgui.TableNextColumn()
@@ -519,7 +519,7 @@ Tables are ImGui's modern, feature-rich layout system for columnar data.
 ### TableSetupColumn Specifications
 
 ```go
-if imgui.BeginTable("example", 3, imgui.TableFlagsBorders) {
+if imgui.BeginTableV("example", 3, imgui.TableFlagsBorders, imgui.Vec2{}, 0) {
     // Fixed width column
     imgui.TableSetupColumnV("Name", imgui.TableColumnFlagsWidthFixed, 100, 0)
 
@@ -559,7 +559,7 @@ imgui.TableSetupColumnV("B", imgui.TableColumnFlagsWidthStretch, 3.0, 0)
 Best practice: Fixed columns first, stretch columns last:
 
 ```go
-if imgui.BeginTable("mixed", 3, imgui.TableFlagsNone) {
+if imgui.BeginTableV("mixed", 3, imgui.TableFlagsNone, imgui.Vec2{}, 0) {
     imgui.TableSetupColumnV("Icon", imgui.TableColumnFlagsWidthFixed, 30, 0)
     imgui.TableSetupColumnV("Name", imgui.TableColumnFlagsWidthStretch, 0, 0)
     imgui.TableSetupColumnV("Actions", imgui.TableColumnFlagsWidthFixed, 80, 0)
@@ -593,16 +593,16 @@ imgui.InputText("##name", &name)
 ### Pattern 2: Proportional Layouts
 
 ```go
-avail := imgui.GetContentRegionAvail()
+avail := imgui.ContentRegionAvail()
 
 // Two equal columns
-imgui.BeginChild("left", imgui.NewVec2(avail.X*0.5, 0))
+imgui.BeginChildStrV("left", imgui.NewVec2(avail.X*0.5, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
 // ... left content ...
 imgui.EndChild()
 
 imgui.SameLine()
 
-imgui.BeginChild("right", imgui.NewVec2(0, 0))  // Takes remaining half
+imgui.BeginChildStrV("right", imgui.NewVec2(0, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)  // Takes remaining half
 // ... right content ...
 imgui.EndChild()
 ```
@@ -611,9 +611,9 @@ imgui.EndChild()
 
 ```go
 // Right-align a button
-avail := imgui.GetContentRegionAvail()
+avail := imgui.ContentRegionAvail()
 buttonWidth := imgui.CalcTextSize("Submit").X + style.FramePadding().X*2
-imgui.SetCursorPosX(imgui.GetCursorPosX() + avail.X - buttonWidth)
+imgui.SetCursorPosX(imgui.CursorPosX() + avail.X - buttonWidth)
 imgui.Button("Submit")
 ```
 
@@ -621,13 +621,13 @@ imgui.Button("Submit")
 
 ```go
 // 200px sidebar + flexible main content
-imgui.BeginChild("sidebar", imgui.NewVec2(200, 0), imgui.ChildFlagsBorders)
+imgui.BeginChildStrV("sidebar", imgui.NewVec2(200, 0), imgui.ChildFlagsBorders, imgui.WindowFlagsNone)
 // ... sidebar content ...
 imgui.EndChild()
 
 imgui.SameLine()
 
-imgui.BeginChild("main", imgui.NewVec2(0, 0))  // Fills remaining
+imgui.BeginChildStrV("main", imgui.NewVec2(0, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)  // Fills remaining
 // ... main content ...
 imgui.EndChild()
 ```
@@ -640,10 +640,10 @@ imgui.Text("Header - Always Visible")
 imgui.Separator()
 
 // Calculate available height minus footer
-footerHeight := imgui.GetFrameHeightWithSpacing() + 10
+footerHeight := imgui.FrameHeightWithSpacing() + 10
 
 // Scrollable middle section
-imgui.BeginChild("content", imgui.NewVec2(0, -footerHeight))
+imgui.BeginChildStrV("content", imgui.NewVec2(0, -footerHeight), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
 for i := 0; i < 100; i++ {
     imgui.Text(fmt.Sprintf("Scrollable item %d", i))
 }
@@ -676,9 +676,9 @@ Pay special attention to:
 
 ```go
 imgui.Text(fmt.Sprintf("Cursor: (%.0f, %.0f)",
-    imgui.GetCursorPos().X, imgui.GetCursorPos().Y))
+    imgui.CursorPos().X, imgui.CursorPos().Y))
 imgui.Text(fmt.Sprintf("Avail: (%.0f, %.0f)",
-    imgui.GetContentRegionAvail().X, imgui.GetContentRegionAvail().Y))
+    imgui.ContentRegionAvail().X, imgui.ContentRegionAvail().Y))
 imgui.Text(fmt.Sprintf("state.Size: (%.0f, %.0f)",
     state.Size.X, state.Size.Y))  // dfx-specific
 ```
@@ -703,13 +703,13 @@ Every `BeginChild` must have a matching `EndChild`, even if `BeginChild` returns
 
 ```go
 // WRONG
-if imgui.BeginChild("child", imgui.NewVec2(0, 0)) {
+if imgui.BeginChildStrV("child", imgui.NewVec2(0, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone) {
     // content
     imgui.EndChild()
 }
 
 // CORRECT
-if imgui.BeginChild("child", imgui.NewVec2(0, 0)) {
+if imgui.BeginChildStrV("child", imgui.NewVec2(0, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone) {
     // content
 }
 imgui.EndChild()  // Always called
@@ -721,7 +721,7 @@ Don't combine `(0, 0)` size with `AutoResizeX` and `AutoResizeY`:
 
 ```go
 // Defeats purpose - auto-resize on both axes means no scrolling
-imgui.BeginChildV("bad", imgui.NewVec2(0, 0),
+imgui.BeginChildStrV("bad", imgui.NewVec2(0, 0),
     imgui.ChildFlagsAutoResizeX|imgui.ChildFlagsAutoResizeY,
     imgui.WindowFlagsNone)
 ```
@@ -732,7 +732,7 @@ Remember: negative size is distance FROM the edge, not a negative dimension:
 
 ```go
 // This creates a 100px margin from the right, NOT a -100px width
-imgui.BeginChild("child", imgui.NewVec2(-100, 0))
+imgui.BeginChildStrV("child", imgui.NewVec2(-100, 0), imgui.ChildFlagsNone, imgui.WindowFlagsNone)
 ```
 
 ---
@@ -754,13 +754,26 @@ func (c *MyComponent) Draw(state *dfx.State) {
 }
 ```
 
-### Relationship to GetContentRegionAvail
+### Relationship to ContentRegionAvail
 
-`state.Size` and `GetContentRegionAvail()` are related but not identical:
+`state.Size` and `ContentRegionAvail()` are related but not identical:
 - `state.Size` is the space allocated to the component by dfx
-- `GetContentRegionAvail()` is the remaining space at the current cursor position
+- `ContentRegionAvail()` is the remaining space at the current cursor position
 
-At the start of a component, they're usually equal. As you add widgets, `GetContentRegionAvail()` decreases.
+dfx's own containers allocate the usable area at the component's drawing origin, so at the start of a component they're equal. As you add widgets, `ContentRegionAvail()` decreases.
+
+### How dfx allocates
+
+Each boundary has one owner for its padding, and a child receives what is left after it:
+
+- **Root.** The root window fills the native client area below the main menu, with square corners. Its padding is the selected style's `Spacing.OuterMargin` (4 px in Classic, 12 px in Faceplate), an inset of content rather than a second window. The root component's `state.Size` is the content region inside that margin; `Position` stays `(0, 0)`, relative to the window.
+- **Workspace.** The current item's height is what remains after the selector's actual cursor advance, including the spacing below it.
+- **Dash and DashManager.** Dash bounds are relative to the cursor when the dash is drawn: the manager's content origin, not the enclosing window's outer edge. A dash's surface is inset by the panel padding on every side and by its handle row once; its component gets the surface's content region. The manager's inner component gets the inner panel's content region. `DashManager.Margin` remains explicit. `TopMargin` reserves space above the whole manager layout under either precedence: the origin moves down by it and the available height loses it once, so every dash and the inner panel lie in the remainder below it. A dash's panel is clamped to its bounds, so a top or bottom dash taller than the remainder is shortened rather than reaching into the inset.
+- **HCollapse.** The expanded header is measured from the toggle's frame height and the panel padding (36 px in Classic). Content starts below it, padded by the style's `Chrome.ContentPadding`, and gets the content region inside that padding. A collapsed toggle is centered in its strip with its frame padding narrowed to fit.
+- **MultiGrid.** FlexLayout subtracts exactly the 10 px splitter strip it draws; GridLayout places cells from its content origin, takes `Chrome.GridGap` inside interior cell edges, and clips cells to its allocation. Both pad cells by `Chrome.ContentPadding` and pass the padded content region.
+- **Toolbar.** The bar registers its full width and height as one item, so the layout continues one item spacing below it.
+
+Allocations are never negative. An exhausted allocation is skipped rather than passed to `BeginChild`, where a zero size would mean fill-remaining and a negative one fill-relative: a dash its neighbors or a `TopMargin` leave no room is not drawn and cannot hold focus, though its show/hide animation keeps advancing. A positive panel or cell whose padding leaves no usable area is drawn empty; its component is not called with a zero size.
 
 ---
 
@@ -780,13 +793,13 @@ At the start of a component, they're usually equal. As you add widgets, `GetCont
 
 | Function | Purpose |
 |----------|---------|
-| `GetContentRegionAvail()` | Remaining space (use this!) |
-| `GetCursorPos()` | Current position (local) |
+| `ContentRegionAvail()` | Remaining space (use this!) |
+| `CursorPos()` | Current position (local) |
 | `SetCursorPos(pos)` | Jump cursor |
 | `SameLine()` | Continue horizontally |
 | `PushItemWidth(w)` | Set default width |
 | `SetNextItemWidth(w)` | One-time width |
-| `BeginChild(id, size)` | Create child region |
+| `BeginChildStrV(id, size, childFlags, windowFlags)` | Create child region |
 | `BeginGroup()` | Start grouping |
 
 ### cimgui-go Imports

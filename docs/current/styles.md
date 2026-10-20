@@ -1,6 +1,6 @@
 # Styles
 
-A `Style` is a complete presentation configuration: a display name, a default color `Theme`, the `Typography` loaded into the font slots, the ImGui `Metrics` applied at startup, dfx `Spacing` values ImGui has no metric for, and `Roles` binding dfx's custom chrome to ImGui color slots. An application selects one with `Config.Style`; with no style, dfx uses `ClassicStyle()`, its original compact presentation.
+A `Style` is a complete presentation configuration: a display name, a default color `Theme`, the `Typography` loaded into the font slots, the ImGui `Metrics` applied at startup, dfx `Spacing` values ImGui has no metric for, `Roles` binding dfx's custom chrome to ImGui color slots, `Chrome` defaults for dfx's composite components, and `Controls` defaults for its own controls. An application selects one with `Config.Style`; with no style, dfx uses `ClassicStyle()`, its original compact presentation. `FaceplateStyle()` is the faceplate family's presentation (see [Faceplate](#faceplate)).
 
 ## Selecting and customizing
 
@@ -11,11 +11,13 @@ style.Typography.Small.Size = 15
 app := dfx.New(root, dfx.Config{Style: &style})
 ```
 
-`ClassicStyle()` returns independent configuration on every call: changing metrics, sizes, roles, or a face's `Data` slice assignment leaves other presets unchanged. Font bytes are shared, immutable assets; constructing or copying a style does not clone them. A style is complete rather than a sparse overlay: every field is meaningful, including zeros, so customization starts from a constructor. `App.Run` copies the configuration when it starts, and rejects one whose main, monospace, or small face has no font data, or any face with a non-positive size, before opening the window.
+`ClassicStyle()` and `FaceplateStyle()` return independent configuration on every call, each with its own theme value: changing metrics, sizes, roles, or a face's `Data` slice assignment leaves other presets unchanged. Font bytes are shared, immutable assets; constructing or copying a style does not clone them. A style is complete rather than a sparse overlay: every field is meaningful, including zeros, so customization starts from a constructor. `App.Run` copies the configuration when it starts, and rejects one whose main, monospace, or small face has no font data, or any face with a non-positive size, before opening the window.
 
 Style selection happens at startup only. There is no API for switching complete styles while an App runs; select another on a later launch.
 
 `CurrentStyle()` returns a configuration copy of the running App's selection, with `Theme` set to the effective color theme. Font bytes remain shared and immutable. It describes the selected defaults — for example, `Spacing.SectionGap` for deliberate separation between groups. Live colors and metrics, including local overrides and `SetTheme` calls, come from the current ImGui context. Outside a running App, `CurrentStyle()` returns Classic.
+
+`Theme` is an interface value. A constructor's theme is new on each call, so presets stay independent, but copying a style by assignment shares the theme it names. The built-in `FaceplateTheme` is copied at the two points where ownership matters. At startup, the running App copies the effective theme, whether it came from the style or `Config.Theme`, so editing the source afterwards does not change the running selection. Each `CurrentStyle()` call then returns its own copy, so editing one snapshot changes neither the running selection nor another snapshot. Live colors still change only through `SetTheme`. Other `Theme` implementations, including the application's own, are not copied: a theme the application supplies remains the application's. Font bytes stay shared in every case.
 
 ## Startup order
 
@@ -42,13 +44,66 @@ The selection and the font globals belong to that run. `App.Run` restores their 
 
 `Roles` name the ImGui color slots dfx's custom chrome reads, resolved from the current context on each draw so theme changes and local `PushStyleColor` overrides reach it. Explicit per-widget colors still win.
 
-| Role | Classic slot | Used by |
-|---|---|---|
-| `Accent` | `ColCheckMark` | — |
-| `Panel` | `ColChildBg` | — |
-| `SecondaryText` | `ColTextDisabled` | — |
-| `FaderFill` | `ColButtonHovered` | fader fill and hovered handle border |
-| `FaderActive` | `ColButtonActive` | active fader handle border |
+| Role | Classic slot | Faceplate slot | Used by |
+|---|---|---|---|
+| `Accent` | `ColHeaderActive` | `ColCheckMark` | NodeCanvas selection emphasis, derived by `DefaultNodeCanvasStyle` |
+| `Panel` | `ColChildBg` | `ColChildBg` | — |
+| `SecondaryText` | `ColTextDisabled` | `ColTextDisabled` | — |
+| `FaderFill` | `ColButtonHovered` | `ColCheckMark` | fader fill and hovered handle border |
+| `FaderActive` | `ColButtonActive` | `ColCheckMark` | active fader handle border |
+| `Toolbar` | `ColHeader` | `ColTitleBgActive` | toolbar background |
+| `Handle` | `ColHeaderActive` | `ColTextDisabled` | Dash and HCollapse drag-handle glyphs |
+
+`Panel` and `SecondaryText` name the family's surfaces for application chrome; no dfx component reads them yet.
+
+## Chrome and controls
+
+`Chrome` holds the presentation defaults of dfx's composite components; their public fields, such as `DashManager.Margin`, `HCollapse` widths, and fader dimensions, stay explicit and win.
+
+| Field | Classic | Faceplate | Used by |
+|---|---|---|---|
+| `PanelRounding` | 5 | 5 | Dash and HCollapse panel corners |
+| `ContentPadding` | 0×0 | 12×12 | inside HCollapse content and MultiGrid cells |
+| `ToolbarInset` | 3 | 8 | space before a toolbar's label |
+| `FlexMargin` | 2 | 0 | FlexLayout slack at its trailing edges |
+| `FlexGap` | 4 | 0 | FlexLayout gap beside its 10 px splitter strips |
+| `GridGap` | 0 | 8 | GridLayout gap, split across interior cell edges |
+
+`Controls.AccentInk` governs labels drawn on accent fills. Off (Classic), an on `Toggle` fills with `ColCheckMark` at rest and takes the theme's button hover and press colors under the theme's text, and NodeCanvas title labels use the theme's text. On (Faceplate), those labels are drawn in whichever of the theme's background and text colors has the higher WCAG contrast with the fill; for the default yellow that is the charcoal background, at 12:1. An on toggle also keeps its accent fill through hover and press, nudged away from the label so neither state reads worse than rest. NodeCanvas applies the choice to `NodeContext.Label` text inside `TitleBar`, against the node's resolved band, whether the style's selected band, its normal band, or a declared node accent; widgets in a title bar keep their own colors. `ToggleV` takes `ToggleOptions.OnText`, an explicit on-state label color that wins over the style's choice. Disabled toggles keep ImGui's disabled alpha.
+
+## Faceplate
+
+`FaceplateStyle()` is Chakra Petch Regular at 20 px (main) and 16 px (small) and real Chakra Petch Bold at 20 px (heading), all three with icons merged at Classic's offsets, which match Chakra Petch's cap height within half a pixel; JetBrains Mono Medium at 16 px; 12 px window padding and outer margin; 8×5 frame padding; 8 px item spacing; 8×4 table cell padding; a 16 px section gap; Classic's scrollbar, borders, and radii; and a `FaceplateTheme`.
+
+`FaceplateTheme{Accent}` colors every ImGui slot from imgui's dark baseline, so it does not depend on a previous theme. Its neutrals are fixed: background `#1a1c20`, panel `#24272e` (child windows), raised `#2e3239` (buttons, fields, popups, table headers), track `#3a3f48` (borders and neutral hover), press `#474d57`, text `#d6d6d6`, secondary text `#878b93`. The accent, `#ffd800` by default, marks the check mark, slider grabs, selected-tab overline, text links, keyboard focus, and drag targets; selection headers and selected text use it translucently. Hover stays neutral. To change the identity color, replace the style's theme before startup:
+
+```go
+style := dfx.FaceplateStyle()
+style.Theme = &dfx.FaceplateTheme{Accent: imgui.Vec4{X: 0.3, Y: 0.64, Z: 1, W: 1}}
+```
+
+Meter zones, log severity colors, and colors an application declares on graphs, faders, or canvases keep their meaning; the accent does not recolor them.
+
+### Faceplate snapshot
+
+dfx owns its Go/ImGui realization of the faceplate family. The palette values above and the Chakra Petch faces were taken from faceplate at revision `c65b59e8319b8f030b1bbc3ef01a688779dcb677` (`src/faceplate/faceplate.h`, `assets/fonts/`); later faceplate changes are adopted deliberately. The fonts were fetched by faceplate on 2026-07-06 from `github.com/google/fonts` (`ofl/chakrapetch/`) and are licensed under the SIL Open Font License 1.1, bundled as `fonts/chakra-petch-ofl.txt`.
+
+| File | sha256 |
+|---|---|
+| `fonts/ChakraPetch-Regular.ttf` | `98fcd638baa5c81ff0316b7538ce330ee3b23b1302726de3526d5933a8ecf986` |
+| `fonts/ChakraPetch-Bold.ttf` | `65fbf76d95651697275e19db4d717c0e95a789ddd3476478b05292104db278a0` |
+
+## Comparing styles
+
+`examples/dfx_example_themes` is the comparison surface: controls, typography with icons beside regular and bold text, tables (one with a deliberate local density and color override), FileTree, LogViewer, meters and faders, Workspace, DashManager, HCollapse on both anchors, a Toolbar, both MultiGrid layouts, and NodeCanvas with a mini-map beside an explicitly styled canvas. Launch it once per style:
+
+```bash
+go run ./examples/dfx_example_themes                            # Classic
+go run ./examples/dfx_example_themes -style faceplate           # Faceplate, default yellow
+go run ./examples/dfx_example_themes -style faceplate -accent 4da3ff
+```
+
+Its Colors menu changes colors only and starts on the colors actually applied; fonts and spacing change by relaunching with another `-style`; it re-derives the implicit canvas style with `SetStyle` and leaves the explicit one alone.
 
 ## Classic
 

@@ -52,21 +52,23 @@ func ToolbarExLayout(label string, extra func(*ToolbarLayout)) {
 	lineHeight := contentHeight + framePadding*2.5
 
 	// save starting position for absolute positioning
-	startY := imgui.CursorPosY()
+	start := imgui.CursorPos()
+	startY := start.Y
 
 	layout := &ToolbarLayout{startY: startY, lineHeight: lineHeight}
 
 	// draw background rectangle
 	cursorPos := imgui.CursorScreenPos()
 	drawList := imgui.WindowDrawList()
-	headerColor := imgui.ColorConvertFloat4ToU32(imgui.CurrentStyle().Colors()[imgui.ColHeader])
+	headerColor := imgui.ColorConvertFloat4ToU32(styleColor(currentStyleRoles().Toolbar))
 	drawList.AddRectFilled(
 		cursorPos,
 		imgui.Vec2{X: cursorPos.X + availWidth, Y: cursorPos.Y + lineHeight},
 		headerColor,
 	)
 
-	imgui.Dummy(imgui.Vec2{X: 3, Y: 3})
+	inset := currentStyleChrome().ToolbarInset
+	imgui.Dummy(imgui.Vec2{X: inset, Y: inset})
 	imgui.SameLine()
 
 	// draw text centered vertically
@@ -79,9 +81,8 @@ func ToolbarExLayout(label string, extra func(*ToolbarLayout)) {
 		extra(layout)
 	}
 
-	// set cursor to end of toolbar using absolute position
-	imgui.SetCursorPosY(startY + lineHeight)
-
-	// imgui requires an item after SetCursorPos to validate window boundaries
-	imgui.Dummy(imgui.Vec2{})
+	// register the bar's full extent as one item from its start, so the layout
+	// continues one item spacing below the bar whatever the callback drew
+	imgui.SetCursorPos(start)
+	imgui.Dummy(imgui.Vec2{X: availWidth, Y: lineHeight})
 }

@@ -13,19 +13,25 @@ import (
 )
 
 // headlessBackend stands in for the GLFW backend: it owns an imgui context from
-// CreateWindow until Run returns, as the real backend does, and runs one frame.
-// unimplemented methods nil-panic through the embedded interface.
+// CreateWindow until Run returns, as the real backend does, and runs one frame,
+// or frames, in an 800x600 display unless size is set. unimplemented methods
+// nil-panic through the embedded interface.
 type headlessBackend struct {
 	backend.Backend[glfwbackend.GLFWWindowFlags]
-	ctx   *imgui.Context
-	panic bool
+	ctx    *imgui.Context
+	panic  bool
+	size   imgui.Vec2
+	frames int
 }
 
 func (b *headlessBackend) CreateWindow(string, int, int) {
 	b.ctx = imgui.CreateContext()
 	io := imgui.CurrentIO()
 	io.SetIniFilename("")
-	io.SetDisplaySize(imgui.Vec2{X: 800, Y: 600})
+	if b.size == (imgui.Vec2{}) {
+		b.size = imgui.Vec2{X: 800, Y: 600}
+	}
+	io.SetDisplaySize(b.size)
 	io.SetDeltaTime(1.0 / 60)
 	io.SetBackendFlags(imgui.BackendFlagsRendererHasTextures)
 }
@@ -34,9 +40,11 @@ func (b *headlessBackend) SetAfterRenderHook(func()) {}
 
 func (b *headlessBackend) Run(loop func()) {
 	defer imgui.DestroyContextV(b.ctx)
-	imgui.NewFrame()
-	loop()
-	imgui.Render()
+	for range max(1, b.frames) {
+		imgui.NewFrame()
+		loop()
+		imgui.Render()
+	}
 	if b.panic {
 		panic("backend failed")
 	}

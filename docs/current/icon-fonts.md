@@ -1,6 +1,6 @@
 # icon fonts
 
-Font setup merges the existing Material Icons font and an additive Material Symbols font into every style face whose `FontFace.Icons` is set — in Classic, and so in `SetupFonts`, the main and small UI fonts (see [styles.md](styles.md)). the font slots and existing `fonts.ICON_*` constants are unchanged. new symbols use `fonts.ICON_SYMBOL_*`, including `ICON_SYMBOL_VIEW_REAL_SIZE` for the 1:1 zoom reset icon.
+Font setup merges the existing Material Icons font and an additive Material Symbols font into every style face whose `FontFace.Icons` is set — in Classic, and so in `SetupFonts`, the main and small UI fonts; in Faceplate, the main, small, and bold heading faces (see [styles.md](styles.md)). Chakra Petch shares Gidole's cap-height placement within half a pixel, so both use 5 px at 20 px and 3 px at 16 px. the font slots and existing `fonts.ICON_*` constants are unchanged. new symbols use `fonts.ICON_SYMBOL_*`, including `ICON_SYMBOL_VIEW_REAL_SIZE` for the 1:1 zoom reset icon.
 
 the supplement contains only private-use BMP codepoints absent from the bundled Material Icons font. codepoint collisions keep their existing Material Icons artwork; the supplement does not replace them. symbols outside the BMP are omitted because the pinned cimgui-go build uses 16-bit `ImWchar`. applications can use the exported supplemental constants directly as widget labels, with the same font scaling and baseline alignment as existing icons.
 

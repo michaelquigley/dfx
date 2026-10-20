@@ -1,6 +1,8 @@
 package dfx
 
 import (
+	"math"
+
 	"github.com/AllenDang/cimgui-go/imgui"
 )
 
@@ -104,23 +106,87 @@ func ColorEdit4(label string, r, g, b, a float32) (float32, float32, float32, fl
 // when inactive (false), the button is dimmed. when active (true), it uses the checkmark color.
 // returns (newValue, changed) following dfx conventions.
 func Toggle(label string, value bool) (bool, bool) {
-	// set button color based on state
+	return ToggleV(label, value, ToggleOptions{})
+}
+
+// ToggleOptions adjusts a single ToggleV; zero values keep the style's defaults.
+type ToggleOptions struct {
+	OnText *imgui.Vec4 // label color while on, ahead of the style's default
+}
+
+// ToggleV is Toggle with options. with the selected style's
+// StyleControls.AccentInk, an on toggle keeps its fill when hovered or
+// pressed and draws its label in whichever of the theme's background and text
+// colors contrasts more with the fill.
+func ToggleV(label string, value bool, opts ToggleOptions) (bool, bool) {
+	pushed := 0
 	if !value {
 		// inactive: dim the button
-		buttonColor := imgui.CurrentStyle().Colors()[imgui.ColButton]
+		buttonColor := styleColor(imgui.ColButton)
 		buttonColor.W = toggleInactiveAlpha
 		imgui.PushStyleColorVec4(imgui.ColButton, buttonColor)
+		pushed++
 	} else {
 		// active: use checkmark color
-		imgui.PushStyleColorVec4(imgui.ColButton, imgui.CurrentStyle().Colors()[imgui.ColCheckMark])
+		fill := styleColor(imgui.ColCheckMark)
+		imgui.PushStyleColorVec4(imgui.ColButton, fill)
+		pushed++
+		text := opts.OnText
+		if currentStyleControls().AccentInk {
+			if text == nil {
+				ink := contrastingInk(fill, styleColor(imgui.ColWindowBg), styleColor(imgui.ColText))
+				text = &ink
+			}
+			// hover and press move the fill away from the label, so neither state
+			// can read worse than the toggle at rest
+			away := imgui.Vec4{W: fill.W}
+			if relativeLuminance(*text) < relativeLuminance(fill) {
+				away = imgui.Vec4{X: 1, Y: 1, Z: 1, W: fill.W}
+			}
+			imgui.PushStyleColorVec4(imgui.ColButtonHovered, mix(fill, away, 0.12))
+			imgui.PushStyleColorVec4(imgui.ColButtonActive, mix(fill, away, 0.24))
+			pushed += 2
+		}
+		if text != nil {
+			imgui.PushStyleColorVec4(imgui.ColText, *text)
+			pushed++
+		}
 	}
-	defer imgui.PopStyleColor()
+	defer imgui.PopStyleColorV(int32(pushed))
 
 	// render button and toggle on click
 	if imgui.Button(label) {
 		return !value, true // newValue, changed
 	}
 	return value, false // no change
+}
+
+// contrastingInk returns whichever of dark and light has the higher WCAG contrast
+// ratio against fill, opaque. it chooses between two theme colors; it does not
+// invent a color.
+func contrastingInk(fill, dark, light imgui.Vec4) imgui.Vec4 {
+	f := relativeLuminance(fill)
+	ratio := func(c imgui.Vec4) float64 {
+		l := relativeLuminance(c)
+		return (max(f, l) + 0.05) / (min(f, l) + 0.05)
+	}
+	ink := light
+	if ratio(dark) > ratio(light) {
+		ink = dark
+	}
+	ink.W = 1
+	return ink
+}
+
+func relativeLuminance(c imgui.Vec4) float64 {
+	channel := func(v float32) float64 {
+		x := float64(v)
+		if x <= 0.04045 {
+			return x / 12.92
+		}
+		return math.Pow((x+0.055)/1.055, 2.4)
+	}
+	return 0.2126*channel(c.X) + 0.7152*channel(c.Y) + 0.0722*channel(c.Z)
 }
 
 // WheelSlider creates a slider that responds to mouse wheel when hovered.

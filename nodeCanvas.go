@@ -458,7 +458,7 @@ func (nc *NodeCanvas[ID]) Node(id ID, pos imgui.Vec2, flags NodeFlags, content f
 	// regardless of declaration-order changes.
 	imgui.PushIDStr(nodeScope(id))
 	imgui.BeginGroup()
-	ctx := &NodeContext[ID]{nc: nc, groupStart: contentStart}
+	ctx := &NodeContext[ID]{nc: nc, groupStart: contentStart, band: titleBandColor(&nc.style, flags)}
 	nc.drawNodeContent(id, pos, idx, ctx, content)
 	imgui.EndGroup()
 	// EndGroup propagates item status flags within the window: this is the
@@ -625,7 +625,9 @@ type NodeContext[ID comparable] struct {
 	groupStart imgui.Vec2
 
 	titleUsed   bool
-	titleHeight float32 // canvas units, measured from the title closure's flow extent
+	titleHeight float32    // canvas units, measured from the title closure's flow extent
+	band        imgui.Vec4 // the node's resolved title band color
+	titleInk    *uint32    // label color inside the title closure, when the style asks for contrasting ink
 
 	pins []pinRecord[ID]
 }
@@ -647,11 +649,20 @@ func (n *NodeContext[ID]) TitleBar(content func()) {
 	if n.titleUsed || imgui.CursorScreenPos() != n.groupStart {
 		dl.Debugf("NodeContext.TitleBar must be the first call in the content closure")
 	}
+	// with the style's AccentInk, title labels contrast with the band: on a
+	// bright accent band, the theme's background color reads where its text
+	// color would not. widgets in the title keep their own colors.
+	if currentStyleControls().AccentInk {
+		band := mix(n.nc.style.NodeBodyColor, imgui.Vec4{X: n.band.X, Y: n.band.Y, Z: n.band.Z, W: 1}, n.band.W)
+		ink := imgui.ColorU32Vec4(contrastingInk(band, styleColor(imgui.ColWindowBg), styleColor(imgui.ColText)))
+		n.titleInk = &ink
+	}
 	imgui.BeginGroup()
 	if content != nil {
 		content()
 	}
 	imgui.EndGroup()
+	n.titleInk = nil
 	if !n.titleUsed {
 		n.titleHeight = (imgui.ItemRectMax().Y - n.groupStart.Y) / n.nc.frameView.Zoom
 		n.titleUsed = true
@@ -683,8 +694,17 @@ func (n *NodeContext[ID]) Output(pinID ID, label string) {
 func (n *NodeContext[ID]) Label(text string) {
 	pos := imgui.CursorScreenPos()
 	size := imgui.CalcTextSize(text)
-	imgui.WindowDrawList().AddTextVec2(pos, n.nc.textColor(), text)
+	imgui.WindowDrawList().AddTextVec2(pos, n.labelColor(), text)
 	imgui.Dummy(size)
+}
+
+// labelColor is the title ink inside a title closure that has one, otherwise the
+// current text color.
+func (n *NodeContext[ID]) labelColor() uint32 {
+	if n.titleInk != nil {
+		return *n.titleInk
+	}
+	return n.nc.textColor()
 }
 
 // Detent returns the zoom factor the frame is drawing at, so content

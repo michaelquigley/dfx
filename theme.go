@@ -168,6 +168,111 @@ func (m *ModernTheme) Apply() {
 	imgui.CurrentStyle().SetColors(&colors)
 }
 
+// faceplate palette snapshot; see docs/current/styles.md for its provenance.
+var (
+	faceplateAccent  = rgb(0xffd800) // school-bus yellow
+	faceplateBg      = rgb(0x1a1c20) // charcoal background
+	faceplatePanel   = rgb(0x24272e) // raised panel
+	faceplateRaised  = rgb(0x2e3239) // controls and popups on a panel
+	faceplateTrack   = rgb(0x3a3f48) // borders, tracks, neutral hover
+	faceplatePress   = rgb(0x474d57) // neutral press
+	faceplateText    = rgb(0xd6d6d6) // primary text
+	faceplateReadout = rgb(0x878b93) // secondary text
+)
+
+// FaceplateTheme is the faceplate family's color theme: neutral charcoal chrome
+// with one identity Accent, which marks active values, selection, and focus.
+// hover is neutral. like Modern Dark, it starts from imgui's dark colors, so its
+// result does not depend on a previously applied theme.
+type FaceplateTheme struct {
+	Accent imgui.Vec4
+}
+
+func (f *FaceplateTheme) Name() string {
+	return "Faceplate"
+}
+
+func (f *FaceplateTheme) Apply() {
+	imgui.StyleColorsDark()
+	accent := f.Accent
+	lit := mix(accent, imgui.Vec4{X: 1, Y: 1, Z: 1, W: accent.W}, 0.25)
+	colors := imgui.CurrentStyle().Colors()
+	colors[imgui.ColText] = faceplateText
+	colors[imgui.ColTextDisabled] = faceplateReadout
+	colors[imgui.ColWindowBg] = faceplateBg
+	colors[imgui.ColChildBg] = faceplatePanel
+	colors[imgui.ColPopupBg] = faceplateRaised
+	colors[imgui.ColBorder] = faceplateTrack
+	colors[imgui.ColBorderShadow] = imgui.Vec4{}
+	colors[imgui.ColFrameBg] = faceplateRaised
+	colors[imgui.ColFrameBgHovered] = faceplateTrack
+	colors[imgui.ColFrameBgActive] = faceplatePress
+	colors[imgui.ColTitleBg] = faceplatePanel
+	colors[imgui.ColTitleBgActive] = faceplateRaised
+	colors[imgui.ColTitleBgCollapsed] = withAlpha(faceplatePanel, 0.75)
+	colors[imgui.ColMenuBarBg] = faceplatePanel
+	colors[imgui.ColScrollbarBg] = imgui.Vec4{}
+	colors[imgui.ColScrollbarGrab] = faceplateTrack
+	colors[imgui.ColScrollbarGrabHovered] = faceplatePress
+	colors[imgui.ColScrollbarGrabActive] = faceplateReadout
+	colors[imgui.ColCheckMark] = accent
+	colors[imgui.ColCheckboxSelectedBg] = withAlpha(accent, 0.3)
+	colors[imgui.ColSliderGrab] = accent
+	colors[imgui.ColSliderGrabActive] = lit
+	colors[imgui.ColButton] = faceplateRaised
+	colors[imgui.ColButtonHovered] = faceplateTrack
+	colors[imgui.ColButtonActive] = faceplatePress
+	colors[imgui.ColHeader] = withAlpha(accent, 0.22)
+	colors[imgui.ColHeaderHovered] = faceplateTrack
+	colors[imgui.ColHeaderActive] = withAlpha(accent, 0.35)
+	colors[imgui.ColSeparator] = faceplateTrack
+	colors[imgui.ColSeparatorHovered] = faceplatePress
+	colors[imgui.ColSeparatorActive] = accent
+	colors[imgui.ColResizeGrip] = withAlpha(faceplateTrack, 0.5)
+	colors[imgui.ColResizeGripHovered] = faceplatePress
+	colors[imgui.ColResizeGripActive] = accent
+	colors[imgui.ColInputTextCursor] = faceplateText
+	colors[imgui.ColTabHovered] = faceplateTrack
+	colors[imgui.ColTab] = faceplatePanel
+	colors[imgui.ColTabSelected] = faceplateRaised
+	colors[imgui.ColTabSelectedOverline] = accent
+	colors[imgui.ColTabDimmed] = faceplatePanel
+	colors[imgui.ColTabDimmedSelected] = faceplateRaised
+	colors[imgui.ColTabDimmedSelectedOverline] = faceplateTrack
+	colors[imgui.ColDockingPreview] = withAlpha(accent, 0.4)
+	colors[imgui.ColDockingEmptyBg] = faceplateBg
+	colors[imgui.ColPlotLines] = faceplateReadout
+	colors[imgui.ColPlotLinesHovered] = accent
+	colors[imgui.ColPlotHistogram] = accent
+	colors[imgui.ColPlotHistogramHovered] = lit
+	colors[imgui.ColTableHeaderBg] = faceplateRaised
+	colors[imgui.ColTableBorderStrong] = faceplateTrack
+	colors[imgui.ColTableBorderLight] = mix(faceplatePanel, faceplateTrack, 0.5)
+	colors[imgui.ColTableRowBg] = imgui.Vec4{}
+	colors[imgui.ColTableRowBgAlt] = withAlpha(faceplateText, 0.03)
+	colors[imgui.ColTextLink] = accent
+	colors[imgui.ColTextSelectedBg] = withAlpha(accent, 0.3)
+	colors[imgui.ColTreeLines] = faceplateTrack
+	colors[imgui.ColDragDropTarget] = accent
+	colors[imgui.ColDragDropTargetBg] = imgui.Vec4{}
+	colors[imgui.ColUnsavedMarker] = faceplateText
+	colors[imgui.ColNavCursor] = accent
+	colors[imgui.ColNavWindowingHighlight] = withAlpha(faceplateText, 0.7)
+	colors[imgui.ColNavWindowingDimBg] = imgui.Vec4{W: 0.5}
+	colors[imgui.ColModalWindowDimBg] = imgui.Vec4{W: 0.6}
+	imgui.CurrentStyle().SetColors(&colors)
+}
+
+// rgb converts a 0xRRGGBB value to an opaque color.
+func rgb(hex uint32) imgui.Vec4 {
+	return imgui.Vec4{X: float32(hex>>16&0xff) / 255, Y: float32(hex>>8&0xff) / 255, Z: float32(hex&0xff) / 255, W: 1}
+}
+
+// mix blends a toward b by t, alpha included.
+func mix(a, b imgui.Vec4, t float32) imgui.Vec4 {
+	return imgui.Vec4{X: a.X + (b.X-a.X)*t, Y: a.Y + (b.Y-a.Y)*t, Z: a.Z + (b.Z-a.Z)*t, W: a.W + (b.W-a.W)*t}
+}
+
 // predefined themes for convenience
 var (
 	BlueTheme   = NewHueColorScheme("Blue", 240, 50, 180)

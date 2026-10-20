@@ -43,6 +43,8 @@ type Style struct {
 	Metrics    StyleMetrics
 	Spacing    StyleSpacing
 	Roles      StyleRoles
+	Chrome     StyleChrome
+	Controls   StyleControls
 }
 
 // Typography names the faces loaded into the font slots. Main, Monospace, and Small
@@ -100,11 +102,34 @@ type StyleSpacing struct {
 // the current ImGui context when drawing, so theme changes and local color pushes
 // reach the chrome without rebuilding anything.
 type StyleRoles struct {
-	Accent        imgui.Col // active values, selection, focus, enabled state
+	Accent        imgui.Col // active values, selection, focus, enabled state; NodeCanvas emphasis
 	Panel         imgui.Col // raised panel surfaces
 	SecondaryText imgui.Col // quieter labels and annotations
 	FaderFill     imgui.Col // fader fill and hovered handle border
 	FaderActive   imgui.Col // active fader handle border
+	Toolbar       imgui.Col // toolbar background
+	Handle        imgui.Col // drag-handle glyphs on Dash and HCollapse panels
+}
+
+// StyleChrome holds the presentation defaults of dfx's composite components. their
+// public dimensions and margins, such as DashManager.Margin, remain explicit fields.
+type StyleChrome struct {
+	PanelRounding  float32    // corner radius of Dash and HCollapse panels
+	ContentPadding imgui.Vec2 // padding inside HCollapse content and MultiGrid cells
+	ToolbarInset   float32    // space before a toolbar's label
+	FlexMargin     float32    // FlexLayout slack left at its trailing edges
+	FlexGap        float32    // FlexLayout gap between cells, alongside its splitters
+	GridGap        float32    // GridLayout gap between cells
+}
+
+// StyleControls holds defaults for dfx's own controls.
+type StyleControls struct {
+	// AccentInk draws labels on accent fills, an on Toggle and NodeCanvas title
+	// labels, in whichever of the theme's background and text colors contrasts
+	// more with the fill, and keeps an on Toggle's fill through hover and press.
+	// off, those labels use the theme's text color and an on Toggle takes the
+	// theme's button hover and press colors.
+	AccentInk bool
 }
 
 // ClassicStyle returns dfx's original compact presentation: Gidole and JetBrains
@@ -141,17 +166,115 @@ func ClassicStyle() Style {
 			SectionGap:  2 * DefaultItemSpacing,
 		},
 		Roles: classicStyleRoles(),
+		Chrome: StyleChrome{
+			PanelRounding: DashWindowRounding,
+			ToolbarInset:  3,
+			FlexMargin:    2,
+			FlexGap:       4,
+		},
 	}
 }
 
 func classicStyleRoles() StyleRoles {
 	return StyleRoles{
-		Accent:        imgui.ColCheckMark,
+		Accent:        imgui.ColHeaderActive,
 		Panel:         imgui.ColChildBg,
 		SecondaryText: imgui.ColTextDisabled,
 		FaderFill:     imgui.ColButtonHovered,
 		FaderActive:   imgui.ColButtonActive,
+		Toolbar:       imgui.ColHeader,
+		Handle:        imgui.ColHeaderActive,
 	}
+}
+
+// FaceplateStyle returns the presentation shared with the faceplate plugins:
+// Chakra Petch with a real bold heading face, charcoal surfaces, one identity
+// accent, and roomier spacing. replace Theme with a FaceplateTheme of another
+// accent to change the identity color. each call returns an independent
+// configuration, with its own theme, sharing immutable font assets.
+func FaceplateStyle() Style {
+	return Style{
+		Name:  "Faceplate",
+		Theme: &FaceplateTheme{Accent: faceplateAccent},
+		Typography: Typography{
+			Main:      FontFace{Data: fonts.ChakraPetchRegular, Size: 20, Icons: true, IconOffset: 5},
+			Monospace: FontFace{Data: fonts.JetBrainsMonoMedium, Size: 16},
+			Small:     FontFace{Data: fonts.ChakraPetchRegular, Size: 16, Icons: true, IconOffset: 3},
+			Heading:   FontFace{Data: fonts.ChakraPetchBold, Size: 20, Icons: true, IconOffset: 5},
+		},
+		Metrics: StyleMetrics{
+			WindowPadding:     imgui.Vec2{X: 12, Y: 12},
+			FramePadding:      imgui.Vec2{X: 8, Y: 5},
+			ItemSpacing:       imgui.Vec2{X: 8, Y: 8},
+			CellPadding:       imgui.Vec2{X: 8, Y: 4},
+			ScrollbarSize:     DefaultScrollbarSize,
+			WindowBorder:      DefaultWindowBorder,
+			ChildBorder:       DefaultChildBorder,
+			PopupBorder:       DefaultPopupBorder,
+			FrameBorder:       DefaultFrameBorder,
+			WindowRounding:    DefaultWindowRounding,
+			ChildRounding:     DefaultChildRounding,
+			FrameRounding:     DefaultFrameRounding,
+			PopupRounding:     DefaultPopupRounding,
+			ScrollbarRounding: DefaultScrollbarRounding,
+			GrabRounding:      DefaultGrabRounding,
+		},
+		Spacing: StyleSpacing{
+			OuterMargin: 12,
+			SectionGap:  16,
+		},
+		Roles: StyleRoles{
+			Accent:        imgui.ColCheckMark,
+			Panel:         imgui.ColChildBg,
+			SecondaryText: imgui.ColTextDisabled,
+			FaderFill:     imgui.ColCheckMark,
+			FaderActive:   imgui.ColCheckMark,
+			Toolbar:       imgui.ColTitleBgActive,
+			Handle:        imgui.ColTextDisabled,
+		},
+		Chrome: StyleChrome{
+			PanelRounding:  DashWindowRounding,
+			ContentPadding: imgui.Vec2{X: 12, Y: 12},
+			ToolbarInset:   8,
+			GridGap:        8, // FlexLayout's 10 px splitter strips already separate its cells
+		},
+		Controls: StyleControls{AccentInk: true},
+	}
+}
+
+func currentStyleSpacing() StyleSpacing {
+	if activeStyle == nil {
+		return ClassicStyle().Spacing
+	}
+	return activeStyle.style.Spacing
+}
+
+// availableSize is the content region left at the cursor, never negative: a
+// negative size passed on would read as imgui's fill-relative size syntax.
+func availableSize() imgui.Vec2 {
+	avail := imgui.ContentRegionAvail()
+	return imgui.Vec2{X: max(0, avail.X), Y: max(0, avail.Y)}
+}
+
+// usableSize is availableSize, and whether it leaves anything to draw in: after a
+// container's padding, a positive child can still have no usable area.
+func usableSize() (imgui.Vec2, bool) {
+	size := availableSize()
+	return size, size.X > 0 && size.Y > 0
+}
+
+func currentStyleChrome() StyleChrome {
+	if activeStyle == nil {
+		return ClassicStyle().Chrome
+	}
+	return activeStyle.style.Chrome
+}
+
+func currentStyleControls() StyleControls {
+	if activeStyle == nil {
+		return StyleControls{}
+	}
+	return activeStyle.style.Controls
 }
 
 // validate rejects a style whose required font slots could not load.
@@ -195,11 +318,26 @@ var activeStyle *activeStyleState
 // the effective color theme. it describes the selected defaults; live colors and
 // metrics, including local overrides, come from the current ImGui context. outside
 // a running App it returns ClassicStyle. Font data remains shared and immutable.
+// a built-in FaceplateTheme is copied, so editing a snapshot changes nothing else.
 func CurrentStyle() Style {
 	if activeStyle == nil {
 		return ClassicStyle()
 	}
-	return activeStyle.style
+	style := activeStyle.style
+	style.Theme = ownTheme(style.Theme)
+	return style
+}
+
+// ownTheme copies a built-in FaceplateTheme, whose accent is configuration held
+// behind a pointer: sharing it would let an edit to the source, or to one
+// CurrentStyle snapshot, reach the running selection and every other snapshot.
+// other Theme implementations keep their existing ownership.
+func ownTheme(theme Theme) Theme {
+	if faceplate, ok := theme.(*FaceplateTheme); ok && faceplate != nil {
+		owned := *faceplate
+		return &owned
+	}
+	return theme
 }
 
 func currentStyleRoles() StyleRoles {

@@ -43,22 +43,30 @@ func NewDash(name string, component Component) *Dash {
 	}
 }
 
+// DrawDash draws the dash within bounds, which are relative to the cursor when it
+// is called: the content origin of the component laying the dash out.
 func (d *Dash) DrawDash(state *State, bounds Bounds, attachment DashAttachment) {
-	if d.CurrentSize > 0 {
+	// an exhausted panel is skipped before any window state is queued or pushed:
+	// imgui reads a zero child size as fill-remaining and a negative one as
+	// fill-relative. the animation below still advances.
+	pos, size := d.panelRect(imgui.CursorScreenPos(), bounds, attachment)
+	if d.CurrentSize > 0 && size.X > 0 && size.Y > 0 && bounds.W > 0 && bounds.H > 0 {
 		imgui.SetNextWindowBgAlpha(DashBackgroundAlpha)
-		imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, DashWindowRounding)
-		sfSize := d.boundsAndSize(bounds, attachment)
+		imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, currentStyleChrome().PanelRounding)
+		imgui.SetNextWindowPos(pos)
+		imgui.SetNextWindowSize(size)
 
 		windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoTitleBar |
 			imgui.WindowFlagsNoResize | imgui.WindowFlagsNoScrollbar | imgui.WindowFlagsNoScrollWithMouse
 
 		imgui.BeginChildStrV(d.Name, imgui.Vec2{X: bounds.W, Y: bounds.H}, imgui.ChildFlagsNone, windowFlags)
+		panel := imgui.WindowSize()
 
 		if d.CurrentSize == d.TargetSize {
 			if d.Resizable {
 				dhp := d.dragHandlePos(bounds, attachment)
 				imgui.SetCursorPos(dhp)
-				imgui.PushStyleColorVec4(imgui.ColText, imgui.CurrentStyle().Colors()[imgui.ColHeaderActive])
+				imgui.PushStyleColorVec4(imgui.ColText, styleColor(currentStyleRoles().Handle))
 				imgui.TextUnformatted(fonts.ICON_DRAG_INDICATOR)
 				imgui.PopStyleColor()
 
@@ -101,43 +109,30 @@ func (d *Dash) DrawDash(state *State, bounds Bounds, attachment DashAttachment) 
 				}
 			}
 
-			childSize := imgui.Vec2{X: 0, Y: 0}
-			if attachment != TopDash {
-				windowPadding := imgui.CurrentStyle().WindowPadding()
-				if d.Resizable {
-					imgui.SetCursorPos(imgui.Vec2{X: windowPadding.X, Y: DashTitleBarHeight})
-				} else {
-					imgui.SetCursorPos(windowPadding)
+			// the surface is inset by the panel padding on every side, and below
+			// the handle row once: at the top, or for a top dash at the bottom.
+			surfacePos, surfaceSize := d.surfaceRect(panel, attachment)
+			if surfaceSize.X > 0 && surfaceSize.Y > 0 {
+				imgui.SetCursorPos(surfacePos)
+				imgui.PushStyleVarFloat(imgui.StyleVarScrollbarSize, DashScrollbarSize)
+				imgui.BeginChildStrV("##dashSurface", surfaceSize, 0, 0)
+				if usable, ok := usableSize(); ok && d.Visible && d.Component != nil {
+					// create state for the child component
+					childState := &State{
+						Size:     usable,
+						Position: imgui.Vec2{}, // position is relative to the child window
+						IO:       state.IO,
+						App:      state.App,
+						Parent:   d,
+					}
+					d.Component.Draw(childState)
 				}
+				d.Focused = d.Visible && imgui.IsWindowFocused()
+				imgui.EndChild()
+				imgui.PopStyleVar()
 			} else {
-				windowPadding := imgui.CurrentStyle().WindowPadding()
-				imgui.SetCursorPos(windowPadding)
-				if d.Resizable {
-					childSize = imgui.Vec2{X: bounds.W - (windowPadding.X * 2), Y: bounds.H - (windowPadding.Y * 2) - DashTitleBarOffset}
-				}
+				d.Focused = false
 			}
-			imgui.PushStyleVarFloat(imgui.StyleVarScrollbarSize, DashScrollbarSize)
-			imgui.BeginChildStrV("##dashSurface", childSize, 0, 0)
-			if d.Visible && d.Component != nil {
-				windowPadding := imgui.CurrentStyle().WindowPadding()
-				sfSize = sfSize.Sub(imgui.Vec2{X: windowPadding.X * 2, Y: windowPadding.Y * 2})
-				if d.Resizable {
-					sfSize = sfSize.Sub(imgui.Vec2{X: 0, Y: DashSurfacePadding})
-				}
-
-				// create state for the child component
-				childState := &State{
-					Size:     sfSize,
-					Position: imgui.Vec2{}, // position is relative to the child window
-					IO:       state.IO,
-					App:      state.App,
-					Parent:   d,
-				}
-				d.Component.Draw(childState)
-			}
-			d.Focused = d.Visible && imgui.IsWindowFocused()
-			imgui.EndChild()
-			imgui.PopStyleVar()
 
 			if !d.Focused {
 				d.Focused = d.Visible && imgui.IsWindowFocused() // outer window may be focused, dragging
@@ -145,6 +140,8 @@ func (d *Dash) DrawDash(state *State, bounds Bounds, attachment DashAttachment) 
 		}
 		imgui.EndChild()
 		imgui.PopStyleVar()
+	} else {
+		d.Focused = false // an undrawn panel cannot hold focus for action routing
 	}
 
 	if d.Visible {
@@ -164,48 +161,58 @@ func (d *Dash) DrawDash(state *State, bounds Bounds, attachment DashAttachment) 
 	}
 }
 
-func (d *Dash) boundsAndSize(bounds Bounds, attachment DashAttachment) imgui.Vec2 {
-	winPos := imgui.WindowPos()
+// dashHandleRow is the height a resizable dash reserves for its drag handle: the
+// handle's inset from the panel edge, the handle or the glyph drawn in it,
+// whichever is taller, and a small gap. 27 px in Classic.
+func dashHandleRow() float32 {
+	return imgui.CurrentStyle().ItemSpacing().Y + 1 + max(DragHandleSize, imgui.FontSize()) + 2
+}
+
+// surfaceRect is the content surface of a panel, in panel coordinates, clamped so
+// an exhausted panel yields an empty size rather than a negative one.
+func (d *Dash) surfaceRect(panel imgui.Vec2, attachment DashAttachment) (imgui.Vec2, imgui.Vec2) {
+	padding := imgui.CurrentStyle().WindowPadding()
+	top, bottom := padding.Y, padding.Y
+	if d.Resizable {
+		if attachment == TopDash {
+			bottom += max(DragHandleSize, imgui.FontSize()) + 2
+		} else {
+			top = dashHandleRow()
+		}
+	}
+	size := imgui.Vec2{X: max(0, panel.X-padding.X*2), Y: max(0, panel.Y-top-bottom)}
+	return imgui.Vec2{X: padding.X, Y: top}, size
+}
+
+// panelRect is the panel's screen position and size within bounds, relative to
+// origin: its current size, clamped so the panel never leaves its bounds. it
+// queues nothing, so an exhausted panel can be skipped cleanly.
+func (d *Dash) panelRect(origin imgui.Vec2, bounds Bounds, attachment DashAttachment) (imgui.Vec2, imgui.Vec2) {
 	switch attachment {
-	case LeftDash:
-		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}))
-		size := imgui.Vec2{X: float32(d.CurrentSize), Y: bounds.H}
-		imgui.SetNextWindowSize(size)
-		return size
-
+	case LeftDash, RightDash:
+		return origin.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}), imgui.Vec2{X: min(float32(d.CurrentSize), bounds.W), Y: bounds.H}
 	case TopDash:
-		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}))
-		size := imgui.Vec2{X: bounds.W, Y: float32(d.CurrentSize)}
-		imgui.SetNextWindowSize(size)
-		return size
-
-	case RightDash:
-		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}))
-		size := imgui.Vec2{X: float32(d.CurrentSize), Y: bounds.H}
-		imgui.SetNextWindowSize(size)
-		return size
-
+		return origin.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y}), imgui.Vec2{X: bounds.W, Y: min(float32(d.CurrentSize), bounds.H)}
 	default: // BottomDash
-		imgui.SetNextWindowPos(winPos.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y + bounds.H - float32(d.CurrentSize)}))
-		size := imgui.Vec2{X: bounds.W, Y: float32(d.CurrentSize)}
-		imgui.SetNextWindowSize(size)
-		return size
+		h := min(float32(d.CurrentSize), bounds.H)
+		return origin.Add(imgui.Vec2{X: bounds.X, Y: bounds.Y + bounds.H - h}), imgui.Vec2{X: bounds.W, Y: h}
 	}
 }
 
 func (d *Dash) dragHandlePos(bounds Bounds, attachment DashAttachment) imgui.Vec2 {
+	inset := imgui.CurrentStyle().ItemSpacing().Y + 1
 	switch attachment {
 	case LeftDash:
-		return imgui.Vec2{X: float32(d.CurrentSize) - DashDragHandleOffset, Y: DefaultItemSpacing + 1}
+		return imgui.Vec2{X: float32(d.CurrentSize) - DashDragHandleOffset, Y: inset}
 
 	case TopDash:
 		return imgui.Vec2{X: bounds.W - DashDragHandleOffset, Y: bounds.H - DashDragHandleOffset}
 
 	case RightDash:
-		return imgui.Vec2{X: DefaultWindowPadding, Y: DefaultItemSpacing + 1}
+		return imgui.Vec2{X: imgui.CurrentStyle().WindowPadding().X, Y: inset}
 
 	default: // BottomDash
-		return imgui.Vec2{X: bounds.W - DashDragHandleOffset, Y: DefaultItemSpacing + 1}
+		return imgui.Vec2{X: bounds.W - DashDragHandleOffset, Y: inset}
 	}
 }
 

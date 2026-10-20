@@ -13,3 +13,9 @@ var MaterialIconsRegular []byte
 
 //go:embed MaterialSymbolsSupplement.ttf
 var MaterialSymbolsSupplement []byte
+
+//go:embed ChakraPetch-Regular.ttf
+var ChakraPetchRegular []byte
+
+//go:embed ChakraPetch-Bold.ttf
+var ChakraPetchBold []byte

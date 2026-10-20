@@ -220,14 +220,12 @@ func (ws *Workspace) draw(state *State) {
 		return
 	}
 
-	// calculate available size
-	availableSize := state.Size
-	selectorHeight := float32(0)
+	// the selector's height is its actual cursor advance, including the spacing
+	// below it, so the component's allocation starts where it draws.
+	startY := imgui.CursorPosY()
 
 	// draw selector if enabled
 	if ws.ShowSelector {
-		selectorHeight = 30 // approximate height for combo
-
 		// set width if specified
 		if ws.SelectorWidth > 0 {
 			imgui.PushItemWidth(ws.SelectorWidth)
@@ -246,13 +244,14 @@ func (ws *Workspace) draw(state *State) {
 		// add spacing
 		imgui.Spacing()
 	}
+	selectorHeight := imgui.CursorPosY() - startY
 
 	// draw current component
 	current := ws.CurrentComponent()
 	if current != nil {
 		// create state for current component with adjusted size
 		componentState := &State{
-			Size:     imgui.Vec2{X: availableSize.X, Y: availableSize.Y - selectorHeight},
+			Size:     imgui.Vec2{X: state.Size.X, Y: max(0, state.Size.Y-selectorHeight)},
 			Position: state.Position,
 			IO:       state.IO,
 			App:      state.App,
