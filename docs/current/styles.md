@@ -67,7 +67,7 @@ The selection and the font globals belong to that run. `App.Run` restores their 
 | Field | Classic | Faceplate | Used by |
 |---|---|---|---|
 | `PanelRounding` | 5 | 5 | Dash and HCollapse panel corners |
-| `ContentPadding` | 0×0 | 12×12 | inside HCollapse content and MultiGrid cells |
+| `ContentPadding` | 0×0 | 12×12 | inside HCollapse content and MultiGrid cells (except a cell holding a nested MultiGrid), and around the Workspace selector |
 | `ToolbarInset` | 3 | 8 | space before a toolbar's label |
 | `FlexMargin` | 2 | 0 | FlexLayout slack at its trailing edges |
 | `FlexGap` | 4 | 0 | FlexLayout gap beside its 10 px splitter strips |

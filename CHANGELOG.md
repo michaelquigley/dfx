@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.1.17
+
+FIX: A MultiGrid nested in another grid's cell is no longer padded twice. The outer cell leaves a nested grid unpadded, since the nested grid's own cells pad their content, so nested panels line up with their siblings under Faceplate.
+
+FIX: Under Faceplate, the Workspace selector is inset by `Chrome.ContentPadding` like a padded cell and drops the extra spacing below it, so it lines up with padded content and leaves matching gaps above and below. Classic is unchanged.
+
 ## v0.1.16
 
 CHANGE: **Faceplate is now the default style.** It brings Chakra Petch text, roomier spacing, and charcoal surfaces with a yellow accent. Select `ClassicStyle()` through `Config.Style` to keep the old look. `Config.Theme` and `SetTheme` still change colors only; they do not restore Classic's fonts or spacing. See the [migration guide](docs/current/styles.md#migrating-from-classic).

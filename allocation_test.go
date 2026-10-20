@@ -142,9 +142,12 @@ func TestAllocation_WorkspaceSelector(t *testing.T) {
 				ws.Add("one", "One", p)
 				ws.Add("two", "Two", &probe{})
 				outer := &probe{}
-				var frameHeight float32
+				var frameHeight, itemSpacing float32
+				var padding imgui.Vec2
 				root := NewFunc(func(state *State) {
 					frameHeight = imgui.FrameHeight()
+					itemSpacing = imgui.CurrentStyle().ItemSpacing().Y
+					padding = currentStyleChrome().ContentPadding
 					outer.Draw(state)
 					ws.Draw(state)
 				})
@@ -154,8 +157,20 @@ func TestAllocation_WorkspaceSelector(t *testing.T) {
 				if !selector && advance != 0 {
 					t.Fatalf("without a selector the item must start at the workspace origin, moved '%v'", advance)
 				}
-				if selector && advance <= frameHeight {
-					t.Fatalf("the item must start below the selector, moved '%v'", advance)
+				if selector {
+					// a padded style insets the selector like a cell and leaves the
+					// separation below to the padded content; an unpadded one adds a
+					// line of spacing.
+					expected := padding.Y + frameHeight + itemSpacing
+					if padding.Y == 0 {
+						expected += itemSpacing
+					}
+					if abs32(advance-expected) > 0.5 {
+						t.Fatalf("the item must start '%v' below the workspace origin, moved '%v'", expected, advance)
+					}
+				}
+				if p.origin.X != outer.origin.X {
+					t.Fatalf("the item must start at the workspace's left edge '%v', got '%v'", outer.origin.X, p.origin.X)
 				}
 			})
 		}
@@ -327,6 +342,40 @@ func TestAllocation_Layouts(t *testing.T) {
 				if !within(p.windows[0], area) {
 					t.Fatalf("%s cell '%v' escapes its layout '%v'", id, p.windows[0], area)
 				}
+			}
+		})
+	}
+}
+
+// a MultiGrid nested in another grid's cell is not padded by that cell, so its
+// content lines up with content in the outer grid's other cells.
+func TestAllocation_NestedGridPaddedOnce(t *testing.T) {
+	for name, preset := range presets {
+		t.Run(name, func(t *testing.T) {
+			nestedProbe, siblingProbe := &probe{}, &probe{}
+			nested := NewMultiGrid()
+			nested.AddComponent("top", nestedProbe)
+			nested.AddComponent("bottom", &probe{})
+			nested.SetLayout(NewFlexLayout([][]string{{"top"}, {"bottom"}}))
+			outer := NewMultiGrid()
+			outer.AddComponent("left", nested)
+			outer.AddComponent("right", siblingProbe)
+			outer.SetLayout(NewFlexLayout([][]string{{"left", "right"}}))
+			var origin imgui.Vec2
+			var padding imgui.Vec2
+			root := NewFunc(func(state *State) {
+				origin = imgui.CursorScreenPos()
+				padding = currentStyleChrome().ContentPadding
+				outer.Draw(state)
+			})
+			runRoot(t, preset(), root, nil, imgui.Vec2{X: 640, Y: 480}, 2)
+			assertFits(t, "nested", nestedProbe)
+			assertFits(t, "sibling", siblingProbe)
+			if !near(nestedProbe.origin, origin.Add(padding)) {
+				t.Fatalf("nested content must be inset once by '%v' from '%v', drew at '%v'", padding, origin, nestedProbe.origin)
+			}
+			if abs32(nestedProbe.origin.Y-siblingProbe.origin.Y) > 0.5 {
+				t.Fatalf("nested content at y '%v' must line up with its sibling at '%v'", nestedProbe.origin.Y, siblingProbe.origin.Y)
 			}
 		})
 	}

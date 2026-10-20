@@ -313,10 +313,15 @@ func (fl *FlexLayout) Arrange(components map[string]Component, state *State) {
 
 // drawLayoutCell renders a component in a cell's child window, padded by the
 // style's content padding, and passes it the usable size inside that padding;
-// when the padding leaves none, the cell stays empty. size must be positive:
-// imgui reads a zero child size as fill-remaining.
+// when the padding leaves none, the cell stays empty. a cell holding a nested
+// MultiGrid is not padded: the nested grid's own cells pad their content, and
+// padding both would inset nested content twice, out of line with its siblings.
+// size must be positive: imgui reads a zero child size as fill-remaining.
 func drawLayoutCell(component Component, size imgui.Vec2, id string, position imgui.Vec2, state *State) {
 	padding := currentStyleChrome().ContentPadding
+	if _, nested := component.(*MultiGrid); nested {
+		padding = imgui.Vec2{}
+	}
 	childFlags := imgui.ChildFlagsNone
 	if padding != (imgui.Vec2{}) {
 		childFlags = imgui.ChildFlagsAlwaysUseWindowPadding // borderless children drop padding otherwise

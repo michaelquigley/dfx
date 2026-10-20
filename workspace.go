@@ -222,7 +222,7 @@ func (ws *Workspace) draw(state *State) {
 
 	// the selector's height is its actual cursor advance, including the spacing
 	// below it, so the component's allocation starts where it draws.
-	startY := imgui.CursorPosY()
+	start := imgui.CursorPos()
 
 	// draw selector if enabled
 	if ws.ShowSelector {
@@ -230,6 +230,13 @@ func (ws *Workspace) draw(state *State) {
 		if ws.SelectorWidth > 0 {
 			imgui.PushItemWidth(ws.SelectorWidth)
 			defer imgui.PopItemWidth()
+		}
+
+		// the selector row is inset like a padded cell, so it lines up with padded
+		// content below it and leaves the same gap above as below.
+		padding := currentStyleChrome().ContentPadding
+		if padding != (imgui.Vec2{}) {
+			imgui.SetCursorPos(start.Add(padding))
 		}
 
 		// get display names for combo
@@ -241,10 +248,19 @@ func (ws *Workspace) draw(state *State) {
 			ws.SwitchByIndex(newIndex)
 		}
 
-		// add spacing
-		imgui.Spacing()
+		// padded content below supplies its own separation; unpadded content
+		// gets an extra line of spacing, as it always has.
+		if padding.Y == 0 {
+			imgui.Spacing()
+		}
+		// the next line starts at the window's left edge; a workspace drawn at an
+		// offset returns there. setting the cursor only when it moved avoids
+		// imgui's assertion against an unsubmitted cursor move.
+		if imgui.CursorPosX() != start.X {
+			imgui.SetCursorPosX(start.X)
+		}
 	}
-	selectorHeight := imgui.CursorPosY() - startY
+	selectorHeight := imgui.CursorPosY() - start.Y
 
 	// draw current component
 	current := ws.CurrentComponent()
