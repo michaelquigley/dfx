@@ -8,6 +8,8 @@ CHANGE: **Components now receive their usable content area in `State.Size`.** Co
 
 CHANGE: **`DashManager.TopMargin` now reserves space above the whole layout under either precedence mode.** Dashes fit within the remaining height, preventing panels from overflowing or drawing into the margin.
 
+CHANGE: Updated `github.com/AllenDang/cimgui-go` to `v1.6.1`.
+
 FEATURE: `Config.Style` lets applications choose and customize fonts, spacing, colors, and widget styling together. Faceplate includes a configurable accent and a bold heading font, available through `PushHeadingFont()`. The themes example compares Faceplate and Classic across controls, panels, meters, and NodeCanvas.
 
 FEATURE: Faceplate chooses contrasting text for toggles and node titles, keeping labels readable on bright accents. Toggles retain their accent when hovered or pressed. `ToggleV` also accepts an explicit on-state text color.
