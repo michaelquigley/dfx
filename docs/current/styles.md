@@ -1,21 +1,25 @@
 # Styles
 
-A `Style` is a complete presentation configuration: a display name, a default color `Theme`, the `Typography` loaded into the font slots, the ImGui `Metrics` applied at startup, dfx `Spacing` values ImGui has no metric for, `Roles` binding dfx's custom chrome to ImGui color slots, `Chrome` defaults for dfx's composite components, and `Controls` defaults for its own controls. An application selects one with `Config.Style`; with no style, dfx uses `ClassicStyle()`, its original compact presentation. `FaceplateStyle()` is the faceplate family's presentation (see [Faceplate](#faceplate)).
+A `Style` is a complete presentation configuration: a display name, a default color `Theme`, the `Typography` loaded into the font slots, the ImGui `Metrics` applied at startup, dfx `Spacing` values ImGui has no metric for, `Roles` binding dfx's custom chrome to ImGui color slots, `Chrome` defaults for dfx's composite components, and `Controls` defaults for its own controls. An application selects one with `Config.Style`. With no style, dfx uses `FaceplateStyle()`, the faceplate family's presentation (see [Faceplate](#faceplate)). `ClassicStyle()` is dfx's original compact presentation, the default before Faceplate; select it explicitly to keep the old look (see [Migrating from Classic](#migrating-from-classic)).
 
 ## Selecting and customizing
 
 ```go
-style := dfx.ClassicStyle()
-style.Metrics.FramePadding = imgui.Vec2{X: 6, Y: 4}
+style := dfx.FaceplateStyle()
+style.Theme = &dfx.FaceplateTheme{Accent: imgui.Vec4{X: 0.3, Y: 0.64, Z: 1, W: 1}} // another identity color
+style.Spacing.SectionGap = 24
+style.Metrics.ItemSpacing = imgui.Vec2{X: 10, Y: 10}
 style.Typography.Small.Size = 15
 app := dfx.New(root, dfx.Config{Style: &style})
 ```
+
+Customization starts from a constructor, the default's or Classic's, and changes fields before startup.
 
 `ClassicStyle()` and `FaceplateStyle()` return independent configuration on every call, each with its own theme value: changing metrics, sizes, roles, or a face's `Data` slice assignment leaves other presets unchanged. Font bytes are shared, immutable assets; constructing or copying a style does not clone them. A style is complete rather than a sparse overlay: every field is meaningful, including zeros, so customization starts from a constructor. `App.Run` copies the configuration when it starts, and rejects one whose main, monospace, or small face has no font data, or any face with a non-positive size, before opening the window.
 
 Style selection happens at startup only. There is no API for switching complete styles while an App runs; select another on a later launch.
 
-`CurrentStyle()` returns a configuration copy of the running App's selection, with `Theme` set to the effective color theme. Font bytes remain shared and immutable. It describes the selected defaults — for example, `Spacing.SectionGap` for deliberate separation between groups. Live colors and metrics, including local overrides and `SetTheme` calls, come from the current ImGui context. Outside a running App, `CurrentStyle()` returns Classic.
+`CurrentStyle()` returns a configuration copy of the running App's selection, with `Theme` set to the effective color theme. Font bytes remain shared and immutable. It describes the selected defaults — for example, `Spacing.SectionGap` for deliberate separation between groups. Live colors and metrics, including local overrides and `SetTheme` calls, come from the current ImGui context. Outside a running App, `CurrentStyle()` returns Classic, as do the defaults dfx's components read there: an application that drives its own ImGui context without `App.Run` sets it up through the legacy helpers, which are Classic's (see [Legacy helpers](#legacy-helpers)).
 
 `Theme` is an interface value. A constructor's theme is new on each call, so presets stay independent, but copying a style by assignment shares the theme it names. The built-in `FaceplateTheme` is copied at the two points where ownership matters. At startup, the running App copies the effective theme, whether it came from the style or `Config.Theme`, so editing the source afterwards does not change the running selection. Each `CurrentStyle()` call then returns its own copy, so editing one snapshot changes neither the running selection nor another snapshot. Live colors still change only through `SetTheme`. Other `Theme` implementations, including the application's own, are not copied: a theme the application supplies remains the application's. Font bytes stay shared in every case.
 
@@ -23,7 +27,7 @@ Style selection happens at startup only. There is no API for switching complete 
 
 `App.Run` sets up presentation in this order, then calls `OnSetup`, so application setup has the final word:
 
-1. Select the style: `Config.Style`, or Classic. A non-nil `Config.Theme` overrides the style's default theme; a style whose theme is nil uses Modern Dark.
+1. Select the style: `Config.Style`, or Faceplate. A non-nil `Config.Theme` overrides the style's default theme; a style whose theme is nil uses Modern Dark.
 2. Load the style's typography, unless `DisableFonts` is set. Disabled fonts leave the atlas and the `Fonts` globals untouched.
 3. Apply the style's metrics. This happens even when `DisableTheming` is set.
 4. Apply the effective color theme, unless `DisableTheming` is set.
@@ -32,7 +36,7 @@ The selection and the font globals belong to that run. `App.Run` restores their 
 
 ## Color themes
 
-`Theme` remains the color-only extension point. `SetTheme` changes colors in the current ImGui context at any time, without rebuilding fonts or changing metrics. Modern Dark starts from ImGui's dark colors before applying its table, so it produces the same colors whichever theme preceded it; the hue schemes and custom themes keep their own `Apply` semantics. Selecting a color theme does not select a complete style: Classic is chosen through `Config.Style` or by leaving it nil.
+`Theme` remains the color-only extension point. `SetTheme` changes colors in the current ImGui context at any time, without rebuilding fonts or changing metrics. Modern Dark starts from ImGui's dark colors before applying its table, so it produces the same colors whichever theme preceded it; the hue schemes and custom themes keep their own `Apply` semantics. Selecting a color theme does not select a complete style. `Config.Theme: dfx.ModernDark` alone gives Faceplate's fonts and spacing in Modern Dark colors; Classic is chosen only through `Config.Style`.
 
 ## Typography
 
@@ -54,7 +58,7 @@ The selection and the font globals belong to that run. `App.Run` restores their 
 | `Toolbar` | `ColHeader` | `ColTitleBgActive` | toolbar background |
 | `Handle` | `ColHeaderActive` | `ColTextDisabled` | Dash and HCollapse drag-handle glyphs |
 
-`Panel` and `SecondaryText` name the family's surfaces for application chrome; no dfx component reads them yet.
+`Panel` and `SecondaryText` name the family's surfaces for application chrome; no dfx component reads them yet. Under Faceplate, as under Classic, the `Panel` slot carries its hue at zero alpha, so application chrome that paints with it supplies its own alpha, as Dash and HCollapse do.
 
 ## Chrome and controls
 
@@ -75,7 +79,7 @@ The selection and the font globals belong to that run. `App.Run` restores their 
 
 `FaceplateStyle()` is Chakra Petch Regular at 20 px (main) and 16 px (small) and real Chakra Petch Bold at 20 px (heading), all three with icons merged at Classic's offsets, which match Chakra Petch's cap height within half a pixel; JetBrains Mono Medium at 16 px; 12 px window padding and outer margin; 8×5 frame padding; 8 px item spacing; 8×4 table cell padding; a 16 px section gap; Classic's scrollbar, borders, and radii; and a `FaceplateTheme`.
 
-`FaceplateTheme{Accent}` colors every ImGui slot from imgui's dark baseline, so it does not depend on a previous theme. Its neutrals are fixed: background `#1a1c20`, panel `#24272e` (child windows), raised `#2e3239` (buttons, fields, popups, table headers), track `#3a3f48` (borders and neutral hover), press `#474d57`, text `#d6d6d6`, secondary text `#878b93`. The accent, `#ffd800` by default, marks the check mark, slider grabs, selected-tab overline, text links, keyboard focus, and drag targets; selection headers and selected text use it translucently. Hover stays neutral. To change the identity color, replace the style's theme before startup:
+`FaceplateTheme{Accent}` colors every ImGui slot from imgui's dark baseline, so it does not depend on a previous theme. Its neutrals are fixed: background `#1a1c20`, panel `#24272e` (Dash and HCollapse panels), raised `#2e3239` (buttons, fields, popups, table headers), track `#3a3f48` (borders and neutral hover), press `#474d57`, text `#d6d6d6`, secondary text `#878b93`. The accent, `#ffd800` by default, marks the check mark, slider grabs, selected-tab overline, text links, keyboard focus, and drag targets; selection headers and selected text use it translucently. Hover stays neutral. `ColChildBg` holds the panel hue at zero alpha, as Modern Dark's does: a plain `BeginChild` region is a layout region and stays unpainted, because ImGui gives a child with no border no padding, and a painted one would show its content pressed against its edges. Dash and HCollapse paint the panel by setting their own background alpha. To change the identity color, replace the style's theme before startup:
 
 ```go
 style := dfx.FaceplateStyle()
@@ -98,17 +102,36 @@ dfx owns its Go/ImGui realization of the faceplate family. The palette values ab
 `examples/dfx_example_themes` is the comparison surface: controls, typography with icons beside regular and bold text, tables (one with a deliberate local density and color override), FileTree, LogViewer, meters and faders, Workspace, DashManager, HCollapse on both anchors, a Toolbar, both MultiGrid layouts, and NodeCanvas with a mini-map beside an explicitly styled canvas. Launch it once per style:
 
 ```bash
-go run ./examples/dfx_example_themes                            # Classic
-go run ./examples/dfx_example_themes -style faceplate           # Faceplate, default yellow
-go run ./examples/dfx_example_themes -style faceplate -accent 4da3ff
+go run ./examples/dfx_example_themes                  # Faceplate, default yellow
+go run ./examples/dfx_example_themes -accent 4da3ff   # Faceplate, another accent
+go run ./examples/dfx_example_themes -style classic   # Classic
 ```
 
 Its Colors menu changes colors only and starts on the colors actually applied; fonts and spacing change by relaunching with another `-style`; it re-derives the implicit canvas style with `SetStyle` and leaves the explicit one alone.
 
 ## Classic
 
-Classic is Gidole Regular at 20 px (main) and 16 px (small), both with icons merged, and JetBrains Mono Medium at 16 px; 4 px window padding, frame padding, and item spacing; ImGui's default 4×2 table cell padding; the `Default*` scrollbar, border, and rounding constants in `style.go`; and Modern Dark colors. Its `Spacing` sets a 4 px outer margin, matching the root window's padding, and an 8 px section gap.
+Classic is dfx's original presentation and was its default before Faceplate: Gidole Regular at 20 px (main) and 16 px (small), both with icons merged, and JetBrains Mono Medium at 16 px; 4 px window padding, frame padding, and item spacing; ImGui's default 4×2 table cell padding; the `Default*` scrollbar, border, and rounding constants in `style.go`; and Modern Dark colors. Its `Spacing` sets a 4 px outer margin, matching the root window's padding, and an 8 px section gap.
+
+## Migrating from Classic
+
+An application that sets no `Config.Style` now starts in Faceplate: Chakra Petch instead of Gidole, a fourth (bold heading) font slot, roomier metrics and margins, charcoal colors with a yellow accent, and Faceplate's `Chrome` around dfx's panels, cells, and toolbars. Nothing else about the API changes. To keep the previous presentation, select Classic:
+
+```go
+classic := dfx.ClassicStyle()
+app := dfx.New(root, dfx.Config{Style: &classic})
+```
+
+Classic reproduces the old fonts, metrics, colors, and widget treatments, but not the old allocation defects. Containers now hand components the usable area at their drawing origin under either style (see the allocation notes in [layout-guide.md](layout-guide.md#how-dfx-allocates)), so a layout that compensated for the old sizes may shift by a few pixels.
+
+Points to check when moving an application to the new default:
+
+- **Colors only.** `Config.Theme` and `SetTheme` still change colors only. An application that set `Theme: dfx.ModernDark`, or a hue scheme, keeps those colors but gets Faceplate's fonts and spacing; add `Style: &classic` to keep Classic's as well.
+- **Disabled setup.** `DisableFonts` leaves the font atlas alone, so dfx's font slots stay unset, but Faceplate's metrics and colors still apply. `DisableTheming` skips the color theme but still applies Faceplate's metrics. Select Classic to keep Classic's metrics under either flag.
+- **Fixed geometry.** Faceplate's text is wider and its spacing larger. Sizes written for Classic, such as a fixed window size, a panel width that adds a hand-tuned padding, or a height that subtracts a fixed number of pixels for a header, may now clip. Prefer the measured remainder (`imgui.ContentRegionAvail()`, `state.Size`). Where an older public field holds a size, such as `HCollapse.ExpandedWidth` or `DashManager.Margin`, adopt the selected style in `OnSetup`, for example by adding `2 * dfx.CurrentStyle().Chrome.ContentPadding.X` to a panel width. dfx never reinterprets those fields itself.
+- **NodeCanvas.** A canvas with a zero `Config.Style` derives `DefaultNodeCanvasStyle()` from the active colors once, at its first `Begin`. It does not follow later `SetTheme` calls by itself: after changing colors, refresh it explicitly with `canvas.SetStyle(dfx.DefaultNodeCanvasStyle())`. A canvas given an explicit style keeps it.
+- **Fonts.** `MainFont`, `MonospaceFont`, and `SmallFont` keep their slots. `PushHeadingFont` uses the bold heading slot Faceplate adds and falls back to the main font under Classic.
 
 ## Legacy helpers
 
-The original helpers keep their explicit meanings. `SetupFonts()` loads Classic's three fonts into the current atlas. `DefaultStyle()` applies Classic's metrics, including its cell padding. `ModernDark`, `ModernTheme`, the hue schemes, and `SetTheme` apply colors only. App startup uses the selected style rather than calling these helpers, so a direct call does what it names regardless of the selected style.
+The original helpers keep their explicit meanings. `SetupFonts()` loads Classic's three fonts into the current atlas. `DefaultStyle()` applies Classic's metrics, including its cell padding. `ModernDark`, `ModernTheme`, the hue schemes, and `SetTheme` apply colors only. They did not move to Faceplate with the default: they still name Classic. App startup uses the selected style rather than calling these helpers, so a direct call does what it names regardless of the selected style.

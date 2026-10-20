@@ -22,16 +22,20 @@ func main() {
 		imgui.Text(fmt.Sprintf("state.Size: (%.0f, %.0f)", state.Size.X, state.Size.Y))
 		imgui.Spacing()
 
-		// Each demo in its own collapsing header
-		cursorDemo()
-		spacingDemo()
-		widthControlDemo()
-		sameLineDemo()
-		groupDemo()
-		childWindowDemo()
-		columnsDemo()
-		tablesDemo()
-		practicalPatternsDemo()
+		// Each demo in its own collapsing header, in a child that fills the rest of
+		// the window and scrolls: the root window does not scroll
+		if imgui.BeginChildStrV("##demos", imgui.Vec2{}, imgui.ChildFlagsNone, imgui.WindowFlagsNone) {
+			cursorDemo()
+			spacingDemo()
+			widthControlDemo()
+			sameLineDemo()
+			groupDemo()
+			childWindowDemo()
+			columnsDemo()
+			tablesDemo()
+			practicalPatternsDemo()
+		}
+		imgui.EndChild()
 	})
 
 	app := dfx.New(root, dfx.Config{

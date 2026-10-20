@@ -220,7 +220,8 @@ func TestFaceplate_ToggleForegroundContrast(t *testing.T) {
 // button hover and press colors, and the theme's text.
 func TestClassic_ToggleTreatmentUnchanged(t *testing.T) {
 	styleTestContext(t)
-	New(nil, Config{}).setupFontsAndTheme()
+	classic := ClassicStyle()
+	New(nil, Config{Style: &classic}).setupFontsAndTheme()
 	expected := map[string]imgui.Col{"rest": imgui.ColCheckMark, "hovered": imgui.ColButtonHovered, "pressed": imgui.ColButtonActive}
 	for name, state := range map[string][2]bool{"rest": {false, false}, "hovered": {true, false}, "pressed": {true, true}} {
 		bg, text, _ := toggleColors(t, ToggleOptions{}, state[0], state[1])
@@ -365,5 +366,44 @@ func TestFaceplateTheme_SnapshotsAreIndependent(t *testing.T) {
 	}})
 	if err := runHeadless(t, app, &headlessBackend{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// plain BeginChild regions are unpainted under Faceplate, so content at their
+// unpadded edges reads as layout; HCollapse and Dash panels still paint the panel
+// hue through their own background alpha.
+func TestFaceplate_PlainChildrenUnpaintedPanelsPainted(t *testing.T) {
+	styleTestContext(t)
+	style := FaceplateStyle()
+	New(nil, Config{Style: &style}).setupFontsAndTheme()
+	h := NewHCollapse(NewFunc(func(*State) {}), HCollapseConfig{Expanded: true, ExpandedWidth: 200})
+	imgui.NewFrame()
+	imgui.SetNextWindowPos(imgui.Vec2{})
+	imgui.SetNextWindowSize(imgui.Vec2{X: 600, Y: 400})
+	imgui.BeginV("host", nil, imgui.WindowFlagsNoDecoration)
+	imgui.BeginChildStrV("plain", imgui.Vec2{X: 200, Y: 100}, imgui.ChildFlagsNone, imgui.WindowFlagsNone)
+	imgui.EndChild()
+	h.Draw(&State{Size: imgui.Vec2{X: 200, Y: 300}})
+	host := imgui.WindowDrawList()
+	imgui.End()
+	defer imgui.EndFrame()
+
+	// child backgrounds are drawn into the parent's list, complete once it ends:
+	// the HCollapse panel's one rectangle, and nothing for the plain child
+	panel := imgui.ColorU32Vec4(withAlpha(faceplatePanel, DashBackgroundAlpha))
+	panels, others := 0, 0
+	for _, color := range faderVertexColors(host, 0) {
+		switch {
+		case color == panel:
+			panels++
+		case color&0x00ffffff == panel&0x00ffffff:
+			others++
+		}
+	}
+	if panels == 0 {
+		t.Fatal("an HCollapse panel lost its panel surface")
+	}
+	if others != 0 {
+		t.Fatalf("a plain child window is painted as a panel ('%d' vertices)", others)
 	}
 }

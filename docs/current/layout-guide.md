@@ -105,6 +105,8 @@ Every widget updates this value to include its bounding box.
 | `FramePadding` | Internal padding in framed widgets | 4×3 | Per framed widget (buttons, inputs) |
 | `ItemSpacing` | Gap between widgets | 8×4 | After each widget |
 
+These defaults are ImGui's own. A dfx App replaces them with the selected style's metrics at startup: 12×12 window padding, 8×5 frame padding, and 8×8 item spacing in Faceplate, the default; 4×4 for all three in Classic.
+
 ### The Spacing Hierarchy
 
 ```
@@ -769,7 +771,7 @@ Each boundary has one owner for its padding, and a child receives what is left a
 - **Root.** The root window fills the native client area below the main menu, with square corners. Its padding is the selected style's `Spacing.OuterMargin` (4 px in Classic, 12 px in Faceplate), an inset of content rather than a second window. The root component's `state.Size` is the content region inside that margin; `Position` stays `(0, 0)`, relative to the window.
 - **Workspace.** The current item's height is what remains after the selector's actual cursor advance, including the spacing below it.
 - **Dash and DashManager.** Dash bounds are relative to the cursor when the dash is drawn: the manager's content origin, not the enclosing window's outer edge. A dash's surface is inset by the panel padding on every side and by its handle row once; its component gets the surface's content region. The manager's inner component gets the inner panel's content region. `DashManager.Margin` remains explicit. `TopMargin` reserves space above the whole manager layout under either precedence: the origin moves down by it and the available height loses it once, so every dash and the inner panel lie in the remainder below it. A dash's panel is clamped to its bounds, so a top or bottom dash taller than the remainder is shortened rather than reaching into the inset.
-- **HCollapse.** The expanded header is measured from the toggle's frame height and the panel padding (36 px in Classic). Content starts below it, padded by the style's `Chrome.ContentPadding`, and gets the content region inside that padding. A collapsed toggle is centered in its strip with its frame padding narrowed to fit.
+- **HCollapse.** The expanded header is measured from the toggle's frame height and the panel padding (42 px in Faceplate, 36 px in Classic). Content starts below it, padded by the style's `Chrome.ContentPadding`, and gets the content region inside that padding. A collapsed toggle is centered in its strip with its frame padding narrowed to fit.
 - **MultiGrid.** FlexLayout subtracts exactly the 10 px splitter strip it draws; GridLayout places cells from its content origin, takes `Chrome.GridGap` inside interior cell edges, and clips cells to its allocation. Both pad cells by `Chrome.ContentPadding` and pass the padded content region.
 - **Toolbar.** The bar registers its full width and height as one item, so the layout continues one item spacing below it.
 

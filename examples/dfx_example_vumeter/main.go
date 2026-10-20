@@ -153,8 +153,15 @@ func main() {
 	app := dfx.New(root, dfx.Config{
 		Title:  "VU Meter and Waterfall Demo",
 		Width:  1200,
-		Height: 360,
+		Height: 540,
 		OnSetup: func(app *dfx.App) {
+			// the panels were sized before the style was known; widen each by the
+			// selected style's content padding, which surrounds every panel's content
+			inset := 2 * dfx.CurrentStyle().Chrome.ContentPadding.X
+			for _, panel := range []*dfx.HCollapse{singleCollapse, stereoCollapse, multiCollapse, stereoWaterfallCollapse, multiWaterfallCollapse, controlsCollapse} {
+				panel.ExpandedWidth += inset
+				panel.CurrentWidth = panel.ExpandedWidth
+			}
 			app.Actions().Register("quit", "Ctrl+Q", func() {
 				fmt.Println("quitting via Ctrl+Q")
 				app.Stop()

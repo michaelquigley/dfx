@@ -271,7 +271,8 @@ func childExtent(label string) (imgui.Rect, float32) {
 
 func TestAllocation_HCollapseClassicHeader(t *testing.T) {
 	styleTestContext(t)
-	New(nil, Config{}).setupFontsAndTheme()
+	classic := ClassicStyle()
+	New(nil, Config{Style: &classic}).setupFontsAndTheme()
 	imgui.NewFrame()
 	defer imgui.EndFrame()
 	h := NewHCollapse(nil, HCollapseConfig{Expanded: true, ExpandedWidth: 200})

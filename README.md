@@ -152,11 +152,31 @@ app := dfx.New(root, dfx.Config{
 - `GetWindowSize() (int, int)` - Get current window dimensions
 - `GetWindowPos() (int, int)` - Get current window position
 
-## Theming System
+## Styles and Theming
 
-dfx includes a comprehensive theming system with both predefined and customizable themes.
+A complete style sets fonts, spacing, and colors together. With no `Config.Style`, dfx uses Faceplate: Chakra Petch, roomier spacing, charcoal surfaces, and one identity accent. Classic, dfx's original compact presentation, remains available by selecting it:
 
-### Predefined Themes
+```go
+classic := dfx.ClassicStyle()
+app := dfx.New(root, dfx.Config{
+    Title: "Classic App",
+    Style: &classic,
+})
+```
+
+Styles are customized by changing a constructor's fields before startup, for example another Faceplate accent:
+
+```go
+style := dfx.FaceplateStyle()
+style.Theme = &dfx.FaceplateTheme{Accent: imgui.Vec4{X: 0.3, Y: 0.64, Z: 1, W: 1}}
+app := dfx.New(root, dfx.Config{Style: &style})
+```
+
+See [`docs/current/styles.md`](docs/current/styles.md) for every field, the setup order, and migrating from Classic. `go run ./examples/dfx_example_themes` compares the styles (`-style classic`, `-accent RRGGBB`).
+
+### Color Themes
+
+`Theme` is the color-only extension point. `Config.Theme` overrides the selected style's colors without changing its fonts or spacing:
 
 ```go
 app := dfx.New(root, dfx.Config{
@@ -178,16 +198,18 @@ app := dfx.New(root, dfx.Config{
 ### Runtime Theme Switching
 
 ```go
-// Change theme during runtime
+// change colors during runtime; fonts and spacing stay as selected at startup
 dfx.SetTheme(dfx.ModernDark)
 ```
 
 ## Font System
 
-dfx provides three font constants with Material Icons merged where applicable:
-- **MainFont** (20px) - Gidole Regular with Material Icons
-- **MonospaceFont** (16px) - JetBrains Mono for code
-- **SmallFont** (16px) - Gidole Regular small with Material Icons, for labels/indicators
+dfx provides three font slots, filled from the selected style, with Material Icons merged where applicable:
+- **MainFont** - everyday UI text with icons (Faceplate: Chakra Petch Regular 20px; Classic: Gidole Regular 20px)
+- **MonospaceFont** - code (JetBrains Mono 16px in both)
+- **SmallFont** - labels and indicators with icons (Chakra Petch or Gidole at 16px)
+
+Faceplate also loads a bold heading face, selected with `dfx.PushHeadingFont()` and `dfx.PopFont()`; under Classic it falls back to the main font.
 
 ### Using Different Fonts
 
@@ -212,7 +234,7 @@ dfx.PopFont()
 app := dfx.New(root, dfx.Config{
     Title:          "Minimal App",
     DisableFonts:   true,  // Use default ImGui fonts
-    DisableTheming: true,  // Use default ImGui theme
+    DisableTheming: true,  // Use default ImGui colors (the style's spacing still applies)
 })
 ```
 
@@ -1052,7 +1074,7 @@ See the `examples/` directory for complete working examples:
 - `dfx_example_actions` - Keyboard shortcuts
 - `dfx_example_custom_component` - Custom component creation
 - `dfx_example_composition` - Complex UI with menu bars
-- `dfx_example_themes` - Theming and font demonstration
+- `dfx_example_themes` - Style comparison (Faceplate by default; `-style classic`, `-accent RRGGBB`)
 - `dfx_example_filetree` - Filesystem tree viewer
 - `dfx_example_logviewer` - Log viewer with df/dl integration
 - `dfx_example_controls` - Control wrappers (Combo, Toggle, WheelSlider)

@@ -22,8 +22,9 @@ func main() {
 		imgui.Separator()
 		imgui.Spacing()
 
-		// multiline text editor
-		newText, changed := dfx.InputMultiline("##editor", editorText, state.Size.X-20, state.Size.Y-80)
+		// multiline text editor, leaving room below for the separator and status line
+		footer := imgui.CurrentStyle().ItemSpacing().Y*2 + 1 + imgui.TextLineHeight()
+		newText, changed := dfx.InputMultiline("##editor", editorText, state.Size.X-20, imgui.ContentRegionAvail().Y-footer)
 		if changed {
 			editorText = newText
 		}

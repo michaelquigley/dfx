@@ -3,6 +3,7 @@ package dfx
 import (
 	"math"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/AllenDang/cimgui-go/imgui"
@@ -27,10 +28,88 @@ func styleTestContext(t *testing.T) {
 	})
 }
 
-func TestClassicStartupBaseline_Implicit(t *testing.T) {
-	styleTestContext(t)
-	New(nil, Config{}).setupFontsAndTheme()
-	assertClassicBaseline(t)
+// presentation fingerprints what startup applied: the selection, the metrics,
+// every color slot, and each font slot's size and glyph advances.
+type presentation struct {
+	name                     string
+	spacing                  StyleSpacing
+	roles                    StyleRoles
+	chrome                   StyleChrome
+	controls                 StyleControls
+	padding, frame, spacing2 imgui.Vec2
+	colors                   [imgui.ColCOUNT]imgui.Vec4
+	sizes                    []float32
+	advances                 []float32
+}
+
+// startupPresentation runs startup in its own subtest: imgui's CreateContext keeps
+// an existing context current, so contexts created within one test would share it.
+func startupPresentation(t *testing.T, name string, config Config) presentation {
+	t.Helper()
+	var p presentation
+	t.Run(name, func(t *testing.T) {
+		styleTestContext(t)
+		New(nil, config).setupFontsAndTheme()
+		current, style := CurrentStyle(), imgui.CurrentStyle()
+		p = presentation{
+			name: current.Name, spacing: current.Spacing, roles: current.Roles, chrome: current.Chrome, controls: current.Controls,
+			padding: style.WindowPadding(), frame: style.FramePadding(), spacing2: style.ItemSpacing(),
+			colors: style.Colors(), sizes: append([]float32(nil), fontSizes...),
+		}
+		imgui.NewFrame()
+		defer imgui.EndFrame()
+		for slot, font := range Fonts {
+			baked := font.FontBakedV(fontSizes[slot], 1)
+			p.advances = append(p.advances, baked.FindGlyphNoFallback('W').AdvanceX(), baked.FindGlyphNoFallback('i').AdvanceX())
+		}
+	})
+	return p
+}
+
+func samePresentation(a, b presentation) bool {
+	return a.name == b.name && a.spacing == b.spacing && a.roles == b.roles && a.chrome == b.chrome && a.controls == b.controls &&
+		a.padding == b.padding && a.frame == b.frame && a.spacing2 == b.spacing2 && a.colors == b.colors &&
+		slices.Equal(a.sizes, b.sizes) && slices.Equal(a.advances, b.advances)
+}
+
+// with no style, startup selects Faceplate: the same presentation as selecting it.
+func TestDefaultStartup_IsFaceplate(t *testing.T) {
+	faceplate := FaceplateStyle()
+	implicit := startupPresentation(t, "implicit", Config{})
+	explicit := startupPresentation(t, "explicit", Config{Style: &faceplate})
+	if implicit.name != "Faceplate" || !samePresentation(implicit, explicit) {
+		t.Fatalf("nil Config.Style must select Faceplate, got '%s'", implicit.name)
+	}
+	if len(implicit.sizes) != 4 {
+		t.Fatalf("the default must load Faceplate's four font slots, got '%d'", len(implicit.sizes))
+	}
+}
+
+// a color theme overrides only the colors of whichever style is selected: Modern
+// Dark alone does not select Classic, and Classic with another theme keeps its
+// typography and metrics.
+func TestStartup_ColorThemeOverridesKeepTheSelectedStyle(t *testing.T) {
+	classic, faceplate := ClassicStyle(), FaceplateStyle()
+	for _, c := range []struct {
+		name     string
+		config   Config
+		base     Config
+		colorsOf Config
+	}{
+		{"default with ModernDark", Config{Theme: ModernDark}, Config{Style: &faceplate}, Config{Style: &classic}},
+		{"Classic with BlueTheme", Config{Style: &classic, Theme: BlueTheme}, Config{Style: &classic}, Config{Theme: BlueTheme}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, base, colors := startupPresentation(t, "selected", c.config), startupPresentation(t, "style", c.base), startupPresentation(t, "colors", c.colorsOf)
+			if got.name != base.name || got.frame != base.frame || got.padding != base.padding || got.chrome != base.chrome ||
+				!slices.Equal(got.sizes, base.sizes) || !slices.Equal(got.advances, base.advances) {
+				t.Fatalf("the theme override changed the selected style: '%s' instead of '%s'", got.name, base.name)
+			}
+			if got.colors != colors.colors {
+				t.Fatal("the theme override did not supply the colors")
+			}
+		})
+	}
 }
 
 func TestClassicStartupBaseline_Explicit(t *testing.T) {

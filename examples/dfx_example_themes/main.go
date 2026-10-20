@@ -3,9 +3,9 @@ package main
 // the style comparison: one representative working surface, launched once per
 // complete style so typography, spacing, and colors are judged together.
 //
-//	go run ./examples/dfx_example_themes                          # Classic
-//	go run ./examples/dfx_example_themes -style faceplate         # Faceplate, default yellow
-//	go run ./examples/dfx_example_themes -style faceplate -accent 4da3ff
+//	go run ./examples/dfx_example_themes                          # Faceplate, default yellow
+//	go run ./examples/dfx_example_themes -accent 4da3ff           # Faceplate, another accent
+//	go run ./examples/dfx_example_themes -style classic           # Classic
 //
 // complete styles (fonts, spacing, and colors) are chosen at startup. the Colors
 // menu changes colors only, in the running style; it starts on the colors actually
@@ -29,7 +29,7 @@ import (
 )
 
 func main() {
-	styleName := flag.String("style", "classic", "complete style: classic or faceplate")
+	styleName := flag.String("style", "faceplate", "complete style: faceplate or classic")
 	accentHex := flag.String("accent", "", "faceplate accent as RRGGBB (faceplate only)")
 	flag.Parse()
 

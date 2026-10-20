@@ -141,8 +141,8 @@ func main() {
 
 	app := dfx.New(root, dfx.Config{
 		Title:  "Control Wrappers Demo",
-		Width:  700,
-		Height: 600,
+		Width:  740,
+		Height: 660,
 		OnSetup: func(app *dfx.App) {
 			app.Actions().Register("quit", "Ctrl+Q", func() {
 				fmt.Println("quitting via Ctrl+Q")

@@ -200,7 +200,9 @@ func (f *FaceplateTheme) Apply() {
 	colors[imgui.ColText] = faceplateText
 	colors[imgui.ColTextDisabled] = faceplateReadout
 	colors[imgui.ColWindowBg] = faceplateBg
-	colors[imgui.ColChildBg] = faceplatePanel
+	// plain child windows are layout regions, unpainted as in Modern Dark; dash and
+	// hcollapse panels paint this hue by setting their own background alpha
+	colors[imgui.ColChildBg] = withAlpha(faceplatePanel, 0)
 	colors[imgui.ColPopupBg] = faceplateRaised
 	colors[imgui.ColBorder] = faceplateTrack
 	colors[imgui.ColBorderShadow] = imgui.Vec4{}

@@ -101,7 +101,7 @@ func main() {
 	app := dfx.New(root, dfx.Config{
 		Title:  "Lifecycle Demo",
 		Width:  600,
-		Height: 400,
+		Height: 500,
 		OnSetup: func(app *dfx.App) {
 			// initialize window info on startup
 			s.windowWidth, s.windowHeight = app.GetWindowSize()

@@ -47,8 +47,7 @@ func main() {
 	drumsContent := createMixerPanel("drums", drumChannels)
 	synthsContent := createMixerPanel("synths", synthChannels)
 
-	// create the HCollapse panels
-	// 4 channels * 60px = 240px content + padding + resize handle
+	// create the HCollapse panels; OnSetup sizes the mixer panels for the selected style
 	drumsCollapse := dfx.NewHCollapse(drumsContent, dfx.HCollapseConfig{
 		Title:         "Drums",
 		ExpandedWidth: 300,
@@ -117,9 +116,9 @@ func main() {
 			simulateLevels(synthChannels, t, 4)
 		}
 
-		// draw the collapsible panels side by side
-		// calculate available height for panels
-		panelHeight := state.Size.Y - 120 // leave room for header and controls
+		// draw the collapsible panels side by side, in the height left below the
+		// header and controls
+		panelHeight := imgui.ContentRegionAvail().Y
 
 		// create a state with adjusted height for the panels
 		panelState := &dfx.State{
@@ -144,6 +143,7 @@ func main() {
 		remaining := state.Size.X - drumsCollapse.CurrentWidth - synthsCollapse.CurrentWidth - notesCollapse.CurrentWidth - 30
 		if remaining > 50 {
 			imgui.BeginChildStrV("main", imgui.Vec2{X: remaining, Y: panelHeight}, imgui.ChildFlagsBorders, 0)
+			imgui.PushTextWrapPosV(0) // wrap at the area's edge as the panels resize it
 			imgui.Text("Main Content Area")
 			imgui.Separator()
 			imgui.Spacing()
@@ -156,9 +156,13 @@ func main() {
 			imgui.Separator()
 			imgui.Spacing()
 			imgui.Text("Tips:")
-			imgui.BulletText("Click chevron icons to toggle panels")
-			imgui.BulletText("Drag the resize handle to adjust width")
-			imgui.BulletText("Use keyboard shortcuts [ and ] to toggle")
+			imgui.Bullet() // BulletText does not wrap
+			imgui.Text("Click chevron icons to toggle panels")
+			imgui.Bullet()
+			imgui.Text("Drag the resize handle to adjust width")
+			imgui.Bullet()
+			imgui.Text("Use keyboard shortcuts [ and ] to toggle")
+			imgui.PopTextWrapPos()
 			imgui.EndChild()
 		}
 
@@ -170,9 +174,15 @@ func main() {
 
 	app := dfx.New(root, dfx.Config{
 		Title:  "HCollapse Demo",
-		Width:  900,
-		Height: 600,
+		Width:  1300,
+		Height: 640,
 		OnSetup: func(app *dfx.App) {
+			// the mixer panels were constructed before the style was known
+			for panel, channels := range map[*dfx.HCollapse]int{drumsCollapse: len(drumChannels), synthsCollapse: len(synthChannels)} {
+				panel.ExpandedWidth = mixerPanelWidth(channels)
+				panel.CurrentWidth = panel.ExpandedWidth
+			}
+
 			// keyboard shortcuts for toggling panels
 			app.Actions().Register("toggle-drums", "[", func() {
 				drumsCollapse.Toggle()
@@ -189,12 +199,28 @@ func main() {
 	app.Run()
 }
 
+// mixerChannelWidth is each channel column's width, inside its cell padding.
+const mixerChannelWidth = float32(60)
+
+// mixerColumnWidth is a channel column's full width, with the selected style's cell
+// padding on both sides.
+func mixerColumnWidth() float32 {
+	return mixerChannelWidth + 2*imgui.CurrentStyle().CellPadding().X
+}
+
+// mixerPanelWidth is the expanded width a mixer panel needs under the selected
+// style: the content padding on both sides, the 20 px indent and the spacing
+// around the table, and every channel column. 300 px in Classic.
+func mixerPanelWidth(channels int) float32 {
+	return 2*dfx.CurrentStyle().Chrome.ContentPadding.X + 20 + 2*imgui.CurrentStyle().ItemSpacing().X + float32(channels)*mixerColumnWidth()
+}
+
 // createMixerPanel creates the content for a mixer panel with faders and meters
 func createMixerPanel(id string, channels []*MixerChannel) dfx.Component {
 	return dfx.NewFunc(func(state *dfx.State) {
 		// use a table for clean layout - NoClip prevents cell content clipping
-		channelWidth := float32(60)
-		contentWidth := float32(len(channels)) * channelWidth
+		channelWidth := mixerChannelWidth
+		contentWidth := float32(len(channels)) * mixerColumnWidth()
 		imgui.Dummy(imgui.Vec2{X: 20, Y: 20})
 
 		imgui.Dummy(imgui.Vec2{X: 20, Y: 5})

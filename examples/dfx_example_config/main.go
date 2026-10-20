@@ -25,13 +25,16 @@ type appConfig struct {
 
 // defaultConfig returns sensible defaults for the application
 func defaultConfig() *appConfig {
+	// sized so a first launch shows every panel's content under the default style
+	window := dfx.GetDefaultWindowConfig()
+	window.Width, window.Height = 1000, 700
 	return &appConfig{
-		Window: dfx.GetDefaultWindowConfig(),
+		Window: window,
 		Dashes: map[string]dfx.DashConfig{
-			"top":    {Visible: true, Size: 100},
+			"top":    {Visible: true, Size: 130},
 			"left":   {Visible: true, Size: 250},
-			"right":  {Visible: true, Size: 250},
-			"bottom": {Visible: true, Size: 50},
+			"right":  {Visible: true, Size: 320},
+			"bottom": {Visible: true, Size: 80},
 		},
 		Counter:      0,
 		LastMessage:  "",

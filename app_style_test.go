@@ -250,8 +250,8 @@ func TestRun_NextAppDoesNotInheritStyle(t *testing.T) {
 		t.Fatal("a finished run left its style or fonts behind")
 	}
 
-	// the second app neither selects a style nor loads fonts; the first app's
-	// selection and heading slot must not reach it.
+	// the second app neither selects a style nor loads fonts, so it gets the
+	// default; the first app's selection and heading slot must not reach it.
 	drew := false
 	root := NewFunc(func(*State) {
 		drew = true
@@ -264,10 +264,10 @@ func TestRun_NextAppDoesNotInheritStyle(t *testing.T) {
 	})
 	app := New(root, Config{DisableFonts: true, OnSetup: func(*App) {
 		current := CurrentStyle()
-		if current.Name != "Classic" || current.Spacing.SectionGap != ClassicStyle().Spacing.SectionGap {
+		if current.Name != "Faceplate" || current.Spacing.SectionGap != FaceplateStyle().Spacing.SectionGap {
 			t.Fatalf("second app inherited style '%s'", current.Name)
 		}
-		if p := imgui.CurrentStyle().FramePadding(); p != ClassicStyle().Metrics.FramePadding {
+		if p := imgui.CurrentStyle().FramePadding(); p != FaceplateStyle().Metrics.FramePadding {
 			t.Fatalf("second app inherited metrics '%v'", p)
 		}
 	}})

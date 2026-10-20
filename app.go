@@ -47,7 +47,7 @@ type Config struct {
 	OnSizeChange   func(int, int)    // called when window is resized
 	OnAction       func(ActionEvent) // called whenever an action is invoked (usage telemetry)
 	MenuBar        Component         // optional menu bar component
-	Style          *Style         // optional complete style, copied at startup (defaults to ClassicStyle)
+	Style          *Style         // optional complete style, copied at startup (defaults to FaceplateStyle; select ClassicStyle for the original look)
 	Theme          Theme          // optional color theme, overriding the style's default theme
 	DisableFonts   bool           // if true, skip font setup (use default ImGui fonts)
 	DisableTheming bool           // if true, skip color theme setup (style metrics still apply)
@@ -334,7 +334,7 @@ func (app *App) applyPendingGeometry() {
 // metrics, and applies the effective color theme, in that order. OnSetup runs
 // after, so application setup has the final word.
 func (app *App) setupFontsAndTheme() {
-	style := ClassicStyle()
+	style := FaceplateStyle()
 	if app.config.Style != nil {
 		style = *app.config.Style
 	}

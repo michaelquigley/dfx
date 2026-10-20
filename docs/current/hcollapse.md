@@ -14,7 +14,7 @@ A resize clamps the width in this order:
 
 `MinWidth` is applied last, so no container and no sequence of drags can take a panel below it. The arithmetic (`applyResize`, `clampWidth`) needs no imgui context and is tested headless.
 
-The expanded header's height is measured: the toggle's frame height below the panel padding, then the panel padding again unless the style's `Chrome.ContentPadding` already separates header and content. In Classic that is 36 px, the value of `HCollapseHeaderHeight`, which remains for source compatibility. The content gets the region below the header, inside the content padding. A collapsed toggle is centered in its strip, its frame padding narrowed so it never extends past a `MinWidth` strip. Panel corners use `Chrome.PanelRounding` and the drag handle the style's `Handle` role.
+The expanded header's height is measured: the toggle's frame height below the panel padding, then the panel padding again unless the style's `Chrome.ContentPadding` already separates header and content. That is 42 px in Faceplate, the default, and 36 px in Classic, the value of `HCollapseHeaderHeight`, which remains for source compatibility. The content gets the region below the header, inside the content padding. A collapsed toggle is centered in its strip, its frame padding narrowed so it never extends past a `MinWidth` strip. Panel corners use `Chrome.PanelRounding` and the drag handle the style's `Handle` role.
 
 ## Anchor
 
