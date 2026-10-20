@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.16
+
 CHANGE: **Faceplate is now the default style.** It brings Chakra Petch text, roomier spacing, and charcoal surfaces with a yellow accent. Select `ClassicStyle()` through `Config.Style` to keep the old look. `Config.Theme` and `SetTheme` still change colors only; they do not restore Classic's fonts or spacing. See the [migration guide](docs/current/styles.md#migrating-from-classic).
 
 CHANGE: **Components now receive their usable content area in `State.Size`.** Containers account for padding and headers, position nested panels correctly, and skip content when no space remains. Layouts that compensated for the old sizing may need adjustment. These fixes apply to both styles.
